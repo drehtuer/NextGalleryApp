@@ -8,7 +8,7 @@ before the phase that depends on them starts.
 ## Decided (proposed defaults)
 
 | # | Topic | Gap in README | Decision |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | D1 | Architecture pattern | Not specified | MVVM with unidirectional data flow. ViewModels expose `StateFlow<UiState>`; repositories are the single source of truth. |
 | D2 | Dependency injection | Not specified | Hilt (incl. `HiltWorker` for WorkManager). |
 | D3 | Modularisation | Not specified | Multi-module Gradle build (`:app`, `:core:*`, `:feature:*`) with a version catalog and convention plugins in `build-logic/`. |
@@ -31,7 +31,7 @@ before the phase that depends on them starts.
 ## Open questions
 
 | # | Question | Why it matters | Suggested answer |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | O1 | **License?** (README says TBD) | Decides which dependencies can be used and whether F-Droid is possible. | GPL-3.0-or-later (fits a no-tracking, F-Droid-friendly app) or Apache-2.0. |
 | O2 | **Map library:** osmdroid is no longer actively maintained. Keep it? | It is a long-term maintenance risk. Its View-based API also needs Compose interop. | Start with osmdroid behind a `MapRenderer` interface and switch to MapLibre if problems appear. |
 | O3 | **Map tiles:** which tile server? | The OSM tile usage policy forbids heavy use and requires a proper User-Agent. Offline use is not covered. | Default to OSM tiles with a correct User-Agent and a configurable tile URL in settings. |
@@ -46,3 +46,5 @@ before the phase that depends on them starts.
 | O12 | **Selection across views:** should a multi-selection survive switching between Folders and Timeline? | Affects where the selection state lives (per screen or app-wide). | Per screen. Clear the selection when leaving the screen. |
 | O13 | **Localisation and theming:** which languages, and Material You dynamic colour? | Affects the resource setup and the theme. | English + German, dynamic colour on Android 12+ with a static fallback theme. |
 | O14 | **Scope of "fast" in numbers:** a target device and dataset? | Needed for performance acceptance tests. | 50 000 images on a mid-range device, at 60 fps scrolling and with a warm start under 1 s to the first grid. |
+| O15 | **Application ID / package name?** | Needed for module namespaces in Phase 0, and hard to change after release. | `de.nextgallery` (placeholder used in TODO.md). |
+| O16 | **Logout behaviour:** revoke the app password on the server, or only forget it locally? | Revoking also removes the device from the user's Nextcloud security settings. | Revoke on the server (`DELETE /ocs/v2.php/core/apppassword`), then wipe local credentials and caches. |

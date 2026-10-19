@@ -283,7 +283,7 @@ _Depends on: Phase 3 (viewer entry point, write/delete request helpers)._
   - [ ] `BitmapDecoder.decodeSampled(uri, maxSize)` (ImageDecoder, honour EXIF orientation). Tests: sample size calc.
   - [ ] `EditRenderer.render(source: Bitmap, ops): Bitmap` applying each op via `Matrix`/`Canvas`. Tests (Robolectric bitmaps): one per op type + combination.
   - [ ] `FullResRenderer` decoding original at full size (or tiled fallback for huge images; memory check), applying ops. Test: memory guard path.
-  - [ ] `ImageEncoder.encode(bitmap, mime, quality)` (JPEG/PNG/WebP; HEIC/GIF saved as JPEG – documented in DESIGN_DECISIONS.md). Tests per mime.
+  - [ ] `ImageEncoder.encode(bitmap, mime, quality)` (JPEG/PNG/WebP; HEIC saved as JPEG; GIF is not editable – see O11 in DESIGN_DECISIONS.md). Tests per mime.
   - [ ] `ExifCopier.copy(from, to, newWidth, newHeight)` – copy tags, set `ORIENTATION_NORMAL`, update dimensions, drop thumbnail. Tests: tags copied, orientation reset, dimensions updated.
 - [ ] **7.3 Saving (`:core:media` + `:core:data`)**
   - [ ] `MediaWriter.insertCopy(displayName, relativePath, mime): Uri` (`IS_PENDING` 1→0). Tests.
