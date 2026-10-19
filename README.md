@@ -4,6 +4,12 @@ A simple, fast Android gallery app with basic editing, multiple ways to browse y
 
 > Status: planning. Nothing is implemented yet; this README describes the intended scope.
 
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md) – modules, layers, data model and key flows (Mermaid diagrams).
+- [Design decisions & open questions](docs/DESIGN_DECISIONS.md) – what has been decided and what is still open.
+- [Implementation TODO](docs/TODO.md) – ordered, step-by-step implementation plan.
+
 ## Goals
 
 - **Simple** – a focused gallery, not a photo-management suite.
@@ -37,7 +43,7 @@ A simple, fast Android gallery app with basic editing, multiple ways to browse y
 
 ### File actions
 
-- **Delete** – single or multi-select; uses the system trash on Android 11+ so deletions can be undone.
+- **Delete** – single or multi-select; uses the system trash on Android 11+ so deletions can be undone (Android 10 has no system trash; deletes there are permanent after confirmation).
 - **Share** – send one or more images through the standard Android share sheet.
 
 ### Nextcloud integration
