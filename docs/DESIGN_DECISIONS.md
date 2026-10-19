@@ -27,6 +27,7 @@ before the phase that depends on them starts.
 | D16 | Location redaction | Not mentioned | Use `MediaStore.setRequireOriginal()` when reading EXIF GPS (requires `ACCESS_MEDIA_LOCATION`). |
 | D17 | Testing stack | Not specified | JUnit 4, MockK, Turbine, kotlinx-coroutines-test, Robolectric, in-memory Room, OkHttp MockWebServer, Compose UI tests. |
 | D18 | Code style / CI | Not specified | ktlint (configured via `.editorconfig`) and detekt; GitHub Actions runs build, unit tests and lint. |
+| D19 | Transport security | Not specified | HTTPS only (cleartext disallowed via `network_security_config.xml`; cleartext allowed in debug builds only). |
 
 ## Open questions
 
@@ -46,5 +47,6 @@ before the phase that depends on them starts.
 | O12 | **Selection across views:** should a multi-selection survive switching between Folders and Timeline? | Affects where the selection state lives (per screen or app-wide). | Per screen. Clear the selection when leaving the screen. |
 | O13 | **Localisation and theming:** which languages, and Material You dynamic colour? | Affects the resource setup and the theme. | English + German, dynamic colour on Android 12+ with a static fallback theme. |
 | O14 | **Scope of "fast" in numbers:** a target device and dataset? | Needed for performance acceptance tests. | 50 000 images on a mid-range device, at 60 fps scrolling and with a warm start under 1 s to the first grid. |
-| O15 | **Application ID / package name?** | Needed for module namespaces in Phase 0, and hard to change after release. | `de.nextgallery` (placeholder used in TODO.md). |
+| O15 | **Application ID / package name?** | Needed for module namespaces in Phase 0, and hard to change after release. | `de.drehtuer.nextgallery` (placeholder used in ARCHITECTURE.md and TODO.md). |
 | O16 | **Logout behaviour:** revoke the app password on the server, or only forget it locally? | Revoking also removes the device from the user's Nextcloud security settings. | Revoke on the server (`DELETE /ocs/v2.php/core/apppassword`), then wipe local credentials and caches. |
+| O17 | **Editor memory budget:** what happens when a full-resolution bitmap does not fit in memory (e.g. 100 MP images)? | Saving at full resolution can cause an OOM on low-memory devices. | Warn the user and save at the largest size within ~1/4 of `Runtime.maxMemory()`. Tiled rendering is a later option. |

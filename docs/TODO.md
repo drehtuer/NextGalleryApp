@@ -48,7 +48,7 @@ are described in [ARCHITECTURE.md](ARCHITECTURE.md); rationale and open question
   - [ ] `JvmLibraryConventionPlugin` (`nextgallery.jvm.library`) for pure-Kotlin modules (`:core:model`).
   - [ ] `AndroidTestConventionPlugin` / shared test config: add the standard test libraries, `testOptions.unitTests.isIncludeAndroidResources = true` for Robolectric.
   - [ ] `DetektConventionPlugin` and `KtlintConventionPlugin` applied to every module.
-- [ ] **0.4 Module skeletons** (each with `build.gradle.kts`, namespace `de.nextgallery.<module>` (package name to be confirmed in DESIGN_DECISIONS.md), empty `src/main`, a placeholder test so the test task runs)
+- [ ] **0.4 Module skeletons** (each with `build.gradle.kts`, namespace `de.drehtuer.nextgallery.<module>` (package name to be confirmed, see O15 in DESIGN_DECISIONS.md), empty `src/main`, a placeholder test so the test task runs)
   - [ ] `:app` (`MainActivity`, `NextGalleryApplication` with `@HiltAndroidApp`, empty Compose `NextGalleryTheme` call).
   - [ ] `:core:model`, `:core:common`, `:core:database`, `:core:media`, `:core:nextcloud`, `:core:data`, `:core:ui`.
   - [ ] `:feature:folders`, `:feature:timeline`, `:feature:map`, `:feature:viewer`, `:feature:editor`, `:feature:remote`, `:feature:settings`.
@@ -250,7 +250,7 @@ _Depends on: Phases 1 (GPS in index, ACCESS_MEDIA_LOCATION), 3 (viewer)._
 
 - [ ] **6.1 Location data**
   - [ ] Ensure `MediaIndexer` fills lat/long via `ExifReader.readLatLong` with `setRequireOriginal` only when `ACCESS_MEDIA_LOCATION` granted; re-index when permission granted later. Tests: granted/not granted.
-  - [ ] Lazy GPS backfill: a `LocationBackfill` step run by `IndexWorker` for items not yet probed (`location_checked` column; DB migration 1→2). Tests: migration test, backfill only unchecked.
+  - [ ] Lazy GPS backfill: a `LocationBackfill` step run by `IndexWorker` for rows with `exif_scanned = false` (column exists since schema v1, see ARCHITECTURE.md §4.1). Tests: backfill only unscanned rows, flag set afterwards.
   - [ ] `MediaDao.observeGeotagged(bounds?)` (id, lat, lon). Test.
 - [ ] **6.2 Clustering (`:core:data` or `:feature:map` domain)**
   - [ ] `GeoPoint`, `GeoBounds`, `Cluster(center, count, coverId, ids)` in `:core:model`.

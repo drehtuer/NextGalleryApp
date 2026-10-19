@@ -569,8 +569,8 @@ sequenceDiagram
 - `EditSession` is a plain class (`operations`, `undoStack`, `redoStack`, `canUndo`, `canRedo`) — fully unit-testable without Android.
 - `EditRenderer` applies operations in order; normalized coordinates make preview and full-resolution rendering identical in output geometry. Pen strokes are drawn with `Canvas` + `Path` scaled to the current image size.
 - Original EXIF orientation is applied first (bake-in), which is why the output orientation is reset to normal.
-- Full-resolution rendering guards memory: decode with `ImageDecoder`; if `width * height * 4` bytes exceeds a budget (e.g. 1/4 of `Runtime.maxMemory()`), the editor warns and saves at the largest size that fits. The exact policy is an open question in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
-- HEIC output is written as JPEG (no platform HEIC encoder guarantee on API 29); GIF is written as PNG.
+- Full-resolution rendering guards memory: decode with `ImageDecoder`; if `width * height * 4` bytes exceeds a budget (e.g. 1/4 of `Runtime.maxMemory()`), the editor warns and saves at the largest size that fits. The exact policy is open question O17 in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
+- HEIC output is written as JPEG (no platform HEIC encoder guarantee on API 29); GIF is not editable in v1 (O11).
 - On API 29 overwrite goes through `RecoverableSecurityException`.
 
 ### 5.5 Delete with trash
@@ -734,7 +734,7 @@ sequenceDiagram
 ```
 
 - `UploadWorker` runs as a foreground service worker (`dataSync` type) with a progress notification when more than one item or large files are pending.
-- Name conflicts: if the target exists with a different size, the worker does not overwrite; it marks the row `FAILED(conflict)` and surfaces it in the queue UI (policy tracked in DESIGN_DECISIONS.md).
+- Name conflicts: if the target exists with a different size, the worker never overwrites; it uploads under a suffixed name (`IMG_1234 (1).jpg`) and records that remote path in `upload_state` (proposed default for open question O6 in DESIGN_DECISIONS.md).
 - Max attempts per item: 5; after that `FAILED` until the user retries.
 - Chunked upload (Nextcloud chunking v2) for files above a threshold is a later enhancement behind `WebDavClient`.
 
@@ -909,7 +909,7 @@ Rules:
 
 - **Credentials**: Login Flow v2 only; the account password is never seen by the app. The app password is stored in a DataStore file encrypted with a Tink `Aead` (AES256-GCM); the Tink keyset is encrypted by an Android Keystore master key (`AndroidKeysetManager`, `android-keystore://` URI). No `EncryptedSharedPreferences` (deprecated).
 - Credentials excluded from backup: `android:dataExtractionRules` / `fullBackupContent` exclude the credentials store and Tink keyset prefs (Keystore keys do not survive restore anyway).
-- **TLS**: platform defaults via OkHttp; `network_security_config.xml` disallows cleartext traffic, so v1 accepts `https://` servers only (cleartext for debug builds only, via a debug-only config). Whether to trust user-installed CAs (`<certificates src="user"/>`, common for self-hosted Nextcloud with a private CA) is an open question in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
+- **TLS**: platform defaults via OkHttp; `network_security_config.xml` disallows cleartext traffic, so v1 accepts `https://` servers only (cleartext for debug builds only, via a debug-only config). User-installed CAs (`<certificates src="user"/>`, common for self-hosted Nextcloud with a private CA) are trusted in addition to system CAs; there is no in-app "trust this certificate" flow (proposed default for open question O9 in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md)).
 - Authorization header added only for requests to the configured server host (interceptor checks host), so redirects to other hosts never leak credentials.
 - **No tracking**: no analytics, no crash reporting SDKs, no Google Play Services. osmdroid tile requests go to OSM tile servers with a proper user agent (required by OSM tile usage policy); this is the only third-party network traffic and is triggered only by opening the map.
 - **Least privilege**: only `READ_MEDIA_IMAGES`/`READ_EXTERNAL_STORAGE`(maxSdk 32), `READ_MEDIA_VISUAL_USER_SELECTED`, `ACCESS_MEDIA_LOCATION`, `INTERNET`, `ACCESS_NETWORK_STATE`, `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_DATA_SYNC` (uploads). Destructive actions go through system dialogs.
