@@ -43,7 +43,7 @@ A simple, fast Android gallery app with basic editing, multiple ways to browse y
 
 ### File actions
 
-- **Delete** – single or multi-select; uses the system trash on Android 11+ so deletions can be undone (Android 10 has no system trash; deletes there are permanent after confirmation).
+- **Delete** – single or multi-select; moves images to the system trash, so deletions can be undone.
 - **Share** – send one or more images through the standard Android share sheet.
 
 ### Nextcloud integration
@@ -68,15 +68,17 @@ A simple, fast Android gallery app with basic editing, multiple ways to browse y
 | Index / cache | Room database (folders, dates, GPS, upload state) |
 | Images | Coil (thumbnails, disk cache), subsampling for large images in the viewer |
 | EXIF | `androidx.exifinterface` |
-| Map | osmdroid (OpenStreetMap) – no API key needed |
+| Map | osmdroid with OpenStreetMap tiles (configurable tile URL) – no API key needed |
 | Nextcloud | WebDAV over OkHttp; preview API for remote thumbnails |
 | Background work | WorkManager (indexing, upload queue, upload-state sync) |
 | Credentials | Android Keystore–encrypted storage |
-| Min SDK | 29 (Android 10); target the latest SDK |
+| UI design | Stock Material 3 with a placeholder theme until the design from Claude Design is delivered |
+| SDK levels | Min, compile and target SDK 37 (Android 17); older Android versions are not supported |
+| Reference device | Pixel 10a, Android 17 |
 
 ## Permissions
 
-- `READ_MEDIA_IMAGES` (Android 13+) / `READ_EXTERNAL_STORAGE` (Android 10–12) – read photos.
+- `READ_MEDIA_IMAGES` – read photos; `READ_MEDIA_VISUAL_USER_SELECTED` – limited access to selected photos only.
 - `ACCESS_MEDIA_LOCATION` – read GPS data from EXIF for the map view.
 - `INTERNET` – Nextcloud only.
 - Deleting and overwriting originals goes through the system confirmation dialogs (`MediaStore.createDeleteRequest` / `createWriteRequest`), so no broad storage permission is required.
@@ -95,7 +97,7 @@ A simple, fast Android gallery app with basic editing, multiple ways to browse y
 
 ## Building
 
-Requirements: JDK 17+, Android SDK (via Android Studio or command-line tools).
+Requirements: JDK 21+, Android SDK (via Android Studio or command-line tools).
 
 ```bash
 ./gradlew assembleDebug

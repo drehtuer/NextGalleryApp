@@ -29,31 +29,34 @@ The goals are in the [README](../README.md#goals). The ones that shape the archi
 | Fast with tens of thousands of images | Local Room index is the only thing grids query; Paging 3 everywhere; precomputed section index for fast scroll. |
 | Local first, offline | Nextcloud is an optional layer; no screen except `:feature:remote` blocks on the network. Upload badges come from a Room cache. |
 | No tracking, no Google Play Services | Only AndroidX, Kotlin, OkHttp, Coil, Telephoto, osmdroid, Tink. No Firebase, no Play Services location/maps, no analytics. |
-| Min SDK 29, latest target SDK | API-level branches isolated in `:core:media` (incremental sync, trash/delete, partial media access). |
+| Min/target SDK 37 (Android 17) only, reference device Pixel 10a | No API-level branches or legacy code paths; `GENERATION_MODIFIED`, trash/write requests and partial media access are always available. Performance targets (section 12) are measured on the Pixel 10a. |
+| Visual design delivered later (Claude Design) | All visual values live in `NextGalleryTheme` in `:core:ui`; features use theme tokens only, so the design can be applied in one module. |
 | v1 scope: images only | JPEG, PNG, WebP, HEIC/HEIF, GIF (static first frame). Video is excluded at query time (`MediaStore.Images` only). |
 | Single Nextcloud account in v1 | Credential store and settings hold one account; the schema does not key data by account. |
 
 ## 2. Layered overview
 
-The app uses **MVVM with unidirectional data flow**. Each screen's ViewModel exposes one immutable `StateFlow<UiState>` and accepts UI events through a single `onEvent(event)` function. Repositories are the single source of truth: the UI never talks to MediaStore, Room or WebDAV directly. Room is the source of truth for the local index. Kotlin coroutines and `Flow` are used throughout.
+The app uses **MVVM with unidirectional data flow** on top of an **Android-independent core**. Each screen's ViewModel exposes one immutable `StateFlow<UiState>` and accepts UI events through a single `onEvent(event)` function. Repositories are the single source of truth: the UI never talks to MediaStore, Room or WebDAV directly. Room is the source of truth for the local index. Kotlin coroutines and `Flow` are used throughout.
+
+All business logic (repositories, indexing, matching, editing geometry, clustering, upload logic) lives in pure Kotlin/JVM modules with no `android.*` dependency, so it is tested with plain JUnit on CI. Android APIs are reached through small interfaces (**ports**) declared in `:core:data` and implemented by thin **adapters** in Android modules (`:core:database`, `:core:media`, `:core:platform`). Adapters only translate between the platform and `:core:model` types; they make no decisions.
 
 ```mermaid
 flowchart TB
-    subgraph UI["UI layer - feature modules and core:ui"]
+    subgraph UI["UI layer - Android: feature modules and core:ui"]
         Screen["Composable screens"]
         VM["ViewModels - StateFlow of UiState"]
     end
-    subgraph DATA["Data layer - core:data"]
-        Repo["Repositories"]
-        Workers["WorkManager workers"]
-        Settings["DataStore settings"]
-    end
-    subgraph SOURCES["Data sources"]
-        DB["core:database - Room"]
-        Media["core:media - MediaStore, EXIF, ContentObserver"]
+    subgraph CORE["Core - pure Kotlin/JVM"]
+        Repo["Repositories and domain logic - core:data"]
+        Ports["Ports - interfaces in core:data"]
         NC["core:nextcloud - OkHttp WebDAV, Login Flow v2"]
     end
-    subgraph PLATFORM["Platform and external"]
+    subgraph ADAPTERS["Adapters - Android"]
+        DB["core:database - Room"]
+        Media["core:media - MediaStore, EXIF, bitmaps"]
+        Platform["core:platform - WorkManager, Keystore, Hilt wiring"]
+    end
+    subgraph EXT["Platform and external"]
         MS[("MediaStore")]
         Server[("Nextcloud server")]
         Keystore[("Android Keystore")]
@@ -62,23 +65,25 @@ flowchart TB
     Screen -- "events" --> VM
     VM -- "UiState" --> Screen
     VM --> Repo
-    Repo --> DB
-    Repo --> Media
+    Repo --> Ports
     Repo --> NC
-    Repo --> Settings
-    Workers --> Repo
+    DB -. "implements" .-> Ports
+    Media -. "implements" .-> Ports
+    Platform -. "implements" .-> Ports
+    Platform -- "workers call" --> Repo
     Media --> MS
     NC --> Server
-    NC --> Keystore
+    Platform --> Keystore
 ```
 
 Rules:
 
 - **UI layer**: Compose only renders `UiState` and emits events. No business logic in composables.
-- **ViewModel**: maps repository flows into `UiState`, handles events, launches one-shot work in `viewModelScope`. Exposes one-off effects (system dialogs via `IntentSender`, snackbars, navigation) through a `Channel`-backed `Flow<UiEffect>`.
-- **Repository**: combines sources, owns caching policy, maps entities/DTOs to `:core:model` types. Returns `Flow` for observable data and `suspend` functions returning `AppResult` for commands.
-- **Data sources**: thin wrappers around one technology each; no cross-source logic.
-- **Domain models** (`:core:model`) are plain Kotlin classes used across all layers; Room entities and WebDAV DTOs never leave their modules.
+- **ViewModel**: maps repository flows into `UiState`, handles events, launches one-shot work in `viewModelScope`. Exposes one-off effects (system confirmation dialogs, snackbars, navigation) through a `Channel`-backed `Flow<UiEffect>`. ViewModels use no `android.*` classes: route arguments arrive through Hilt assisted injection (not `SavedStateHandle.toRoute`, which needs `Bundle`), and system dialogs are passed as an opaque `PlatformConfirmation` (see 3.3). ViewModel tests are plain JVM tests without Robolectric.
+- **Repository** (`:core:data`): combines ports and the Nextcloud client, owns caching policy and all decisions. Returns `Flow` for observable data and `suspend` functions returning `AppResult` for commands.
+- **Ports** (`:core:data`): interfaces in terms of `:core:model` types (content URIs as `String`, no `Uri`, `Bitmap` or `Cursor`).
+- **Adapters**: thin wrappers around one platform technology each; no cross-source logic and no branching beyond mapping. Room entities, cursors and bitmaps never leave their adapter module.
+- **Domain models** (`:core:model`) are plain Kotlin classes used across all layers.
 
 ## 3. Modules
 
@@ -86,24 +91,25 @@ Rules:
 
 - Gradle Kotlin DSL; dependencies and versions in `gradle/libs.versions.toml`.
 - Convention plugins in `build-logic/convention`:
-  - `nextgallery.android.application` – `:app` defaults (SDK levels, Java/Kotlin toolchain 17, R8 config).
+  - `nextgallery.android.application` – `:app` defaults (SDK levels, Java/Kotlin toolchain 21, R8 config).
   - `nextgallery.android.library` – Android library defaults.
   - `nextgallery.android.library.compose` – enables Compose and adds the Compose BOM.
   - `nextgallery.android.feature` – library + compose + Hilt + dependencies every feature needs (`:core:ui`, `:core:data`, `:core:model`, Navigation Compose, lifecycle-viewmodel-compose).
   - `nextgallery.android.hilt` – Hilt + KSP.
   - `nextgallery.android.room` – Room + KSP + schema export directory (`<module>/schemas`).
-  - `nextgallery.jvm.library` – pure Kotlin modules (`:core:model`, `:core:common`).
-  - `nextgallery.android.test` – shared test dependencies (JUnit 4, MockK, Turbine, coroutines-test, Robolectric).
+  - `nextgallery.jvm.library` – pure Kotlin/JVM modules (`:core:model`, `:core:common`, `:core:data`, `:core:nextcloud`): `kotlin("jvm")`, toolchain 21, `javax.inject` for `@Inject` constructors (Hilt bindings for them live in Android modules), JUnit/MockK/Turbine/coroutines-test.
+  - `nextgallery.android.test` – shared Android test dependencies (Robolectric 4.17+, androidx.test) and the `AndroidJUnitRunner` setup for instrumented tests.
+- A JVM module cannot depend on an Android library (Gradle cannot resolve an AAR for a `kotlin("jvm")` module), so the Android-free core is enforced by the build itself.
 
 ### 3.2 Module dependency graph
 
-Feature modules depend only on core modules, never on each other. `:app` is the only module that knows all features and wires navigation between them.
+Feature modules depend only on core modules, never on each other. `:app` is the only module that knows all features and wires navigation between them. Adapter modules depend on `:core:data` (to implement its ports), not the other way round.
 
 ```mermaid
 graph TD
     app[":app"]
 
-    subgraph features["Feature modules"]
+    subgraph features["Feature modules - Android"]
         folders[":feature:folders"]
         timeline[":feature:timeline"]
         map[":feature:map"]
@@ -113,11 +119,15 @@ graph TD
         settings[":feature:settings"]
     end
 
-    subgraph core["Core modules"]
+    subgraph adapters["Android core modules"]
         ui[":core:ui"]
-        data[":core:data"]
         database[":core:database"]
         media[":core:media"]
+        platform[":core:platform"]
+    end
+
+    subgraph jvm["Pure Kotlin/JVM core modules"]
+        data[":core:data"]
         nextcloud[":core:nextcloud"]
         common[":core:common"]
         model[":core:model"]
@@ -130,7 +140,7 @@ graph TD
     app --> editor
     app --> remote
     app --> settings
-    app --> data
+    app --> platform
     app --> ui
 
     folders --> ui
@@ -148,17 +158,17 @@ graph TD
     settings --> ui
     settings --> data
 
+    platform --> database
+    platform --> media
+    platform --> data
+    database --> data
+    media --> data
     ui --> model
     ui --> common
-    data --> database
-    data --> media
+
     data --> nextcloud
     data --> model
     data --> common
-    database --> model
-    database --> common
-    media --> model
-    media --> common
     nextcloud --> model
     nextcloud --> common
     common --> model
@@ -195,16 +205,79 @@ Package root: `de.drehtuer.nextgallery` (placeholder; final name tracked in DESI
 | `AspectRatio` | `Free`, `Original`, `Square`, `FourThree`, `SixteenNine`. |
 | `NextcloudAccount` | `serverUrl`, `loginName`, `userId` (no secret). |
 | `TimelineSection` | `year`, `month`, `day`, `firstIndex`, `count` (for headers and fast-scroll index). |
+| `MediaAccess` | `Full`, `Partial`, `Denied`. |
+| `PlatformConfirmation` | Opaque wrapper (`handle: Any`) around a system confirmation request. The `:core:media` adapter puts an `IntentSender` inside; `:core:ui` launches it. Core and ViewModels only pass it through, and tests use any placeholder object. |
 | `SortOrder`, `GridDensity`, `AppSettings` | User preferences. |
 
 #### `:core:common` (pure Kotlin)
 
-- `AppResult<T>` – `Success(value)` / `Failure(error: AppError)`; `AppError` sealed (`Io`, `PermissionRequired(intentSender-free token)`, `NotFound`, `Network`, `Auth`, `Server(code)`, `Cancelled`, `Unknown(cause)`).
-- `DispatcherProvider` interface (`io`, `default`, `main`) + `@Dispatcher(IO|DEFAULT)` qualifier; Hilt bindings live in `:core:data`.
+- `AppResult<T>` – `Success(value)` / `Failure(error: AppError)`; `AppError` sealed (`Io`, `NotFound`, `Network`, `Auth`, `Server(code)`, `Cancelled`, `Unknown(cause)`).
+- `DispatcherProvider` interface (`io`, `default`, `main`) + `@Dispatcher(IO|DEFAULT)` qualifier; Hilt bindings live in `:core:platform`.
 - `Clock` abstraction (testable time), `TimeZoneProvider`.
 - Utilities: `RelativePaths` (normalize, `isUnder`, join), `debounceLatest`, `runCatchingCancellable` (never swallows `CancellationException`), byte/size formatting helpers.
 
-#### `:core:database`
+#### `:core:data` (pure Kotlin/JVM)
+
+The heart of the app. Depends on `:core:model`, `:core:common`, `:core:nextcloud`, `paging-common` and `datastore-preferences-core` (both JVM artifacts). No Android dependency.
+
+Ports (implemented by adapters):
+
+| Port | Implemented in | Purpose |
+| --- | --- | --- |
+| `MediaScanSource` | `:core:media` | `fullScan()`, `changesSince(generation)`, `allIds()`, `mediaStoreVersion()`, `noMediaPaths()`. |
+| `MediaChangeSource` | `:core:media` | `Flow<Unit>` of MediaStore change notifications. |
+| `ExifSource` | `:core:media` | Raw EXIF values (date strings, offset, GPS, camera fields) for a content URI. |
+| `MediaContentSource` | `:core:media` | `openInputStream(contentUri)`, size, for checksums and uploads. |
+| `MediaWriteSink` | `:core:media` | Insert pending copy / open for overwrite / publish; returns `PlatformConfirmation` when the system must confirm. |
+| `MediaDeleteSource` | `:core:media` | Trash, untrash and permanent delete requests as `PlatformConfirmation`. |
+| `ImageRenderer` | `:core:media` | Decode at a max size, apply a list of `RenderStep`s (matrices, crops, strokes computed by `EditGeometry`), encode. |
+| `MediaPermissionSource` | `:core:media` | Currently granted media permissions as strings. |
+| `MediaIndexStore` | `:core:database` | Index reads/writes; paged queries returned as `Flow<PagingData<MediaItem>>` (the Room adapter builds the `Pager` and maps entities). |
+| `FolderRuleStore`, `UploadStateStore`, `UploadQueueStore`, `RemoteCacheStore`, `SyncStateStore` | `:core:database` | Room tables behind model-typed interfaces. |
+| `WorkScheduler` | `:core:platform` | `enqueueIndex(mode)`, `enqueueUpload()`, `scheduleUploadStateSync()`. |
+| `SecretCipher` | `:core:platform` | `encrypt(bytes)` / `decrypt(bytes)` backed by Tink + Android Keystore. |
+
+Repositories (interfaces + `Default…` implementations with `@Inject` constructors):
+
+| Repository | Responsibility |
+| --- | --- |
+| `MediaRepository` | Paged folder/timeline grids, item lookup, viewer id lists, location items for map, image details (EXIF on demand), share URIs. |
+| `FolderRepository` | Folder list with counts/covers, filtered by folder rules. |
+| `FolderRulesRepository` | Include/exclude rules; changes trigger re-index of the affected scope. |
+| `IndexRepository` | Full scan, incremental sync, deletion detection (`MediaIndexer`); publishes `IndexStatus` flow. |
+| `DeleteRepository` | Delete/trash requests; removes rows after confirmed result. |
+| `EditRepository` | Edit pipeline: `EditGeometry` → `ImageRenderer` → `MediaWriteSink`, EXIF policy. |
+| `NextcloudRepository` | Login flow, account state, remote browsing (with `remote_cache`), preview requests. |
+| `UploadStateRepository` | Folder mapping, PROPFIND comparison, checksum confirmation, `upload_state` cache. |
+| `UploadRepository` | Enqueue uploads, observe queue, `UploadProcessor` that drains the queue (called by `UploadWorker`). |
+| `SettingsRepository` | DataStore (Preferences, JVM artifact) for `AppSettings`; the file location is provided by `:core:platform`. |
+| `AccountStore` | Account + app password in DataStore, encrypted through `SecretCipher`. |
+
+Pure logic (each class unit-tested on the JVM):
+
+- `IndexScheduler` – decides full vs incremental, debounces `MediaChangeSource`, calls `WorkScheduler`.
+- `MediaIndexer` – full/incremental sync algorithm, batching, deletion detection.
+- `DateResolver`, `ExifDateParser` – `DATE_TAKEN` → EXIF `DateTimeOriginal` (+ offset) → `DATE_MODIFIED`.
+- `FolderRuleMatcher`, `NoMediaMatcher` – is a relative path indexed given rules and `.nomedia` paths?
+- `MediaAccessResolver` – granted permissions → `MediaAccess`.
+- `FolderMapping` – local relative path → `<remoteRoot>/<relative path>`.
+- `UploadStateMatcher`, `ChecksumCalculator` (streams SHA-1 / MD5 of an `InputStream`), `ChecksumParser`.
+- `EditSession` / `EditHistory`, `CropMath`, `ScaleMath`, `EditGeometry` (operations → output size and `RenderStep`s).
+- `GridClusterer`, `SectionIndexBuilder`, `ScrollbarMath`.
+
+#### `:core:nextcloud` (pure Kotlin/JVM)
+
+| Class | Responsibility |
+| --- | --- |
+| `NextcloudHttpClient` | Provides the base `OkHttpClient` (TLS defaults, timeouts, user agent `NextGalleryApp/<version>`) and the authenticated client with `BasicAuthInterceptor` reading credentials through a `CredentialsProvider` interface. |
+| `LoginFlowV2Client` | `POST <server>/index.php/login/v2` → `{ login URL, poll token, endpoint }`; `poll()` until success, timeout (20 min) or cancellation. |
+| `WebDavClient` | `propfind(path, depth)` → `List<RemoteFile>` (requested props: `d:getcontentlength`, `d:getcontenttype`, `d:getetag`, `d:getlastmodified`, `d:resourcetype`, `oc:fileid`, `oc:checksums`, `nc:has-preview`); `get(path): InputStream`; `put(path, body, contentLength)`; `mkcol(path)`; `ensureDirectories(path)`. Paths are under `remote.php/dav/files/<userId>/`. Chunked upload (`remote.php/dav/uploads/...`) is a later addition behind the same interface. |
+| `PropfindParser` | Multistatus parser on the XmlPullParser API (`compileOnly`; provided by Android at runtime, kxml2 on the JVM test classpath). |
+| `PreviewUrlBuilder` | Builds `index.php/core/preview?fileId=…&x=…&y=…&a=1` URLs. |
+| `ServerUrlNormalizer` | Adds `https://`, strips trailing `/` and `/index.php`. |
+| `NextcloudErrorMapper` | Maps HTTP codes / IO exceptions to `AppError`. |
+
+#### `:core:database` (Android adapter)
 
 - `GalleryDatabase` (Room, `exportSchema = true`, explicit `Migration`s from v1 on; schemas checked in).
 - Entities: `MediaEntity`, `FolderEntity` (Room view or table, see 4), `FolderRuleEntity`, `UploadStateEntity`, `UploadQueueEntity`, `RemoteFileCacheEntity`, `SyncStateEntity`.
@@ -215,84 +288,51 @@ Package root: `de.drehtuer.nextgallery` (placeholder; final name tracked in DESI
   - `UploadStateDao` – `observeForMedia(ids)`, `upsertAll`, `deleteForFolder`.
   - `UploadQueueDao` – `enqueue`, `nextPending`, `updateStatus`, `observeQueue`.
   - `RemoteFileCacheDao` – `replaceFolder(parentPath, files)`, `observeFolder(parentPath)`.
-  - `SyncStateDao` – last generation / last date_modified per volume.
-- `Converters` for enums.
-- Mappers `MediaEntity.toModel()` are in `:core:data`, not here, so the database module stays storage-only.
+  - `SyncStateDao` – last generation per volume.
+- `Room…Store` classes implementing the `:core:data` store ports, with entity ↔ model mappers; Hilt module binding them.
 
-#### `:core:media`
+#### `:core:media` (Android adapter)
 
-| Class | Responsibility |
-| --- | --- |
-| `MediaStoreScanner` | Queries `MediaStore.Images.Media` per external volume. `fullScan(): Flow<List<ScannedImage>>` (batched cursors, e.g. 500 rows) and `changesSince(token): Flow<List<ScannedImage>>` using `GENERATION_MODIFIED` (API 30+) or `DATE_MODIFIED` (API 29). Also `allIds()` for deletion detection. |
-| `MediaChangeObserver` | Registers a `ContentObserver` on `MediaStore.Images.Media.EXTERNAL_CONTENT_URI`; exposes `Flow<Unit>` via `callbackFlow`, debounced (e.g. 2 s) by the consumer. |
-| `ExifReader` | `androidx.exifinterface` on `MediaStore.setRequireOriginal(uri)` streams: `DateTimeOriginal` + offset, GPS lat/long, camera fields for the info sheet. |
-| `ExifWriter` | Copies EXIF tags from source to destination file, resets `Orientation` to normal, updates `PixelXDimension`/`PixelYDimension`. |
-| `NoMediaDetector` | Determines folders containing `.nomedia` (queries `MediaStore.Files` for `_display_name = '.nomedia'`; caches per scan). |
-| `MediaWriter` | Inserts new image into MediaStore (`IS_PENDING` on API 29+), returns output stream; overwrite path via `createWriteRequest` (API 30+) or `RecoverableSecurityException` (API 29). |
-| `MediaDeleter` | Builds `IntentSender` for `createTrashRequest` / `createDeleteRequest` (API 30+); on API 29 attempts `ContentResolver.delete` per item and surfaces `RecoverableSecurityException.userAction.actionIntent`. |
-| `MediaPermissions` | Computes `MediaAccess { FULL, PARTIAL, DENIED }` incl. Android 14 `READ_MEDIA_VISUAL_USER_SELECTED`; required permission sets per API level. |
-| `SdkVersion` | Injectable wrapper around `Build.VERSION.SDK_INT` for testability. |
+| Class | Implements | Responsibility |
+| --- | --- | --- |
+| `MediaStoreScanner` | `MediaScanSource` | Queries `MediaStore.Images.Media` per external volume in batches of 500, using `GENERATION_MODIFIED` for incremental scans; `.nomedia` paths via `MediaStore.Files`. |
+| `MediaStoreChangeObserver` | `MediaChangeSource` | `ContentObserver` on `MediaStore.Images.Media.EXTERNAL_CONTENT_URI` as `callbackFlow`. |
+| `AndroidExifSource` | `ExifSource` | `androidx.exifinterface` on `MediaStore.setRequireOriginal(uri)` streams; returns raw tag values, parsing happens in `ExifDateParser`. |
+| `ContentResolverContentSource` | `MediaContentSource` | Opens content URIs. |
+| `MediaStoreWriter` | `MediaWriteSink` | Inserts a pending copy (`IS_PENDING`), overwrites via `createWriteRequest`, copies EXIF (`ExifWriter`). |
+| `MediaStoreDeleter` | `MediaDeleteSource` | `createTrashRequest` / `createDeleteRequest` wrapped in `PlatformConfirmation`. |
+| `BitmapImageRenderer` | `ImageRenderer` | `ImageDecoder` decode, applies `RenderStep`s with `Matrix`/`Canvas`/`Path`, encodes JPEG/PNG/WebP. |
+| `AndroidMediaPermissionSource` | `MediaPermissionSource` | `checkSelfPermission` for the media permissions. |
 
-#### `:core:nextcloud`
+#### `:core:platform` (Android adapter and wiring)
 
-| Class | Responsibility |
-| --- | --- |
-| `NextcloudHttpClient` | Provides the base `OkHttpClient` (TLS defaults, timeouts, user agent `NextGalleryApp/<version>`) and the authenticated client with `BasicAuthInterceptor` reading from `CredentialStore`. |
-| `LoginFlowV2Client` | `POST <server>/index.php/login/v2` → `{ login URL, poll token, endpoint }`; `poll()` until success, timeout (20 min) or cancellation. |
-| `WebDavClient` | `propfind(path, depth)` → `List<RemoteFile>` (requested props: `d:getcontentlength`, `d:getcontenttype`, `d:getetag`, `d:getlastmodified`, `d:resourcetype`, `oc:fileid`, `oc:checksums`, `nc:has-preview`); `get(path): InputStream`; `put(path, body, contentLength)`; `mkcol(path)`; `ensureDirectories(path)`. Paths are under `remote.php/dav/files/<userId>/`. Chunked upload (`remote.php/dav/uploads/...`) is a later addition behind the same interface. |
-| `PropfindParser` | XmlPullParser-based multistatus parser; pure, fully unit-tested. |
-| `PreviewUrlBuilder` | Builds `index.php/core/preview?fileId=…&x=…&y=…&a=1` URLs. |
-| `CredentialStore` | Stores `NextcloudAccount` + app password in DataStore, encrypted with a Tink AEAD whose keyset is wrapped by an Android Keystore master key. `observeAccount()`, `save()`, `clear()`. |
-| `NextcloudErrorMapper` | Maps HTTP codes / IO exceptions to `AppError`. |
-
-#### `:core:data`
-
-Repositories (interfaces + `Default…` implementations, bound with Hilt):
-
-| Repository | Responsibility |
-| --- | --- |
-| `MediaRepository` | Paged folder/timeline grids, item lookup, viewer id lists, location items for map, image details (EXIF on demand), share URIs. |
-| `FolderRepository` | Folder list with counts/covers, filtered by folder rules. |
-| `FolderRulesRepository` | Include/exclude rules; changes trigger re-index of the affected scope. |
-| `IndexRepository` | Full scan, incremental sync, deletion detection; publishes `IndexStatus` flow. |
-| `DeleteRepository` | Delete/trash requests; removes rows after confirmed result. |
-| `EditRepository` | Decode, render and save edits (`EditRenderer`), EXIF handling, MediaStore write. |
-| `NextcloudRepository` | Login flow, account state, remote browsing (with `remote_cache`), preview requests. |
-| `UploadStateRepository` | Folder mapping, PROPFIND comparison, checksum confirmation, `upload_state` cache. |
-| `UploadRepository` | Enqueue uploads, observe queue, execute single upload. |
-| `SettingsRepository` | DataStore (Preferences) for `AppSettings` (sort, grid density, remote root, upload-only-on-unmetered, etc.). |
-
-Other classes:
-
-- `IndexScheduler` – enqueues unique `IndexWorker` work on app start, on debounced `MediaChangeObserver` events, and after folder-rule changes.
-- Workers (`@HiltWorker`): `IndexWorker`, `UploadWorker`, `UploadStateSyncWorker` (see 5.7, 5.8).
-- `FolderMapping` – pure function: local relative path → `<remoteRoot>/<relative path>`.
-- `DateResolver` – `DATE_TAKEN` → EXIF `DateTimeOriginal` → `DATE_MODIFIED`.
-- `FolderRuleMatcher` – pure: is a relative path indexed given include/exclude rules and `.nomedia` set?
-- `ChecksumCalculator` – streams SHA-1 / MD5 of a content URI.
-- Hilt modules: `DataModule`, `DispatchersModule`, `WorkModule`.
+- Workers (`@HiltWorker`, thin): `IndexWorker` → `IndexRepository.sync()`, `UploadWorker` → `UploadProcessor` (+ foreground notification), `UploadStateSyncWorker` → `UploadStateRepository.refreshAll()`. Each maps `AppResult` to `Result.success/retry/failure`.
+- `WorkManagerScheduler` implements `WorkScheduler` (unique work names, constraints, backoff).
+- `KeystoreSecretCipher` implements `SecretCipher` (Tink AEAD, keyset wrapped by an Android Keystore master key).
+- Hilt modules: `DispatchersModule`, `DataStoreModule` (file locations), `RepositoryModule` (binds `:core:data` interfaces to `Default…` implementations), `NextcloudModule`, `ApplicationScopeModule`.
 
 #### `:core:ui`
 
-- `NextGalleryTheme` (Material 3, dynamic color on API 31+, dark theme).
+- `NextGalleryTheme` (Material 3, light/dark). Placeholder colours, typography, shapes and spacing until the Claude Design delivery replaces them (DESIGN_DECISIONS.md D22); dynamic colour only if the design allows it (O13).
 - `ThumbnailGrid` – `LazyVerticalGrid` driven by `LazyPagingItems<GridItem>`; supports headers (`GridItem.Header`), selection, upload badges, stable keys.
-- `FastScrollbar` – draggable thumb, maps drag fraction to item index using a `SectionIndex` (list of `(firstIndex, label)`), shows a bubble label (e.g. "March 2024").
+- `FastScrollbar` – draggable thumb; drag fraction ↔ index math lives in `ScrollbarMath` (`:core:data`); shows a bubble label (e.g. "March 2024").
 - `SelectionTopBar` – count, select all, share, delete, upload actions.
 - `MediaThumbnail` – Coil `AsyncImage` with placeholder, fixed size request, badge slot.
 - `PermissionGate` – requests media permissions, shows rationale, handles partial access ("Manage selected photos").
+- `rememberConfirmationLauncher()` – launches a `PlatformConfirmation` (unwraps the `IntentSender`) and reports the result.
 - `ErrorState`, `EmptyState`, `LoadingState` composables; `UiText` (string resource or raw).
 
 #### Feature modules
 
-Each feature contains: `XxxRoute` (serializable route object/class), `XxxScreen` (stateless composable), `XxxViewModel`, `XxxUiState`, `XxxEvent`, and `NavGraphBuilder.xxxScreen(onNavigate…)` extension consumed by `:app`.
+Each feature contains: `XxxRoute` (serializable route object/class), `XxxScreen` (stateless composable), `XxxViewModel` (assisted-injected with its route), `XxxUiState`, `XxxEvent`, and `NavGraphBuilder.xxxScreen(onNavigate…)` extension consumed by `:app`.
 
 | Module | Screens | Notes |
 | --- | --- | --- |
 | `:feature:folders` | Folder list, folder grid | Default start destination. |
 | `:feature:timeline` | Timeline grid | Sticky year/month/day headers; scrollbar label = month/year. |
-| `:feature:map` | Map | `MapRenderer` interface + `OsmdroidMapRenderer` (AndroidView); clustering; tapping a cluster opens a grid of its items. |
+| `:feature:map` | Map | `MapRenderer` interface + `OsmdroidMapRenderer` (AndroidView); clusters come from `GridClusterer` in `:core:data`; tapping a cluster opens a grid of its items. |
 | `:feature:viewer` | Full-screen pager, info sheet | `HorizontalPager` + Telephoto `ZoomableAsyncImage`; also used for remote images through a different source argument. |
-| `:feature:editor` | Editor | `EditSession`, crop overlay, pen canvas, save dialog. |
+| `:feature:editor` | Editor | Crop overlay, pen canvas, save dialog; `EditSession` from `:core:data`. |
 | `:feature:remote` | Nextcloud login, remote folder browser | Remote grid uses preview API thumbnails. |
 | `:feature:settings` | Settings, folder rules, Nextcloud account, upload target | |
 
@@ -412,11 +452,11 @@ sequenceDiagram
     autonumber
     participant App as NextGalleryApplication
     participant Sched as IndexScheduler
-    participant Obs as MediaChangeObserver
+    participant Obs as MediaChangeSource
     participant W as IndexWorker
     participant Idx as IndexRepository
-    participant Scan as MediaStoreScanner
-    participant Exif as ExifReader
+    participant Scan as MediaScanSource
+    participant Exif as ExifSource
     participant DB as Room
 
     App->>Sched: onAppStart()
@@ -427,10 +467,8 @@ sequenceDiagram
     Idx->>DB: read sync_state and folder_rule
     alt no sync_state or MediaStore version changed
         Idx->>Scan: fullScan() in batches of 500
-    else API 30 and later
+    else incremental
         Idx->>Scan: changesSince(GENERATION_MODIFIED greater than last)
-    else API 29
-        Idx->>Scan: changesSince(DATE_MODIFIED at least last minus 1s)
     end
     loop each batch
         Scan-->>Idx: List of ScannedImage
@@ -454,7 +492,7 @@ Details:
 - Deletions are not reported by generation queries, so each sync compares ID sets (`allIds()` is a projection-only cursor; ~fast even at 50k rows). Rows are removed in chunks of 900 (SQLite variable limit).
 - EXIF reading is the expensive part. GPS is read only for JPEG/HEIF/WebP during the scan, and in a **second pass** (`exif_scanned = false` rows) after the grid-relevant data is committed, so folders appear quickly on first launch. Date fallback order: `DATE_TAKEN` → EXIF `DateTimeOriginal` (with `OffsetTimeOriginal` when present) → `DATE_MODIFIED`.
 - Without `ACCESS_MEDIA_LOCATION`, `setRequireOriginal` throws / GPS is redacted; location is then left null and the map shows a hint.
-- With Android 14 partial access, the scan only sees user-selected images; the index is rebuilt from scratch whenever the selection changes (detected on resume via the permission state).
+- With partial access, the scan only sees user-selected images; the index is rebuilt from scratch whenever the selection changes (detected on resume via the permission state).
 - `IndexWorker` is expedited for the first scan, runs as normal work otherwise, and reports progress through `setProgress` for the UI's indexing indicator.
 
 ### 5.2 Opening a folder grid with paging
@@ -532,46 +570,50 @@ sequenceDiagram
     participant VM as EditorViewModel
     participant S as EditSession
     participant R as EditRepository
-    participant Ren as EditRenderer
-    participant MW as MediaWriter
-    participant EW as ExifWriter
+    participant G as EditGeometry
+    participant Ren as ImageRenderer port
+    participant MW as MediaWriteSink port
 
     UI->>VM: open mediaId
     VM->>R: loadPreview(mediaId, maxSide 2048)
-    R-->>VM: downsampled Bitmap
+    R-->>VM: PreviewImage handle
     UI->>VM: ApplyOperation Rotate or Crop or Scale or PenStroke
     VM->>S: push(op), clear redo stack
-    VM->>Ren: renderPreview(base, ops) on Default dispatcher
-    Ren-->>VM: preview Bitmap
+    VM->>R: renderPreview(ops)
+    R->>G: steps(ops, source size)
+    G-->>R: RenderSteps and output size
+    R->>Ren: render(preview, steps) on Default dispatcher
+    Ren-->>VM: PreviewImage handle
     UI->>VM: Undo or Redo
     VM->>S: undo() or redo()
     UI->>VM: Save mode NewCopy or Overwrite
     VM->>R: save(mediaId, ops, mode) in background coroutine
-    R->>Ren: renderFull(original stream, ops)
-    Ren-->>R: full resolution Bitmap
+    R->>G: steps(ops, original size)
+    R->>Ren: renderFull(contentUri, steps)
+    Ren-->>R: rendered image handle
     alt NewCopy
         R->>MW: insert pending entry in same RELATIVE_PATH
         MW-->>R: OutputStream
     else Overwrite
-        R->>MW: createWriteRequest IntentSender
-        MW-->>VM: user confirmation needed
-        VM-->>UI: UiEffect LaunchIntentSender
+        R->>MW: request overwrite (createWriteRequest)
+        MW-->>VM: PlatformConfirmation
+        VM-->>UI: UiEffect RequestConfirmation
         UI->>VM: WriteGranted
         R->>MW: open original for write
     end
-    R->>R: encode JPEG q95, or PNG or WebP to keep format
-    R->>EW: copy EXIF, Orientation normal, set new dimensions
-    R->>MW: clear IS_PENDING
+    R->>Ren: encode JPEG q95, or PNG or WebP to keep format
+    R->>MW: write, copy EXIF with Orientation normal and new dimensions
+    R->>MW: publish, clears IS_PENDING
     R-->>VM: AppResult Success new mediaId
     VM-->>UI: navigate back, snackbar Saved
 ```
 
 - `EditSession` is a plain class (`operations`, `undoStack`, `redoStack`, `canUndo`, `canRedo`) — fully unit-testable without Android.
-- `EditRenderer` applies operations in order; normalized coordinates make preview and full-resolution rendering identical in output geometry. Pen strokes are drawn with `Canvas` + `Path` scaled to the current image size.
+- `EditGeometry` (pure, `:core:data`) turns operations into `RenderStep`s (3×3 matrices, crop rects, stroke paths in pixels) for a given source size; normalized coordinates make preview and full-resolution rendering identical in output geometry. The `BitmapImageRenderer` adapter only applies the steps with `Matrix`, `Canvas` and `Path`.
+- Rendered images cross the port as an opaque `PreviewImage(handle, width, height)`; `:core:ui` draws it, so `EditorViewModel` never touches `Bitmap`.
 - Original EXIF orientation is applied first (bake-in), which is why the output orientation is reset to normal.
 - Full-resolution rendering guards memory: decode with `ImageDecoder`; if `width * height * 4` bytes exceeds a budget (e.g. 1/4 of `Runtime.maxMemory()`), the editor warns and saves at the largest size that fits. The exact policy is open question O17 in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
-- HEIC output is written as JPEG (no platform HEIC encoder guarantee on API 29); GIF is not editable in v1 (O11).
-- On API 29 overwrite goes through `RecoverableSecurityException`.
+- HEIC output is written as JPEG; GIF is not editable in v1 (O11).
 
 ### 5.5 Delete with trash
 
@@ -581,44 +623,29 @@ sequenceDiagram
     participant UI as Grid or Viewer
     participant VM as ViewModel
     participant D as DeleteRepository
-    participant MD as MediaDeleter
+    participant MD as MediaDeleteSource port
     participant Sys as System dialog
     participant DB as Room
 
     UI->>VM: DeleteSelected ids
     VM->>D: requestDelete(ids)
-    alt API 30 and later
-        D->>MD: createTrashRequest(uris, true)
-        MD-->>VM: IntentSender
-        VM-->>UI: UiEffect LaunchIntentSender
-        UI->>Sys: launch via StartIntentSenderForResult
-        Sys-->>UI: RESULT_OK
-        UI->>VM: DeleteConfirmed
-        VM->>D: onDeleteConfirmed(ids)
-        D->>DB: deleteByIds(ids)
-        VM-->>UI: snackbar Moved to trash, Undo
-        opt user taps Undo
-            UI->>VM: UndoTrash
-            VM->>D: createTrashRequest(uris, false)
-        end
-    else API 29
-        loop each id
-            D->>MD: delete(uri)
-            alt RecoverableSecurityException
-                MD-->>VM: IntentSender for this item
-                VM-->>UI: UiEffect LaunchIntentSender
-                UI->>Sys: confirm
-                Sys-->>UI: RESULT_OK
-                UI->>VM: DeleteConfirmed then retry item
-            end
-        end
-        D->>DB: deleteByIds(deleted ids)
+    D->>MD: createTrashRequest(uris, true)
+    MD-->>VM: PlatformConfirmation
+    VM-->>UI: UiEffect RequestConfirmation
+    UI->>Sys: launch via rememberConfirmationLauncher
+    Sys-->>UI: RESULT_OK
+    UI->>VM: DeleteConfirmed
+    VM->>D: onDeleteConfirmed(ids)
+    D->>DB: deleteByIds(ids)
+    VM-->>UI: snackbar Moved to trash, Undo
+    opt user taps Undo
+        UI->>VM: UndoTrash
+        VM->>D: createTrashRequest(uris, false)
     end
 ```
 
 - Room rows are removed optimistically after confirmation so the grid updates instantly; the next `IndexWorker` run reconciles regardless. Untrash re-inserts via the next incremental sync (the item gets a new generation).
-- `createDeleteRequest` (permanent) is offered as a secondary action in API 30+ (setting or long-press option).
-- Android 10 has no trash; the confirmation dialog states that deletion is permanent.
+- `createDeleteRequest` (permanent) is offered as a secondary action (setting or long-press option).
 
 ### 5.6 Nextcloud Login Flow v2
 
@@ -631,7 +658,7 @@ sequenceDiagram
     participant LF as LoginFlowV2Client
     participant Br as Browser Custom Tab
     participant Srv as Nextcloud
-    participant CS as CredentialStore
+    participant CS as AccountStore
 
     UI->>VM: SubmitServer url
     VM->>Repo: startLogin(url)
@@ -654,7 +681,7 @@ sequenceDiagram
 
 - Server URL normalization: add `https://` if missing, strip trailing `/` and `/index.php`; `http://` is rejected in release builds (see 11).
 - Polling runs in `viewModelScope`; leaving the screen cancels it. The poll token is never persisted.
-- Logout: `DELETE ocs/v2.php/core/apppassword` (best effort), then `CredentialStore.clear()`, clear `remote_cache`, `upload_state`, pending `upload_queue`, and Coil's remote cache entries.
+- Logout: `DELETE ocs/v2.php/core/apppassword` (best effort), then `AccountStore.clear()`, clear `remote_cache`, `upload_state`, pending `upload_queue`, and Coil's remote cache entries.
 
 ### 5.7 Upload-state check
 
@@ -708,6 +735,7 @@ sequenceDiagram
     participant DB as Room upload_queue
     participant WM as WorkManager
     participant W as UploadWorker
+    participant P as UploadProcessor
     participant Dav as WebDavClient
 
     UI->>VM: UploadSelected ids
@@ -715,24 +743,29 @@ sequenceDiagram
     Repo->>DB: insert PENDING rows with mapped target path
     Repo->>WM: enqueueUniqueWork upload KEEP, network constraint, backoff exponential 30s
     WM->>W: doWork
+    W->>P: drain(progress callback)
     loop while nextPending exists
-        W->>DB: mark RUNNING
-        W->>Dav: ensureDirectories(parent)
-        W->>Dav: PUT streamed from content URI with OC-Checksum and X-OC-Mtime
+        P->>DB: mark RUNNING
+        P->>Dav: ensureDirectories(parent)
+        P->>Dav: PUT streamed from content URI with OC-Checksum and X-OC-Mtime
         alt 201 or 204
-            W->>DB: mark DONE and upsert upload_state UPLOADED
+            P->>DB: mark DONE and upsert upload_state UPLOADED
         else 401 or 403
-            W->>DB: mark FAILED auth
-            W-->>WM: failure, needs re-login
+            P->>DB: mark FAILED auth
+            P-->>W: Auth failure
+            W-->>WM: Result failure, needs re-login
         else network error or 5xx
-            W->>DB: increment attempts, back to PENDING
+            P->>DB: increment attempts, back to PENDING
+            P-->>W: retryable error
             W-->>WM: Result retry
         end
+        P-->>W: progress
         W->>W: setForeground progress notification
     end
     W-->>WM: Result success
 ```
 
+- `UploadProcessor` (`:core:data`) holds the whole loop and is tested on the JVM; `UploadWorker` (`:core:platform`) only maps its result and shows progress.
 - `UploadWorker` runs as a foreground service worker (`dataSync` type) with a progress notification when more than one item or large files are pending.
 - Name conflicts: if the target exists with a different size, the worker never overwrites; it uploads under a suffixed name (`IMG_1234 (1).jpg`) and records that remote path in `upload_state` (proposed default for open question O6 in DESIGN_DECISIONS.md).
 - Max attempts per item: 5; after that `FAILED` until the user retries.
@@ -811,19 +844,20 @@ sealed interface FolderGridEvent {
 
 sealed interface FolderGridEffect {
     data class OpenViewer(val id: Long) : FolderGridEffect
-    data class LaunchIntentSender(val sender: IntentSender) : FolderGridEffect
+    data class RequestConfirmation(val request: PlatformConfirmation) : FolderGridEffect
     data class Share(val uris: List<String>) : FolderGridEffect
     data class ShowMessage(val text: UiText, val undo: Boolean) : FolderGridEffect
 }
 
-@HiltViewModel
-class FolderGridViewModel @Inject constructor(
-    savedStateHandle: SavedStateHandle,
+@HiltViewModel(assistedFactory = FolderGridViewModel.Factory::class)
+class FolderGridViewModel @AssistedInject constructor(
+    @Assisted private val route: FolderGridRoute,
+    private val savedStateHandle: SavedStateHandle,
     private val media: MediaRepository,
     private val delete: DeleteRepository,
     private val upload: UploadRepository,
 ) : ViewModel() {
-    private val route = savedStateHandle.toRoute<FolderGridRoute>()
+    @AssistedFactory interface Factory { fun create(route: FolderGridRoute): FolderGridViewModel }
     val items: Flow<PagingData<GridItem>> = media.pagedFolder(route.bucketId).cachedIn(viewModelScope)
     val state: StateFlow<FolderGridUiState> = /* combine(...).stateIn(viewModelScope, WhileSubscribed(5_000), FolderGridUiState()) */
     val effects: Flow<FolderGridEffect> = /* Channel(BUFFERED).receiveAsFlow() */
@@ -841,12 +875,12 @@ Other screens (abbreviated):
 | Timeline | `sectionIndex` (year/month labels), `selection`, `isIndexing` (+ separate paging flow with `GridItem.Header`) |
 | Map | `clusters: List<MapCluster>` for current viewport + zoom, `itemsWithoutLocation: Int`, `locationPermissionMissing: Boolean` |
 | Viewer | `ids: List<Long>`, `currentIndex`, `current: MediaItem?`, `details: ImageDetails?`, `chromeVisible`, `infoSheetVisible` |
-| Editor | `preview: ImageBitmap?`, `tool: EditTool`, `cropRect`, `aspect`, `penColor`, `penWidth`, `canUndo`, `canRedo`, `isSaving`, `saveMode` |
+| Editor | `preview: PreviewImage?`, `tool: EditTool`, `cropRect`, `aspect`, `penColor`, `penWidth`, `canUndo`, `canRedo`, `isSaving`, `saveMode` |
 | Remote browser | `path`, `entries: List<RemoteFile>`, `isRefreshing`, `isOffline` (shows cached `remote_cache` data), `error` |
 | Login | `serverUrl`, `step: Idle / WaitingForBrowser / Verifying / Done`, `error` |
 | Settings | `settings: AppSettings`, `rules: List<FolderRule>`, `account: NextcloudAccount?`, `queueCount` |
 
-Process death: route args come from `SavedStateHandle`; transient UI (selection, editor operations) is saved via `SavedStateHandle` where cheap (selection as `LongArray`, editor operations serialized with kotlinx.serialization).
+Process death: the route is restored by Navigation and passed in again through the assisted factory (`hiltViewModel<FolderGridViewModel, FolderGridViewModel.Factory> { it.create(route) }`); transient UI (selection, editor operations) is saved via `SavedStateHandle` where cheap (selection as `LongArray`, editor operations serialized with kotlinx.serialization).
 
 ## 8. Threading and concurrency
 
@@ -863,7 +897,7 @@ Rules:
 - No `GlobalScope`. Long-lived app-level collectors (ContentObserver → scheduler) run in an `@ApplicationScope CoroutineScope` (`SupervisorJob + Default`) provided by Hilt.
 - Unique work names: `index` (one at a time; `APPEND_OR_REPLACE` coalesces triggers), `upload` (`KEEP`), `upload-state-sync` (periodic, `UPDATE`).
 - Room writes in batches inside `withTransaction`; the indexer yields between batches (`ensureActive()`), so cancellation is prompt.
-- Editor full-resolution save runs in `viewModelScope` with `NonCancellable` around the final MediaStore commit (write + clear `IS_PENDING`), so a half-written entry is never left visible. A pending entry left by a crash is cleaned up on next start (pending items older than 1 day are deleted by `MediaWriter.cleanupPending()`).
+- Editor full-resolution save runs in `viewModelScope` with `NonCancellable` around the final MediaStore commit (write + clear `IS_PENDING`), so a half-written entry is never left visible. A pending entry left by a crash is cleaned up on next start (pending items older than 1 day are deleted by `MediaWriteSink.cleanupPending()`).
 - Flows from repositories are cold; ViewModels convert with `stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initial)`.
 
 ## 9. Caching
@@ -896,7 +930,7 @@ Rules:
 - `AppError` is mapped to user-visible `UiText` in the ViewModel (one mapper per feature, using shared strings in `:core:ui`).
 - Categories:
   - **Permission**: missing media permission → `PermissionGate`; partial access → banner with "select more"; missing `ACCESS_MEDIA_LOCATION` → map hint, no crash.
-  - **User confirmation**: `RecoverableSecurityException` / write and delete requests → `UiEffect.LaunchIntentSender`; this is a normal flow, not an error.
+  - **User confirmation**: trash, delete and write requests → `UiEffect.RequestConfirmation(PlatformConfirmation)`; this is a normal flow, not an error.
   - **Stale data**: item deleted outside the app while opened → `NotFound`; the viewer skips to the next page and the grid refreshes via index sync.
   - **Network** (`IOException`, timeouts): remote browser shows cached data with an offline banner; workers return `Result.retry()`.
   - **Auth** (401): account marked as "needs re-login"; workers stop with failure; a persistent banner links to login.
@@ -912,12 +946,12 @@ Rules:
 - **TLS**: platform defaults via OkHttp; `network_security_config.xml` disallows cleartext traffic, so v1 accepts `https://` servers only (cleartext for debug builds only, via a debug-only config). User-installed CAs (`<certificates src="user"/>`, common for self-hosted Nextcloud with a private CA) are trusted in addition to system CAs; there is no in-app "trust this certificate" flow (proposed default for open question O9 in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md)).
 - Authorization header added only for requests to the configured server host (interceptor checks host), so redirects to other hosts never leak credentials.
 - **No tracking**: no analytics, no crash reporting SDKs, no Google Play Services. osmdroid tile requests go to OSM tile servers with a proper user agent (required by OSM tile usage policy); this is the only third-party network traffic and is triggered only by opening the map.
-- **Least privilege**: only `READ_MEDIA_IMAGES`/`READ_EXTERNAL_STORAGE`(maxSdk 32), `READ_MEDIA_VISUAL_USER_SELECTED`, `ACCESS_MEDIA_LOCATION`, `INTERNET`, `ACCESS_NETWORK_STATE`, `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_DATA_SYNC` (uploads). Destructive actions go through system dialogs.
+- **Least privilege**: only `READ_MEDIA_IMAGES`, `READ_MEDIA_VISUAL_USER_SELECTED`, `ACCESS_MEDIA_LOCATION`, `INTERNET`, `ACCESS_NETWORK_STATE`, `POST_NOTIFICATIONS`, `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_DATA_SYNC` (uploads). Destructive actions go through system dialogs.
 - Shared URIs are MediaStore content URIs with temporary read grants; no `FileProvider` exposing app storage.
 
 ## 12. Performance
 
-Targets: cold start to first folder grid < 1 s with an existing index; 60/120 fps scrolling and fast scrolling on a 50 000-image library; first full index of 50 000 images in under ~1 minute without EXIF pass.
+Targets (measured on the reference Pixel 10a, Android 17): warm start to first folder grid < 1 s with an existing index; no dropped frames at the display refresh rate when scrolling and fast scrolling a 50 000-image library; first full index of 50 000 images in under ~1 minute without EXIF pass.
 
 - **Query only Room** for grids; MediaStore is touched only by the indexer.
 - **Paging 3 with placeholders** gives a stable item count, so `LazyVerticalGrid` can jump anywhere; Room's `PagingSource` uses `LIMIT/OFFSET` on indexed columns. For very deep jumps, the grid requests the page around the target via `scrollToItem` and placeholders render until loaded.
@@ -933,21 +967,39 @@ Targets: cold start to first folder grid < 1 s with an existing index; 60/120 fp
 
 ## 13. Testing strategy
 
-Principles: every function gets a unit test; tests are small, independent and non-overlapping (each behaviour is asserted in exactly one test at the lowest layer that owns it). Tools: JUnit 4, MockK, Turbine, kotlinx-coroutines-test (`runTest`, `StandardTestDispatcher` via an injected `DispatcherProvider`), Robolectric where Android framework classes are needed, Room in-memory databases, OkHttp `MockWebServer`, Compose UI tests.
+Principles: every function gets a unit test; tests are small, independent and non-overlapping (each behaviour is asserted in exactly one test at the lowest layer that owns it). Tools: JUnit 4, MockK, Turbine, kotlinx-coroutines-test (`runTest`, `StandardTestDispatcher` via an injected `DispatcherProvider`), Robolectric for the thin Android adapters, Room in-memory databases, OkHttp `MockWebServer`, Compose UI tests. Because the logic sits in pure JVM modules (section 2), the large majority of tests are plain JUnit tests without any Android runtime. Instrumented tests run locally only, where Robolectric cannot reproduce the behaviour (see 13.1).
 
-| Layer / module | What is tested | How |
+| Layer / module | What is tested | How | Runs on CI |
+| --- | --- | --- | --- |
+| `:core:model`, `:core:common` | Model validation (`GeoPoint` ranges, `NormalizedRect`), `AppResult` helpers, `RelativePaths`, `runCatchingCancellable` | Plain JVM JUnit | Yes |
+| `:core:data` | All domain logic: `MediaIndexer` (full vs incremental vs version change), `IndexScheduler`, `DateResolver`/`ExifDateParser`, `FolderRuleMatcher`, `MediaAccessResolver`, `FolderMapping`, `UploadStateMatcher`, `UploadProcessor`, checksums, `EditSession`/`EditGeometry`, `GridClusterer`, `SectionIndexBuilder`, `ScrollbarMath`, repositories, `AccountStore` (fake `SecretCipher`) | Plain JVM JUnit + hand-written fake ports, MockK, Turbine | Yes |
+| `:core:nextcloud` | PROPFIND parsing, request building (headers, depth, body), Login Flow v2 polling states, error mapping, auth interceptor host check, URL normalisation | Plain JVM JUnit, `MockWebServer`, kxml2 parser | Yes |
+| ViewModels (feature modules) | Event → state transitions, effects emitted, paging flow wiring | Local unit tests without Robolectric: `runTest` + Turbine, fake repositories, route passed to the constructor | Yes |
+| `:core:database` | Each DAO query (paging order, rule filtering, section aggregation, cascade deletes), migrations, entity ↔ model mapping | Robolectric + in-memory Room; `MigrationTestHelper` with exported schemas | Yes |
+| `:core:media` | Cursor → `ScannedImage` mapping (`MatrixCursor`), EXIF tag extraction from fixture files, request construction | Robolectric, fixtures in `src/test/resources` | Yes |
+| `:core:platform` | Workers map `AppResult` to `Result` (success / retry / failure), `WorkManagerScheduler` enqueues the right unique work | Robolectric, `TestListenableWorkerBuilder`, `WorkManagerTestInitHelper` | Yes |
+| UI | Key screens: folder grid (selection, fast-scroll label), viewer (paging, info sheet), editor (undo/redo buttons enabled state), login steps, permission gate | Compose UI tests (`createComposeRule`) on Robolectric | Yes |
+| Platform behaviour | See 13.1 | Instrumented tests (`src/androidTest`) | No – local emulator / Pixel 10a |
+| Performance | Startup, grid scroll jank | Macrobenchmark on the Pixel 10a (later) | No |
+
+Test doubles: hand-written fakes for repositories (`FakeMediaRepository`) live next to the tests that need them; fakes of ports and repositories shared by several modules go into Gradle `testFixtures` of `:core:data`. MockK is used for leaf collaborators. Test names follow `functionName_condition_expectedResult`.
+
+CI (when added): `./gradlew lint test` on every push (`test` runs the JVM modules' tests and the Android modules' local unit tests, including Robolectric). There is no emulator in CI: instrumented tests run locally with `./gradlew connectedDebugAndroidTest` on an API 37 emulator or the Pixel 10a before merging changes that touch an adapter.
+
+### 13.1 Robolectric and on-device tests
+
+Robolectric 4.17 is the first release that supports SDK 37. Since `minSdk` is 37, it is the minimum usable version. Robolectric's SDK 36+ runtimes need JDK 21, so the build toolchain, local development and CI all use JDK 21. The `--add-opens` JVM flags from the Robolectric setup guide are set in the test convention plugin.
+
+Robolectric's shadows do not reproduce some platform behaviour. These parts are covered by instrumented tests in `src/androidTest`, run locally on an API 37 emulator or the Pixel 10a with `./gradlew connectedDebugAndroidTest`. Since adapters hold no logic, these tests only check that the platform call works; everything around it is tested on the JVM.
+
+| Area | Why Robolectric is not enough | On-device test |
 | --- | --- | --- |
-| `:core:model`, `:core:common` | Model validation (`GeoPoint` ranges, `NormalizedRect`), `AppResult` helpers, `RelativePaths`, `runCatchingCancellable` | Plain JVM JUnit |
-| `:core:database` | Each DAO query (paging order, rule filtering, section aggregation, cascade deletes), migrations | Robolectric + in-memory Room; `MigrationTestHelper` with exported schemas |
-| `:core:media` | Cursor-to-`ScannedImage` mapping, API-level branching (`SdkVersion` faked), EXIF parsing from fixture files, delete/trash request selection, permission state computation | Robolectric (`ShadowContentResolver`, fake cursors `MatrixCursor`), EXIF fixtures in `src/test/resources` |
-| `:core:nextcloud` | PROPFIND XML parsing, request building (headers, depth, body), Login Flow v2 polling states, error mapping, auth interceptor host check, credential store round trip | `MockWebServer`; parser tests are pure JVM; `CredentialStore` with Tink test keyset (JVM) |
-| `:core:data` | `DateResolver`, `FolderRuleMatcher`, `FolderMapping`, upload-state matching, indexer sync logic (full vs incremental vs version change), repository mapping and error handling, `EditSession` undo/redo | JVM + MockK fakes of data sources; Turbine for flows |
-| Workers | `IndexWorker`, `UploadWorker`, `UploadStateSyncWorker` result codes (success / retry / failure) | `TestListenableWorkerBuilder` + Robolectric; repositories mocked |
-| Editor rendering | Each `EditOperation` geometry on small bitmaps (rotate dimensions, crop rect, scale size, stroke pixels) | Robolectric with native graphics (`@GraphicsMode(NATIVE)`) |
-| ViewModels | Event → state transitions, effects emitted, paging flow wiring | `runTest` + Turbine; fake repositories |
-| UI | Key screens: folder grid (selection, fast-scroll label), viewer (paging, info sheet), editor (undo/redo buttons enabled state), login steps, permission gate | Compose UI tests (`createComposeRule`) on Robolectric for speed; a small instrumented smoke suite on emulator |
-| Performance | Startup, grid scroll jank | Macrobenchmark (later) |
+| MediaStore queries (`MediaStoreScanner`) | The shadow `ContentResolver` has no real MediaStore provider (`GENERATION_MODIFIED`, `IS_TRASHED`, `.nomedia` handling). | Insert test images through `MediaStore`, assert the scanner's results, delete them afterwards. |
+| `ContentResolver.loadThumbnail` (Coil fetcher) | Not backed by the system thumbnail cache. | Thumbnail returned at the requested size bucket. |
+| EXIF GPS with `setRequireOriginal` | Location redaction depends on the real permission and provider. | GPS read with `ACCESS_MEDIA_LOCATION` granted, null without. |
+| Android Keystore (`KeystoreSecretCipher`) | Robolectric has no `AndroidKeyStore` provider. | Encrypt/decrypt round trip with a Keystore-wrapped keyset. |
+| HEIC decoding (`BitmapImageRenderer`) | Native graphics in Robolectric may not include the platform HEIF codec. | Decode a HEIC fixture; save an edit of it as JPEG. |
+| Trash, delete and write requests | The system confirmation dialogs only exist on a device. | Intent sender launches; confirmation itself is a manual check. |
+| osmdroid map | `MapView` rendering and tile loading need a real view hierarchy and network. | Map screen shows clusters for geotagged fixtures (emulator: needs network). |
 
-Test doubles: hand-written fakes for repositories (`FakeMediaRepository`) live next to the tests that need them; if they get duplicated across feature modules they move to Gradle `testFixtures` of `:core:data`. MockK is used for leaf collaborators. Test names follow `functionName_condition_expectedResult`.
-
-CI (when added): `./gradlew lint testDebugUnitTest` on every push; Compose/instrumented tests on an emulator job.
+A behaviour tested on the device is not tested again in Robolectric (no overlap); the JVM tests cover the logic around it with fakes.
