@@ -52,7 +52,7 @@ are described in [ARCHITECTURE.md](ARCHITECTURE.md); rationale and open question
   - [ ] `JvmLibraryConventionPlugin` (`nextgallery.jvm.library`) for the pure Kotlin/JVM modules (`:core:model`, `:core:common`, `:core:data`, `:core:nextcloud`): `kotlin("jvm")`, toolchain 21, `javax.inject`, JVM test libraries.
   - [ ] `AndroidTestConventionPlugin` / shared test config: add the standard test libraries, `testOptions.unitTests.isIncludeAndroidResources = true` for Robolectric 4.17+ (first release with SDK 37), Robolectric `--add-opens` JVM flags in `unitTests.all { jvmArgs(...) }`, `testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"` for on-device tests (ARCHITECTURE.md §13.1). Placeholder Robolectric test and placeholder instrumented test both pass (`test` on CI, `connectedDebugAndroidTest` locally on an API 37 emulator or the Pixel 10a).
   - [ ] `DetektConventionPlugin` and `KtlintConventionPlugin` applied to every module.
-- [ ] **0.4 Module skeletons** (each with `build.gradle.kts`, namespace `de.drehtuer.nextgallery.<module>` (package name to be confirmed, see O15 in DESIGN_DECISIONS.md), empty `src/main`, a placeholder test so the test task runs)
+- [ ] **0.4 Module skeletons** (each with `build.gradle.kts`, namespace `net.drehtuer.nextgallery.<module>` (D26), application ID `net.drehtuer.nextgallery`, empty `src/main`, a placeholder test so the test task runs)
   - [ ] `:app` (`MainActivity`, `NextGalleryApplication` with `@HiltAndroidApp`, empty Compose `NextGalleryTheme` call).
   - [ ] JVM: `:core:model`, `:core:common`, `:core:data`, `:core:nextcloud`.
   - [ ] Android: `:core:database`, `:core:media`, `:core:platform`, `:core:ui`.
@@ -70,7 +70,7 @@ are described in [ARCHITECTURE.md](ARCHITECTURE.md); rationale and open question
   - [ ] Upload test and lint reports as artifacts on failure.
   - [ ] Gradle wrapper validation action.
 - [ ] **0.7 Repo hygiene**
-  - [ ] `LICENSE` placeholder: record the license decision (e.g. GPL-3.0 vs Apache-2.0, constrained by osmdroid/Telephoto licenses and F-Droid) in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md); add the file once decided.
+  - [ ] `LICENSE` with the full GNU GPL v3 text (D27); license header note in README. Check every dependency in the version catalog is GPL-3.0-compatible.
   - [ ] `CONTRIBUTING.md` section or README note on running `./gradlew ktlintFormat detekt testDebugUnitTest`.
   - [ ] PR template with checklist "tests added for every new function", "docs updated".
 - [ ] **0.8 Update docs** – ARCHITECTURE.md module list and README "Building" section match the actual build.
@@ -92,7 +92,7 @@ _Depends on: Phase 0._
 - [ ] **1.2 `:core:model` (JVM)**
   - [ ] `MediaId` (value class over MediaStore `_ID`), `MediaItem` (id, contentUri, displayName, relativePath, bucketId, bucketName, mimeType, sizeBytes, width, height, orientation, dateTakenMillis, dateModifiedSeconds, generationModified?, latitude?, longitude?, takenLocalDate).
   - [ ] `Folder` (bucketId, name, relativePath, itemCount, coverItem).
-  - [ ] `SupportedMimeTypes` (`image/jpeg`, `image/png`, `image/webp`, `image/heic`, `image/heif`, `image/gif`) with `isSupported(mime)`. Test: each supported/unsupported type.
+  - [ ] `SupportedMimeTypes` (`image/jpeg`, `image/png`, `image/webp`, `image/heic`, `image/heif`, `image/gif`) with `isSupported(mime)` and `isEditable(mime)` (JPEG, PNG only; D29). Tests: each supported/unsupported type, each editable/non-editable type.
   - [ ] `FolderRule` (path, `Include`/`Exclude`) and `FolderRules.matches(relativePath)`; default excludes (`WhatsApp/Media/.Statuses`, `Android/data`). Tests: include match, exclude wins over include, prefix vs. sibling (`DCIM/Cam` vs `DCIM/Camera`), empty include list = all.
   - [ ] `MediaAccess` enum (`Full`, `Partial`, `Denied`), `ScannedImage`, `RawExif`, `PlatformConfirmation` (opaque handle).
 - [ ] **1.3 `:core:data` (JVM) – ports and indexing logic**
@@ -292,23 +292,24 @@ _Depends on: Phase 3 (viewer entry point, write/delete request helpers)._
   - [ ] `GeometryMapper`: maps pen/crop coordinates through prior rotate/crop/scale so ops compose. Tests per op order.
 - [ ] **7.2 Rendering**
   - [ ] `EditGeometry.steps(ops, sourceSize): RenderPlan` in `:core:data` (output size, 3×3 matrices, crop rects, stroke paths in pixels, orientation bake-in). JVM tests: one per op type + combinations.
-  - [ ] `MemoryBudget.maxPixels(maxMemory)` and the downscale decision for huge images (O17) in `:core:data`. JVM tests: fits, too large → scaled size.
+  - [ ] `MemoryBudget.check(sourceSize, outputSize, availableBytes): Fits | Refused(requiredBytes, availableBytes)` in `:core:data` (D30). JVM tests: fits, exactly at the limit, too large → refused with both numbers.
+  - [ ] `MemoryInfoSource` port; `ActivityManagerMemoryInfo` in `:core:platform` (`ActivityManager.MemoryInfo.availMem` minus safety margin). Test (Robolectric): value from shadowed `MemoryInfo`, margin subtracted.
   - [ ] `sampleSizeFor(source, maxSide)` in `:core:data`. JVM tests.
   - [ ] `ImageRenderer` port; `BitmapImageRenderer` adapter in `:core:media` (`ImageDecoder` decode, apply `RenderPlan` via `Matrix`/`Canvas`/`Path`, return `PreviewImage` handle). Tests (Robolectric, native graphics): applies a matrix, a crop and a stroke on a small bitmap.
-  - [ ] `ImageEncoder.encode(bitmap, mime, quality)` (JPEG/PNG/WebP; HEIC saved as JPEG; GIF is not editable – see O11 in DESIGN_DECISIONS.md). Tests per mime (Robolectric); HEIC source decode → JPEG output as an instrumented test.
+  - [ ] Encoding in `BitmapImageRenderer`: JPEG (quality 95) and PNG, keeping the source format (D29). Tests per format (Robolectric).
   - [ ] `ExifPolicy.forOutput(sourceTags, newWidth, newHeight)` in `:core:data` (which tags to copy, orientation normal, new dimensions; JVM tests) and `ExifWriter` in `:core:media` applying it (Robolectric fixture test).
 - [ ] **7.3 Saving (`:core:data` + `:core:media`)**
   - [ ] `CopyNamer.nameFor(displayName, existingNames)` in `:core:data` (e.g. `IMG_1234_edited.jpg`, numbered on collision). JVM tests.
   - [ ] `MediaWriteSink` port; `MediaStoreWriter` adapter: `insertPending(displayName, relativePath, mime)`, `requestOverwrite(contentUri): PlatformConfirmation` (`createWriteRequest`), `publish()`, `cleanupPending()`. Tests (Robolectric): insert sets `IS_PENDING`, publish clears it; overwrite request built for the URI.
   - [ ] `EditRepository.save(sourceId, ops, mode = NewCopy|Overwrite): SaveOutcome` → triggers incremental index. Tests per mode/outcome.
 - [ ] **7.4 `:feature:editor`**
-  - [ ] `EditorRoute(mediaId)`; `EditorViewModel` → `EditorUiState(previewBitmap, activeTool, history, cropRect, penColor, penWidth, saving)`; events per tool, `Undo`, `Redo`, `Save(mode)`, `Discard`. Tests per event; preview re-render runs on `Default` dispatcher.
+  - [ ] `EditorRoute(mediaId)`; `EditorViewModel` → `EditorUiState(previewBitmap, activeTool, history, cropRect, penColor, penWidth, saving)`; events per tool, `Undo`, `Redo`, `Save(mode)`, `Discard`. A refused scale or save (`InsufficientMemory`) leaves the image unchanged and shows a message with the required and available memory (D30). Tests per event, including both refusal cases; preview re-render runs on `Default` dispatcher.
   - [ ] `EditorScreen` with tool bar; `RotateTool`, `CropOverlay` (handles + aspect chips), `ScaleDialog` (percent / width / height), `PenCanvas` (pointer input, color & width pickers). Compose UI tests per tool.
   - [ ] Unsaved-changes dialog on back; save mode dialog (new copy default, overwrite). Compose tests.
-  - [ ] Viewer "Edit" button → `EditorRoute` in `:app`; after save, viewer navigates to the new copy. Test.
+  - [ ] Viewer "Edit" button shown only for editable formats (JPEG, PNG; D29) → `EditorRoute` in `:app`; after save, viewer navigates to the new copy. Test.
 - [ ] **7.5 Update docs** – ARCHITECTURE.md (edit pipeline) and README match code.
 
-**Definition of done:** all four tools work with undo/redo; saved copies appear in the gallery with correct orientation, dimensions and preserved EXIF; overwrite goes through system confirmation; no OOM on 50 MP images; tests for every function; CI green.
+**Definition of done:** all four tools work with undo/redo; saved copies appear in the gallery with correct orientation, dimensions and preserved EXIF; overwrite goes through system confirmation; scales and saves that exceed available memory are refused with an explanatory message (D30), never an OOM; Edit is offered only for JPEG and PNG; tests for every function; CI green.
 
 ---
 
@@ -387,7 +388,7 @@ _Depends on: Phases 4 (settings), 8 (WebDAV client, account)._
 
 ## Phase 10 – Hardening & release
 
-**Goal:** fast, accessible, localized, reproducible release build suitable for F-Droid.
+**Goal:** fast, accessible, localized release build for local installation. F-Droid distribution is deferred (D28).
 _Depends on: Phases 1–9._
 
 - [ ] **10.0 Apply design** – replace the placeholder theme tokens with the Claude Design delivery (can happen earlier, whenever the design arrives); adjust screens only where the design changes layout.
@@ -406,14 +407,15 @@ _Depends on: Phases 1–9._
   - [ ] Initial translation (e.g. German); per-app language support (`locales_config.xml`).
 - [ ] **10.4 Release build**
   - [ ] R8 full mode, `isMinifyEnabled`/`isShrinkResources`; keep rules for kotlinx.serialization routes, Tink, osmdroid, Room. Run instrumented smoke tests on `release`-like `benchmark` build type.
-  - [ ] F-Droid-friendly build: no proprietary deps (verify dependency tree has no GMS/Firebase), reproducible build settings (no build timestamps, `dependenciesInfo { includeInApk = false }`), Fastlane metadata in `fastlane/metadata/android/`.
-  - [ ] Release signing via `keystore.properties` / CI secrets (never committed); `signingConfigs.release`.
+  - [ ] Verify the dependency tree has no proprietary dependencies (GMS/Firebase) and only GPL-3.0-compatible licenses.
+  - [ ] _Deferred until distribution (D28):_ reproducible build settings (no build timestamps, `dependenciesInfo { includeInApk = false }`), Fastlane metadata in `fastlane/metadata/android/`, F-Droid submission.
+  - [ ] Release signing with a local keystore via `keystore.properties` (never committed); `signingConfigs.release`.
   - [ ] Versioning scheme (`versionCode` from tag), CHANGELOG.
-  - [ ] GitHub Actions `release.yml`: on tag, build signed APK/AAB, attach to GitHub release.
+  - [ ] _Deferred until distribution (D28):_ GitHub Actions `release.yml` building signed artifacts on tag.
 - [ ] **10.5 Final checks**
   - [ ] Full manual pass on the reference Pixel 10a (Android 17); instrumented suite green on a local API 37 emulator and on the Pixel 10a.
   - [ ] Third-party license screen (`:feature:settings` About) generated from dependencies.
   - [ ] Privacy: confirm no analytics/tracking, network only to user's Nextcloud and OSM tiles.
-- [ ] **10.6 Update docs** – README (status, building, license, F-Droid), ARCHITECTURE.md final state, DESIGN_DECISIONS.md resolved questions.
+- [ ] **10.6 Update docs** – README (status, building, installing the release build), ARCHITECTURE.md final state, DESIGN_DECISIONS.md resolved questions.
 
-**Definition of done:** signed, minified release build passes benchmarks and accessibility checks, contains no proprietary dependencies, builds reproducibly, and is ready for F-Droid submission.
+**Definition of done:** signed, minified release build passes benchmarks and accessibility checks, contains no proprietary dependencies and installs on the Pixel 10a.

@@ -39,6 +39,8 @@ A simple, fast Android gallery app with basic editing, multiple ways to browse y
 - **Crop** – free-form and fixed aspect ratios (1:1, 4:3, 16:9, original).
 - **Scale** – resize by percentage or to a target width/height, keeping aspect ratio.
 - **Pen** – freehand drawing with selectable colour and stroke width, with undo/redo.
+- Editing is available for JPEG and PNG images; edits are saved in the same format.
+- Images too large to edit within the available memory are refused with an explanation instead of risking a crash or silently lowering quality.
 - Edits are saved as a **new copy** by default, with an option to overwrite the original. EXIF data is preserved where possible.
 
 ### File actions
@@ -106,4 +108,4 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 ## License
 
-TBD
+GNU General Public License v3.0 (see [DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md), D27).

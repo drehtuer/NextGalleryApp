@@ -31,7 +31,8 @@ The goals are in the [README](../README.md#goals). The ones that shape the archi
 | No tracking, no Google Play Services | Only AndroidX, Kotlin, OkHttp, Coil, Telephoto, osmdroid, Tink. No Firebase, no Play Services location/maps, no analytics. |
 | Min/target SDK 37 (Android 17) only, reference device Pixel 10a | No API-level branches or legacy code paths; `GENERATION_MODIFIED`, trash/write requests and partial media access are always available. Performance targets (section 12) are measured on the Pixel 10a. |
 | Visual design delivered later (Claude Design) | All visual values live in `NextGalleryTheme` in `:core:ui`; features use theme tokens only, so the design can be applied in one module. |
-| v1 scope: images only | JPEG, PNG, WebP, HEIC/HEIF, GIF (static first frame). Video is excluded at query time (`MediaStore.Images` only). |
+| v1 scope: images only | JPEG, PNG, WebP, HEIC/HEIF, GIF (static first frame) can be viewed; only JPEG and PNG can be edited (D29). Video is excluded at query time (`MediaStore.Images` only). |
+| GPL v3, no public distribution yet (D27, D28) | Only GPL-3.0-compatible, non-proprietary dependencies, so an F-Droid release stays possible later. |
 | Single Nextcloud account in v1 | Credential store and settings hold one account; the schema does not key data by account. |
 
 ## 2. Layered overview
@@ -178,7 +179,7 @@ graph TD
 
 ### 3.3 Module responsibilities
 
-Package root: `de.drehtuer.nextgallery` (placeholder; final name tracked in DESIGN_DECISIONS.md). Class names below are the intended public surface; internals may grow.
+Package root and application ID: `net.drehtuer.nextgallery` (D26). Class names below are the intended public surface; internals may grow.
 
 #### `:app`
 
@@ -211,7 +212,7 @@ Package root: `de.drehtuer.nextgallery` (placeholder; final name tracked in DESI
 
 #### `:core:common` (pure Kotlin)
 
-- `AppResult<T>` – `Success(value)` / `Failure(error: AppError)`; `AppError` sealed (`Io`, `NotFound`, `Network`, `Auth`, `Server(code)`, `Cancelled`, `Unknown(cause)`).
+- `AppResult<T>` – `Success(value)` / `Failure(error: AppError)`; `AppError` sealed (`Io`, `NotFound`, `Network`, `Auth`, `Server(code)`, `InsufficientMemory(requiredBytes, availableBytes)`, `Cancelled`, `Unknown(cause)`).
 - `DispatcherProvider` interface (`io`, `default`, `main`) + `@Dispatcher(IO|DEFAULT)` qualifier; Hilt bindings live in `:core:platform`.
 - `Clock` abstraction (testable time), `TimeZoneProvider`.
 - Utilities: `RelativePaths` (normalize, `isUnder`, join), `debounceLatest`, `runCatchingCancellable` (never swallows `CancellationException`), byte/size formatting helpers.
@@ -236,6 +237,7 @@ Ports (implemented by adapters):
 | `FolderRuleStore`, `UploadStateStore`, `UploadQueueStore`, `RemoteCacheStore`, `SyncStateStore` | `:core:database` | Room tables behind model-typed interfaces. |
 | `WorkScheduler` | `:core:platform` | `enqueueIndex(mode)`, `enqueueUpload()`, `scheduleUploadStateSync()`. |
 | `SecretCipher` | `:core:platform` | `encrypt(bytes)` / `decrypt(bytes)` backed by Tink + Android Keystore. |
+| `MemoryInfoSource` | `:core:platform` | `availableBytes()` from `ActivityManager.MemoryInfo`, minus a safety margin. |
 
 Repositories (interfaces + `Default…` implementations with `@Inject` constructors):
 
@@ -262,7 +264,7 @@ Pure logic (each class unit-tested on the JVM):
 - `MediaAccessResolver` – granted permissions → `MediaAccess`.
 - `FolderMapping` – local relative path → `<remoteRoot>/<relative path>`.
 - `UploadStateMatcher`, `ChecksumCalculator` (streams SHA-1 / MD5 of an `InputStream`), `ChecksumParser`.
-- `EditSession` / `EditHistory`, `CropMath`, `ScaleMath`, `EditGeometry` (operations → output size and `RenderStep`s).
+- `EditSession` / `EditHistory`, `CropMath`, `ScaleMath`, `EditGeometry` (operations → output size and `RenderStep`s), `MemoryBudget` (fits / refuse with required vs available bytes), `EditableFormats` (JPEG, PNG).
 - `GridClusterer`, `SectionIndexBuilder`, `ScrollbarMath`.
 
 #### `:core:nextcloud` (pure Kotlin/JVM)
@@ -301,7 +303,7 @@ Pure logic (each class unit-tested on the JVM):
 | `ContentResolverContentSource` | `MediaContentSource` | Opens content URIs. |
 | `MediaStoreWriter` | `MediaWriteSink` | Inserts a pending copy (`IS_PENDING`), overwrites via `createWriteRequest`, copies EXIF (`ExifWriter`). |
 | `MediaStoreDeleter` | `MediaDeleteSource` | `createTrashRequest` / `createDeleteRequest` wrapped in `PlatformConfirmation`. |
-| `BitmapImageRenderer` | `ImageRenderer` | `ImageDecoder` decode, applies `RenderStep`s with `Matrix`/`Canvas`/`Path`, encodes JPEG/PNG/WebP. |
+| `BitmapImageRenderer` | `ImageRenderer` | `ImageDecoder` decode, applies `RenderStep`s with `Matrix`/`Canvas`/`Path`, encodes JPEG/PNG. |
 | `AndroidMediaPermissionSource` | `MediaPermissionSource` | `checkSelfPermission` for the media permissions. |
 
 #### `:core:platform` (Android adapter and wiring)
@@ -309,6 +311,7 @@ Pure logic (each class unit-tested on the JVM):
 - Workers (`@HiltWorker`, thin): `IndexWorker` → `IndexRepository.sync()`, `UploadWorker` → `UploadProcessor` (+ foreground notification), `UploadStateSyncWorker` → `UploadStateRepository.refreshAll()`. Each maps `AppResult` to `Result.success/retry/failure`.
 - `WorkManagerScheduler` implements `WorkScheduler` (unique work names, constraints, backoff).
 - `KeystoreSecretCipher` implements `SecretCipher` (Tink AEAD, keyset wrapped by an Android Keystore master key).
+- `ActivityManagerMemoryInfo` implements `MemoryInfoSource`.
 - Hilt modules: `DispatchersModule`, `DataStoreModule` (file locations), `RepositoryModule` (binds `:core:data` interfaces to `Default…` implementations), `NextcloudModule`, `ApplicationScopeModule`.
 
 #### `:core:ui`
@@ -601,7 +604,7 @@ sequenceDiagram
         UI->>VM: WriteGranted
         R->>MW: open original for write
     end
-    R->>Ren: encode JPEG q95, or PNG or WebP to keep format
+    R->>Ren: encode JPEG q95 or PNG, keeping the source format
     R->>MW: write, copy EXIF with Orientation normal and new dimensions
     R->>MW: publish, clears IS_PENDING
     R-->>VM: AppResult Success new mediaId
@@ -612,8 +615,8 @@ sequenceDiagram
 - `EditGeometry` (pure, `:core:data`) turns operations into `RenderStep`s (3×3 matrices, crop rects, stroke paths in pixels) for a given source size; normalized coordinates make preview and full-resolution rendering identical in output geometry. The `BitmapImageRenderer` adapter only applies the steps with `Matrix`, `Canvas` and `Path`.
 - Rendered images cross the port as an opaque `PreviewImage(handle, width, height)`; `:core:ui` draws it, so `EditorViewModel` never touches `Bitmap`.
 - Original EXIF orientation is applied first (bake-in), which is why the output orientation is reset to normal.
-- Full-resolution rendering guards memory: decode with `ImageDecoder`; if `width * height * 4` bytes exceeds a budget (e.g. 1/4 of `Runtime.maxMemory()`), the editor warns and saves at the largest size that fits. The exact policy is open question O17 in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
-- HEIC output is written as JPEG; GIF is not editable in v1 (O11).
+- Memory guard (D30): `MemoryBudget` (pure, `:core:data`) estimates the bytes a step needs (source + output bitmap, 4 bytes per pixel) and compares them with `MemoryInfoSource.availableBytes()` (`:core:platform`, from `ActivityManager.MemoryInfo` minus a safety margin; bitmap pixels live in native memory, so the Java heap limit is not the right measure). It is checked when a `Scale` is applied and before the full-resolution render on save. If the estimate does not fit, the operation is refused with `AppError.InsufficientMemory(requiredBytes, availableBytes)` and the editor shows why. Nothing is ever saved at a reduced size without the user asking for it.
+- Only JPEG and PNG sources can be edited, and the output keeps the source format (D29). The viewer hides the Edit action for other formats.
 
 ### 5.5 Delete with trash
 
@@ -935,7 +938,8 @@ Rules:
   - **Network** (`IOException`, timeouts): remote browser shows cached data with an offline banner; workers return `Result.retry()`.
   - **Auth** (401): account marked as "needs re-login"; workers stop with failure; a persistent banner links to login.
   - **Server** (5xx, 507 insufficient storage): queue entry `FAILED` with reason; retry for 5xx, no retry for 507.
-  - **Decode/encode** (corrupt file, OOM risk): thumbnail shows an error placeholder; editor refuses to save with a message.
+  - **Decode/encode** (corrupt file): thumbnail shows an error placeholder; editor refuses to save with a message.
+  - **Insufficient memory** (`AppError.InsufficientMemory`): the editor refuses the scale or save and tells the user how much memory the image needs and how much is available (D30).
 - Crashes: no crash reporting service (no tracking). Uncaught exceptions use the default handler; an opt-in local log export may be added later.
 - Logging: a thin `Logger` interface in `:core:common`, backed by `android.util.Log` in debug and stripped below `WARN` in release via R8 rules. Never log URLs with credentials, app passwords, or file names in release.
 
@@ -998,7 +1002,7 @@ Robolectric's shadows do not reproduce some platform behaviour. These parts are 
 | `ContentResolver.loadThumbnail` (Coil fetcher) | Not backed by the system thumbnail cache. | Thumbnail returned at the requested size bucket. |
 | EXIF GPS with `setRequireOriginal` | Location redaction depends on the real permission and provider. | GPS read with `ACCESS_MEDIA_LOCATION` granted, null without. |
 | Android Keystore (`KeystoreSecretCipher`) | Robolectric has no `AndroidKeyStore` provider. | Encrypt/decrypt round trip with a Keystore-wrapped keyset. |
-| HEIC decoding (`BitmapImageRenderer`) | Native graphics in Robolectric may not include the platform HEIF codec. | Decode a HEIC fixture; save an edit of it as JPEG. |
+| HEIC display (viewer, thumbnails) | Native graphics in Robolectric may not include the platform HEIF codec. | A HEIC fixture decodes and displays. |
 | Trash, delete and write requests | The system confirmation dialogs only exist on a device. | Intent sender launches; confirmation itself is a manual check. |
 | osmdroid map | `MapView` rendering and tile loading need a real view hierarchy and network. | Map screen shows clusters for geotagged fixtures (emulator: needs network). |
 
