@@ -1,9 +1,15 @@
 name: CI
 
+# Runs on every branch push (direct pushes and merges into main) and on pull requests.
 on:
   push:
-    branches: [main]
+    branches: ["**"]
   pull_request:
+
+# A newer push to the same branch or PR cancels the run that is still in progress.
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read

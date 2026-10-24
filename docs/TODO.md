@@ -65,7 +65,7 @@ are described in [ARCHITECTURE.md](ARCHITECTURE.md); rationale and open question
   - [x] Android Lint config `lint.xml`, `warningsAsErrors` for new code; `abortOnError = true`. _`config/lint/lint.xml`, `warningsAsErrors` for all code._
 - [x] **0.5a Platform behaviour review** – go through the Android 15–17 behaviour changes for apps targeting SDK 37 (edge-to-edge, predictive back, package visibility for the Nextcloud app hand-off, media permission changes) and record anything that changes the plan in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md). _Recorded as D39 (local network permission) and D40; follow-up tasks added to Phases 7, 8 and 10._
 - [x] **0.6 CI** `.github/workflows/ci.yml`
-  - [x] Trigger on push and pull_request; JDK 21 (Temurin); `gradle/actions/setup-gradle` for caching. _Builds inside the devcontainer image via `devcontainers/ci` (D38), so no separate JDK or Gradle cache setup; triggers on push to `main` and on pull requests._
+  - [x] Trigger on push and pull_request; JDK 21 (Temurin); `gradle/actions/setup-gradle` for caching. _Builds inside the devcontainer image via `devcontainers/ci` (D38), so no separate JDK or Gradle cache setup; triggers on every branch push (incl. merges into `main`) and on pull requests; a newer push cancels the running job for the same branch/PR._
   - [x] Jobs/steps: `ktlintCheck`, `detekt`, `lint`, `test` (JVM modules + Android local unit tests incl. Robolectric), `assembleDebug`. No emulator job; instrumented tests run locally. _Also compiles the instrumented tests (`assembleDebugAndroidTest`) and runs the build-logic tests._
   - [x] Upload test and lint reports as artifacts on failure.
   - [x] Gradle wrapper validation action.
