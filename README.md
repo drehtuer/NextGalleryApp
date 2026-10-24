@@ -2,7 +2,7 @@
 
 A simple, fast Android gallery app with basic editing, multiple ways to browse your photos, and built-in Nextcloud integration.
 
-> Status: planning. Nothing is implemented yet; this README describes the intended scope.
+> Status: early development. The build setup exists (Phase 0 of [TODO.md](docs/TODO.md)); app features are not implemented yet. This README describes the intended scope.
 
 ## Documentation
 
@@ -105,13 +105,29 @@ NextGalleryApp does not duplicate what the official Nextcloud Android app alread
 
 ## Building
 
-Requirements: JDK 21+, Android SDK (via Android Studio or command-line tools).
+The build runs in a devcontainer ([.devcontainer/](.devcontainer/)) with JDK 21 and the Android SDK (API 37). CI uses the same image.
+
+With the [Dev Containers CLI](https://github.com/devcontainers/cli) (or "Reopen in Container" in VS Code):
 
 ```bash
-./gradlew assembleDebug
+devcontainer up --workspace-folder .
+devcontainer exec --workspace-folder . ./gradlew assembleDebug
+```
+
+Install on a connected device from the host (the container has no USB access):
+
+```bash
 adb install app/build/outputs/apk/debug/app-debug.apk
 ```
 
+Before opening a pull request, run the checks CI runs:
+
+```bash
+./gradlew ktlintFormat detekt lint test :build-logic:convention:test
+```
+
+Instrumented tests do not run in CI. Run them on the host against an API 37 emulator or the Pixel 10a with `./gradlew connectedDebugAndroidTest` (this needs a local Android SDK).
+
 ## License
 
-GNU General Public License v3.0 (see [DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md), D27).
+GNU General Public License v3.0 – see [LICENSE](LICENSE) and [DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md) (D27).

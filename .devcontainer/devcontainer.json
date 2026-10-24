@@ -1,0 +1,14 @@
+{
+  "name": "NextGalleryApp",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "remoteUser": "ubuntu",
+  "updateRemoteUserUID": true,
+  "mounts": [
+    "source=nextgallery-gradle-cache,target=/home/ubuntu/.gradle,type=volume"
+  ],
+  "containerEnv": {
+    "GRADLE_USER_HOME": "/home/ubuntu/.gradle"
+  }
+}

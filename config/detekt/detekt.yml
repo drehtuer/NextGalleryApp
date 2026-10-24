@@ -1,0 +1,5 @@
+# Builds upon detekt's default configuration (buildUponDefaultConfig = true); only deviations go here.
+naming:
+  FunctionNaming:
+    ignoreAnnotated:
+      - Composable

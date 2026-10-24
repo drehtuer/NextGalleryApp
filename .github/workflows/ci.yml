@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  wrapper-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: gradle/actions/wrapper-validation@v6
+
+  build:
+    needs: wrapper-validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Builds inside the same devcontainer image as local development (.devcontainer/).
+      # Instrumented tests are not run here; they run locally on an emulator or the Pixel 10a.
+      - name: Check and build in devcontainer
+        uses: devcontainers/ci@v0.3
+        with:
+          push: never
+          runCmd: >-
+            ./gradlew --continue
+            ktlintCheck detekt lint test :build-logic:convention:test assembleDebug assembleDebugAndroidTest
+
+      - name: Upload reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: reports
+          path: |
+            **/build/reports/
+            **/build/test-results/
