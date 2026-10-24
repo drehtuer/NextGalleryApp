@@ -63,7 +63,7 @@ are described in [ARCHITECTURE.md](ARCHITECTURE.md); rationale and open question
   - [ ] `.editorconfig` with ktlint rules (`ktlint_code_style = android_studio`, Compose function naming allowed).
   - [ ] `config/detekt/detekt.yml` (baseline from defaults, Compose rule set if used), `detekt-baseline.xml` empty.
   - [ ] Android Lint config `lint.xml`, `warningsAsErrors` for new code; `abortOnError = true`.
-- [ ] **0.5a Platform behaviour review** – go through the Android 15–17 behaviour changes for apps targeting SDK 37 (edge-to-edge, predictive back, foreground-service limits for `dataSync` uploads, media permission changes) and record anything that changes the plan in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
+- [ ] **0.5a Platform behaviour review** – go through the Android 15–17 behaviour changes for apps targeting SDK 37 (edge-to-edge, predictive back, package visibility for the Nextcloud app hand-off, media permission changes) and record anything that changes the plan in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
 - [ ] **0.6 CI** `.github/workflows/ci.yml`
   - [ ] Trigger on push and pull_request; JDK 21 (Temurin); `gradle/actions/setup-gradle` for caching.
   - [ ] Jobs/steps: `ktlintCheck`, `detekt`, `lint`, `test` (JVM modules + Android local unit tests incl. Robolectric), `assembleDebug`. No emulator job; instrumented tests run locally.
@@ -159,15 +159,15 @@ _Depends on: Phase 1._
 - [ ] **2.3 Thumbnails (`:core:ui` + `:app`)**
   - [ ] `ImageLoaderModule` providing a singleton Coil 3 `ImageLoader` (memory cache %, disk cache dir/size, `crossfade` off for grids). Test: config values.
   - [ ] `MediaThumbnailKeyer`/fetcher using `ContentResolver.loadThumbnail(uri, size)` with fallback decode. Tests: keyer output stable per (id, dateModified, size) (JVM); `loadThumbnail` at the requested size (instrumented).
-  - [ ] `ThumbnailCell` composable (fixed aspect, placeholder, content description, selection overlay slot, badge slot for Phase 9). Compose UI test: placeholder, selected state.
+  - [ ] `ThumbnailCell` composable (fixed aspect, placeholder, content description, selection overlay slot, badge slot for Phase 9, greyed-out state). Compose UI test: placeholder, selected state, greyed-out state.
 - [ ] **2.4 Shared grid components (`:core:ui`)**
   - [ ] `MediaGrid` (`LazyVerticalGrid`, adaptive columns, stable keys, `LazyPagingItems`). Compose test: renders N items, keys stable.
   - [ ] `ScrollbarMath.indexForFraction()` / `fractionForIndex()` in `:core:data` (JVM tests), and the `FastScrollbar` composable (draggable thumb, optional `label: (index) -> String?` bubble). Compose test: drag scrolls grid.
-  - [ ] `SelectionState` in `:core:data` (set of `MediaId`, toggle, range, clear; JVM tests) and `SelectionTopBar` in `:core:ui` (count, actions slot). Unit tests per function; Compose test: long-press enters selection.
+  - [ ] `SelectionRepository` in `:core:data` – app-wide in-memory selection (D33): `observe()`, toggle, range, select all, clear (JVM tests per function); `SelectionTopBar` in `:core:ui` (total count, actions slot). Unit tests per function; Compose test: long-press enters selection.
 - [ ] **2.5 `:feature:folders`**
   - [ ] `FolderListViewModel` → `StateFlow<FolderListUiState>` (Loading/Empty/Content). Tests with Turbine: each state.
   - [ ] `FolderListScreen` (grid of folder covers with name/count). Compose UI test: click emits `onFolderClick(bucketId)`.
-  - [ ] `FolderGridViewModel` (route passed via Hilt assisted injection, see ARCHITECTURE.md §7), exposes `PagingData` + selection. JVM tests: selection events, paging flow wired to the route's bucket.
+  - [ ] `FolderGridViewModel` (route passed via Hilt assisted injection, see ARCHITECTURE.md §7), exposes `PagingData` + app-wide selection state. JVM tests: selection events go to `SelectionRepository`, paging flow wired to the route's bucket.
   - [ ] `FolderGridScreen` (MediaGrid + FastScrollbar + SelectionTopBar). Compose UI test: item click → `onOpenViewer(mediaId, source)`.
   - [ ] Navigation entry points `folderListScreen()` / `folderGridScreen()` as `NavGraphBuilder` extensions; wired in `:app`.
 - [ ] **2.6 Performance check** – Macrobenchmark smoke (or manual profiling) scrolling 10k items; no dropped-frame regressions noted in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) if any trade-offs made.
@@ -199,7 +199,8 @@ _Depends on: Phase 2 (grid, selection)._
   - [ ] `ImageInfoSheet` (ModalBottomSheet with `ImageDetails`). Compose test: fields rendered, missing values hidden.
   - [ ] Handle item disappearing (deleted externally) → move to neighbour or close. Test in ViewModel.
 - [ ] **3.5 Multi-select actions in grids**
-  - [ ] Add delete/share actions to `SelectionTopBar` in `FolderGridScreen`; `FolderGridViewModel` uses `MediaActionsRepository` / `ShareIntentFactory`. Tests: events → outcomes.
+  - [ ] Add delete/share actions to `SelectionTopBar` in `FolderGridScreen`; `FolderGridViewModel` uses `MediaActionsRepository` / `ShareIntentFactory`. Actions apply to the whole app-wide selection. Tests: events → outcomes.
+  - [ ] Selection overview (D33): `SelectionRepresentability.canShow(item, context)` in `:core:data` (Folder: same bucket; Timeline: always; Map: has GPS – added in Phase 6). JVM tests per context. `SelectionRepository.overview(context)` → items with a `greyedOut` flag. JVM test. `SelectionOverviewRoute(context)` screen (grid, greyed-out items, same actions). ViewModel tests; Compose test: greyed-out item rendered.
 - [ ] **3.6 `:app`** – route `ViewerRoute` from folder grid; handle `ACTION_VIEW` intent for `image/*` content URIs (open viewer for a single external item). Test: intent parsing.
 - [ ] **3.7 Update docs** – ARCHITECTURE.md (viewer, delete flow) and README match code.
 
@@ -213,9 +214,9 @@ _Depends on: Phase 2 (grid, selection)._
 _Depends on: Phase 1 (FolderRules, IndexScheduler)._
 
 - [ ] **4.1 Settings storage (`:core:data`)**
-  - [ ] `UserSettings` model in `:core:model` (folderRules, gridColumns, theme mode, defaultView). 
+  - [ ] `UserSettings` model in `:core:model` (folderRules, gridColumns, theme mode, accent colour, defaultView).
   - [ ] Proto or Preferences DataStore `SettingsDataSource` (`settings.preferences_pb`), serializer for rules. Tests: read defaults, write/read each field, corrupt-file handler.
-  - [ ] `SettingsRepository`: `observeSettings()`, `addRule()`, `removeRule()`, `setGridColumns()`, `setThemeMode()`. Tests per function.
+  - [ ] `SettingsRepository`: `observeSettings()`, `addRule()`, `removeRule()`, `setGridColumns()`, `setThemeMode()`, `setAccentColor()`. Tests per function.
 - [ ] **4.2 Rule application**
   - [ ] `MediaIndexer` reads rules from `SettingsRepository` (replace Phase 1 defaults). Test: rules respected.
   - [ ] `RuleChangeObserver`: rules change → enqueue full scan (rule change can add items). Test: change → enqueue once.
@@ -223,7 +224,7 @@ _Depends on: Phase 1 (FolderRules, IndexScheduler)._
 - [ ] **4.3 `:feature:settings`**
   - [ ] `SettingsViewModel` / `SettingsScreen` (root list: Folders, Appearance, Nextcloud placeholder, About/licenses). Tests: state mapping, navigation callbacks.
   - [ ] `FolderRulesViewModel` / `FolderRulesScreen`: list of device folders with Include/Exclude/Default toggles, add custom exclude pattern, show `.nomedia` folders as excluded (read-only). Tests: each toggle event; Compose test: toggling updates UI.
-  - [ ] Appearance: theme mode, grid columns. Tests.
+  - [ ] Appearance: theme mode, grid columns, accent colour (choice from the accents the design defines; placeholder set until then; D34). Tests.
   - [ ] Wire `NextGalleryTheme` and grids to settings. Test: `MainViewModel` emits theme.
 - [ ] **4.4 Update docs** – ARCHITECTURE.md (settings storage) and README match code.
 
@@ -244,7 +245,7 @@ _Depends on: Phases 2 (grid), 3 (viewer)._
   - [ ] `TimelineIndex` built from day counts: `labelForPosition(index): "MMMM yyyy"`, `positionForMonth(yearMonth)`. Tests per function.
   - [ ] Grouping granularity enum (`Day`, `Month`, `Year`) for pinch-to-change density (optional, behind setting). Tests.
 - [ ] **5.3 `:feature:timeline`**
-  - [ ] `TimelineViewModel` → `TimelineUiState` (paging flow, granularity, selection). Tests per event.
+  - [ ] `TimelineViewModel` → `TimelineUiState` (paging flow, granularity, app-wide selection count). Tests per event.
   - [ ] `TimelineScreen`: `LazyVerticalGrid` with full-span `stickyHeader`-style headers (Compose `LazyGrid` header items + overlay sticky header), `FastScrollbar` with month/year label, multi-select delete/share. Compose UI tests: headers shown, scrollbar label text.
   - [ ] Open viewer with `MediaSource.Timeline`. Test.
 - [ ] **5.4 Update docs** – ARCHITECTURE.md (timeline date resolution, separators) and README match code.
@@ -272,6 +273,7 @@ _Depends on: Phases 1 (GPS in index, ACCESS_MEDIA_LOCATION), 3 (viewer)._
   - [ ] Cluster marker drawable with thumbnail + count (Coil-loaded bitmap). Test: count text formatting.
   - [ ] `MapViewModel` → `MapUiState(clusters, viewport, permissionNeeded)`; events `ViewportChanged`, `ClusterClicked`. Tests per event.
   - [ ] `MapScreen`: map, permission prompt for `ACCESS_MEDIA_LOCATION`, empty state "no geotagged images". Compose UI test: states.
+  - [ ] Map rule in `SelectionRepresentability` (item has GPS) and selection overview entry from the map. JVM test: item without GPS greyed out for `ViewContext.Map`.
   - [ ] Cluster tap → bottom-sheet grid of cluster items or viewer with `MediaSource.Map(ids/bounds)`. Test.
 - [ ] **6.4 Update docs** – ARCHITECTURE.md (MapRenderer abstraction, clustering) and README match code.
 
@@ -332,63 +334,65 @@ _Depends on: Phases 3 (viewer), 4 (settings)._
   - [ ] `ServerUrlNormalizer` (add https, strip `/index.php`, trailing slash). Tests per case.
   - [ ] `PropfindRequestBuilder` (depth 1, props: resourcetype, getcontentlength, getcontenttype, getetag, getlastmodified, oc:fileid, oc:checksums). Test: XML body.
   - [ ] `MultistatusParser` (XmlPullParser) → `List<RemoteItem>`. Tests with fixture XML: files, folders, missing props, URL-encoded names.
-  - [ ] `WebDavClient`: `list(path)`, `download(path, sink)`, `upload(path, source, size)` (PUT, `X-OC-Mtime`), `mkcol(path)`. Tests (MockWebServer) per method incl. 401/404/507.
+  - [ ] `WebDavClient` (read-only, D31): `list(path)`, `download(path, sink)`. Tests (MockWebServer) per method incl. 401/404.
+  - [ ] `PinningTrustManager` + `HostnameVerifier` (D32): platform trust first, then pinned SHA-256 per host, else `UntrustedCertificateException(chain)`. JVM tests with `okhttp-tls` `HeldCertificate`: CA-signed accepted, unknown self-signed rejected, pinned accepted, pinned but changed rejected with `changedFromPinned`, pinned with hostname mismatch accepted.
+  - [ ] `CertificateInfoMapper`. Test: fields and fingerprint of a fixture certificate.
   - [ ] `RemotePathMapper`: `davUrl(account, path)` (`/remote.php/dav/files/<userId>/…`, segment encoding), `previewUrl(fileId, size)` (`/index.php/core/preview?fileId=…&x=…&y=…&a=1`). Tests.
 - [ ] **8.4 Coil integration (`:core:ui` / `:app`)**
   - [ ] Separate authenticated Coil `ImageLoader` (or `OkHttpNetworkFetcherFactory` with auth client) qualified `@RemoteImageLoader`; disk-cache key by fileId+etag+size. Tests: keyer.
 - [ ] **8.5 Repository (`:core:data`)**
-  - [ ] `NextcloudAccountRepository`: `login(serverUrl): Flow<LoginState>` (Started(loginUrl) → Polling → Success/Failed), `logout()` (delete app password via `DELETE /ocs/v2.php/core/apppassword`, clear store). Tests per state.
+  - [ ] `NextcloudAccountRepository`: `login(serverUrl): Flow<LoginState>` (Started(loginUrl) → Polling → Success/Failed), `logout()` (revoke via `DELETE /ocs/v2.php/core/apppassword` best effort, clear store, remote cache and upload states; D35). Tests per state.
+  - [ ] Logged-out guard: every remote call returns `AppError.NotLoggedIn` without network access. Test.
+  - [ ] `TrustedCertificateRepository` + `TrustedCertificateStore` port (DataStore): `accept(info)`, `remove(host)`, `observe()`. JVM tests per function.
   - [ ] `RemoteBrowseRepository.list(path): Flow<RemoteListing>` (in-memory cache per path, filter supported image mimes + folders). Tests.
 - [ ] **8.6 `:feature:remote` and settings**
   - [ ] `NextcloudSettingsViewModel` / `NextcloudSettingsScreen` in `:feature:settings`: server URL input, "Sign in" opens Custom Tab with `loginUrl`, shows polling/progress, account info, logout, remote root folder picker (used in Phase 9). Tests per event; Compose tests per state.
-  - [ ] `RemoteBrowserViewModel` (current path, listing, breadcrumbs, `NotSignedIn` state) / `RemoteBrowserScreen` (folder list + thumbnail grid with previews, pull-to-refresh, offline/error state). Tests per event; Compose tests.
+  - [ ] `RemoteBrowserViewModel` (current path, listing, breadcrumbs, `LoginRequired` state) / `RemoteBrowserScreen` (folder list + thumbnail grid with previews, pull-to-refresh, offline/error state; login-required hint with a login button, D35). Tests per event; Compose tests.
+  - [ ] `CertificateWarningDialog` in `:core:ui` and the accept-and-retry flow in the login and remote ViewModels (D32). Tests: untrusted → dialog effect, accept → pinned and retried, cancel → error state; Compose test: details shown.
+  - [ ] `TrustedCertificatesScreen` in `:feature:settings` (list, remove). Tests.
   - [ ] `RemoteViewerViewModel` / `RemoteViewerScreen`: pager over folder's images, Telephoto zoom loading full image via authenticated loader (download to cache), info sheet from `RemoteItem`. Tests.
   - [ ] Nextcloud tab and settings entries wired in `:app`.
 - [ ] **8.7 Update docs** – ARCHITECTURE.md (Nextcloud client, credential storage), README (login, permissions: INTERNET) match code.
 
-**Definition of done:** user signs in via browser without entering password in-app; app password stored encrypted; remote folders browse with server previews; full image opens only on view; logout revokes the app password; tests for every function; CI green.
+**Definition of done:** user signs in via browser without entering password in-app; app password stored encrypted; remote folders browse with server previews; full image opens only on view; logout revokes the app password and leaves no remote access, with a login hint shown; a self-signed server can be used after accepting the warning; tests for every function; CI green.
 
 ---
 
-## Phase 9 – Upload status check and upload queue
+## Phase 9 – Upload status check and hand-off to the Nextcloud app
 
-**Goal:** show a per-thumbnail "on Nextcloud" badge and upload missing images through a durable queue.
+**Goal:** show a per-thumbnail "on Nextcloud" badge and hand images that are not uploaded yet to the Nextcloud Android app (D31).
 _Depends on: Phases 4 (settings), 8 (WebDAV client, account)._
 
 - [ ] **9.1 Model & settings**
-  - [ ] `UploadStatus` enum (`Unknown`, `Uploaded`, `NotUploaded`, `Queued`, `Uploading`, `Failed`).
-  - [ ] `FolderMapping(localRelativePath, enabled)` + `remoteRoot` in settings; `RemoteTargetResolver.remotePathFor(item, remoteRoot)` = `<remoteRoot>/<local relative path>/<displayName>`. Tests: nesting, trailing slashes, special characters.
+  - [ ] `UploadState` (`Unknown`, `NotUploaded`, `Uploaded(verifiedByChecksum)`).
+  - [ ] `remoteRoot` in settings (should match the Nextcloud app's upload folder); `RemoteTargetResolver.remotePathFor(item, remoteRoot)` = `<remoteRoot>/<local relative path>/<displayName>`. Tests: nesting, trailing slashes, special characters.
 - [ ] **9.2 Database (migration → next version)**
-  - [ ] `UploadStateEntity` (`upload_state`: media_id PK, remote_path, local_size, remote_size, remote_etag, checksum_match?, status, checked_at). Migration test.
-  - [ ] `UploadQueueEntity` (`upload_queue`: id, media_id, remote_path, state, attempts, last_error, enqueued_at). Migration test.
-  - [ ] `UploadStateDao`: `upsertAll`, `observeStatusFor(ids)`, `observeStatusByBucket(bucketId)`, `deleteForMissingMedia()`. Tests per method.
-  - [ ] `UploadQueueDao`: `enqueue`, `nextPending`, `markUploading/Done/Failed`, `observeQueue()`, `removeDone()`. Tests per method.
-- [ ] **9.3 Status check (`:core:data`)**
+  - [ ] `UploadStateEntity` (`upload_state`: media_id PK, remote_path, local_size, remote_etag, checksum_verified, state, checked_at). Migration test.
+  - [ ] `UploadStateDao`: `upsertAll`, `observeStatusFor(ids)`, `observeStatusByBucket(bucketId)`, `deleteForMissingMedia()`, `clear()`. Tests per method.
+- [ ] **9.3 Status check (`:core:data` + `:core:platform`)**
   - [ ] `ChecksumCalculator.sha1(InputStream)` / `md5(InputStream)` (streaming, JVM); content opened through the `MediaContentSource` port (`ContentResolverContentSource` adapter, Robolectric test). Tests with fixture bytes.
   - [ ] `ChecksumParser.parse("SHA1:… MD5:…")`. Tests.
-  - [ ] `UploadStateMatcher.match(localItems, remoteListing): List<UploadStateEntity>` – path+size match; if remote has `oc:checksums`, confirm via local hash. Tests: match, size mismatch, missing remote, checksum confirm/mismatch.
-  - [ ] `UploadStateRepository.refreshAll()` in `:core:data`: one PROPFIND per mapped folder → matcher → upsert. JVM tests: success, offline → retryable failure, not signed in → no-op.
-  - [ ] `UploadStateSyncWorker` in `:core:platform` (`@HiltWorker`, periodic e.g. 6 h, network constraint; also one-shot after login/mapping change via `WorkScheduler`), maps the result. Tests (Robolectric): success, retry.
-- [ ] **9.4 Upload queue (`:core:data` + `:core:platform`)**
-  - [ ] `UploadRepository.enqueue(ids)` (skip already `Uploaded`), `retry(id)`, `cancel(id)`, `observeQueue()`. Tests per function.
-  - [ ] `UploadProcessor.drain(onProgress)` in `:core:data`: `mkcol` missing parents, PUT streaming from `MediaContentSource`, update `upload_state` to `Uploaded` on 201/204, conflict renaming (O6). JVM tests (MockWebServer + fakes): success, 401 → auth failure without retry, 5xx → retryable, parent creation, name conflict.
-  - [ ] `UploadWorker` in `:core:platform` (`@HiltWorker`, unique work `upload`, `NetworkType.CONNECTED` / optional unmetered setting, exponential backoff, foreground notification with progress, `dataSync` type): calls `UploadProcessor`, maps the result. Tests (Robolectric): success, auth failure → failure, retryable → retry.
-  - [ ] Notification channel `uploads` created in `:core:platform`. Test (Robolectric).
+  - [ ] `UploadStateMatcher.match(localItems, remoteListing)` – path+size match; if remote has `oc:checksums`, confirm via local hash. Tests: match, size mismatch, missing remote, checksum confirm/mismatch.
+  - [ ] `UploadStateRepository.refreshAll()`: one PROPFIND per local folder → matcher → upsert. JVM tests: success, offline → retryable failure, logged out → no-op.
+  - [ ] `UploadStateSyncWorker` in `:core:platform` (periodic e.g. 6 h, network constraint; one-shot via `requestUploadStateSync()`), maps the result. Tests (Robolectric): success, retry.
+- [ ] **9.4 Hand-off (`:core:data` + `:core:platform`)**
+  - [ ] `NextcloudAppSource` port; `PackageManagerNextcloudAppSource` + manifest `<queries>` for `com.nextcloud.client`. Test (Robolectric): installed / not installed.
+  - [ ] `UploadHandoffRepository.prepare(ids)`: drops `Uploaded` items, returns a `ShareSpec` targeted at `com.nextcloud.client`; `NothingToUpload` when all are uploaded; `NextcloudAppMissing` when not installed. `onReturnedFromHandoff()` → `requestUploadStateSync()`. JVM tests per outcome.
+  - [ ] `ShareIntentFactory` honours a target package (explicit intent). Robolectric test.
 - [ ] **9.5 UI**
-  - [ ] `UploadBadge` composable in `:core:ui` (icon per `UploadStatus`, content description). Compose test per status.
-  - [ ] Folder grid and timeline ViewModels combine paging items with `observeStatusFor`; badge shown only when signed in and folder mapped. Tests.
-  - [ ] "Upload" action in viewer and `SelectionTopBar` (only not-uploaded items). Tests: enqueue called with filtered ids.
-  - [ ] `UploadQueueScreen` in `:feature:remote` (pending/running/failed, retry/cancel). ViewModel tests per event; Compose test.
-  - [ ] Settings: folder mapping toggles, remote root, "upload only on Wi-Fi". Tests.
-- [ ] **9.6 Update docs** – ARCHITECTURE.md (upload-state algorithm, workers) and README "How already uploaded is determined" match code.
+  - [ ] `UploadBadge` composable in `:core:ui` (icon per `UploadState`, content description). Compose test per state.
+  - [ ] Folder grid and timeline ViewModels combine paging items with `observeStatusFor`; badges shown only when logged in. Tests.
+  - [ ] "Upload" action in viewer, `SelectionTopBar` and selection overview: hand-off of the not-yet-uploaded items; disabled with a hint when the Nextcloud app is missing; hidden when logged out. Tests per case.
+  - [ ] Settings: remote root. Tests.
+- [ ] **9.6 Update docs** – ARCHITECTURE.md (upload-state algorithm, hand-off) and README "How already uploaded is determined" match code.
 
-**Definition of done:** badges reflect server state without blocking the grid; uploads survive process death and resume on network; already-present files are not re-uploaded; tests for every function; CI green.
+**Definition of done:** badges reflect server state without blocking the grid; selected images that are not on the server open in the Nextcloud app's upload screen; badges update after returning; already-present files are not handed over again; tests for every function; CI green.
 
 ---
 
 ## Phase 10 – Hardening & release
 
-**Goal:** fast, accessible, localized release build for local installation. F-Droid distribution is deferred (D28).
+**Goal:** fast, accessible release build for local installation. F-Droid distribution is deferred (D28).
 _Depends on: Phases 1–9._
 
 - [ ] **10.0 Apply design** – replace the placeholder theme tokens with the Claude Design delivery (can happen earlier, whenever the design arrives); adjust screens only where the design changes layout.
@@ -401,10 +405,9 @@ _Depends on: Phases 1–9._
   - [ ] Content descriptions for thumbnails (date/name), badges, actions; TalkBack traversal of grids and viewer.
   - [ ] Touch targets ≥ 48 dp, contrast check, font scaling 200 %; scrollbar operable via accessibility actions.
   - [ ] Compose UI tests asserting semantics on key screens; Accessibility Scanner pass.
-- [ ] **10.3 Localization**
+- [ ] **10.3 Strings**
   - [ ] All user strings in `strings.xml` (lint `HardcodedText` as error); plurals for counts.
-  - [ ] Locale-aware date formatting in timeline headers/labels; RTL layout check.
-  - [ ] Initial translation (e.g. German); per-app language support (`locales_config.xml`).
+  - [ ] English only (D34); no translations or per-app language support in v1.
 - [ ] **10.4 Release build**
   - [ ] R8 full mode, `isMinifyEnabled`/`isShrinkResources`; keep rules for kotlinx.serialization routes, Tink, osmdroid, Room. Run instrumented smoke tests on `release`-like `benchmark` build type.
   - [ ] Verify the dependency tree has no proprietary dependencies (GMS/Firebase) and only GPL-3.0-compatible licenses.
