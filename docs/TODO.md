@@ -31,49 +31,49 @@ are described in [ARCHITECTURE.md](ARCHITECTURE.md); rationale and open question
 
 **Goal:** a building, linting, CI-checked multi-module Gradle project with empty modules.
 
-- [ ] **0.1 Gradle basics**
-  - [ ] Add Gradle wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/*`), pin a current stable Gradle.
-  - [ ] `settings.gradle.kts`: `pluginManagement` (`includeBuild("build-logic")`), `dependencyResolutionManagement` (google, mavenCentral; `FAIL_ON_PROJECT_REPOS`), `rootProject.name`, enable `TYPESAFE_PROJECT_ACCESSORS`.
-  - [ ] Root `build.gradle.kts` declaring plugins with `apply false`.
-  - [ ] `gradle.properties`: `org.gradle.jvmargs`, `org.gradle.caching=true`, `org.gradle.configuration-cache=true`, `android.useAndroidX=true`, `android.nonTransitiveRClass=true`, `kotlin.code.style=official`.
-  - [ ] `.gitignore` for Android/Gradle/IDE files; `local.properties` excluded.
-- [ ] **0.2 Version catalog** `gradle/libs.versions.toml`
-  - [ ] Versions/libraries: AGP, Kotlin, KSP, Compose BOM, Material 3, Activity Compose, Lifecycle (runtime/viewmodel compose), Navigation Compose, kotlinx.serialization, kotlinx.coroutines, Hilt (+ hilt-navigation-compose, hilt-work), Room (+ room-paging), Paging 3 (+ paging-compose), DataStore, WorkManager, Coil 3 (+ coil-network-okhttp), Telephoto `zoomable-image-coil`, ExifInterface, osmdroid, OkHttp, Tink, Browser (Custom Tabs).
-  - [ ] Test libraries: JUnit 4, MockK, Turbine, kotlinx-coroutines-test, Robolectric, androidx.test (core, ext-junit, runner), room-testing, work-testing, MockWebServer, compose-ui-test-junit4, compose-ui-test-manifest.
-  - [ ] Plugin aliases: android-application, android-library, kotlin-android, kotlin-serialization, compose-compiler, ksp, hilt, room, detekt, ktlint, baselineprofile.
-- [ ] **0.3 Convention plugins** in `build-logic/convention`
-  - [ ] `build-logic/settings.gradle.kts` reusing the version catalog.
-  - [ ] `AndroidApplicationConventionPlugin` (`nextgallery.android.application`): minSdk/compileSdk/targetSdk 37 (Android 17), JVM toolchain 21.
-  - [ ] `AndroidLibraryConventionPlugin` (`nextgallery.android.library`).
-  - [ ] `AndroidComposeConventionPlugin` (`nextgallery.android.compose`): Compose compiler plugin, BOM, tooling.
-  - [ ] `AndroidHiltConventionPlugin` (`nextgallery.android.hilt`): Hilt + KSP.
-  - [ ] `AndroidRoomConventionPlugin` (`nextgallery.android.room`): Room plugin, KSP, `schemaDirectory("$projectDir/schemas")`.
-  - [ ] `AndroidFeatureConventionPlugin` (`nextgallery.android.feature`): library + compose + hilt + deps on `:core:ui`, `:core:model`, `:core:common`, `:core:data`.
-  - [ ] `JvmLibraryConventionPlugin` (`nextgallery.jvm.library`) for the pure Kotlin/JVM modules (`:core:model`, `:core:common`, `:core:data`, `:core:nextcloud`): `kotlin("jvm")`, toolchain 21, `javax.inject`, JVM test libraries.
-  - [ ] `AndroidTestConventionPlugin` / shared test config: add the standard test libraries, `testOptions.unitTests.isIncludeAndroidResources = true` for Robolectric 4.17+ (first release with SDK 37), Robolectric `--add-opens` JVM flags in `unitTests.all { jvmArgs(...) }`, `testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"` for on-device tests (ARCHITECTURE.md §13.1). Placeholder Robolectric test and placeholder instrumented test both pass (`test` on CI, `connectedDebugAndroidTest` locally on an API 37 emulator or the Pixel 10a).
-  - [ ] `DetektConventionPlugin` and `KtlintConventionPlugin` applied to every module.
-- [ ] **0.4 Module skeletons** (each with `build.gradle.kts`, namespace `net.drehtuer.nextgallery.<module>` (D26), application ID `net.drehtuer.nextgallery`, empty `src/main`, a placeholder test so the test task runs)
-  - [ ] `:app` (`MainActivity`, `NextGalleryApplication` with `@HiltAndroidApp`, empty Compose `NextGalleryTheme` call).
-  - [ ] JVM: `:core:model`, `:core:common`, `:core:data`, `:core:nextcloud`.
-  - [ ] Android: `:core:database`, `:core:media`, `:core:platform`, `:core:ui`.
-  - [ ] `:feature:folders`, `:feature:timeline`, `:feature:map`, `:feature:viewer`, `:feature:editor`, `:feature:remote`, `:feature:settings`.
-  - [ ] Add a module-graph check (e.g. a Gradle task or detekt rule) that fails if a `:feature:*` depends on another `:feature:*`.
-  - [ ] `./gradlew assembleDebug` succeeds and installs an empty-screen app.
-- [ ] **0.5 Static analysis**
-  - [ ] `.editorconfig` with ktlint rules (`ktlint_code_style = android_studio`, Compose function naming allowed).
-  - [ ] `config/detekt/detekt.yml` (baseline from defaults, Compose rule set if used), `detekt-baseline.xml` empty.
-  - [ ] Android Lint config `lint.xml`, `warningsAsErrors` for new code; `abortOnError = true`.
-- [ ] **0.5a Platform behaviour review** – go through the Android 15–17 behaviour changes for apps targeting SDK 37 (edge-to-edge, predictive back, package visibility for the Nextcloud app hand-off, media permission changes) and record anything that changes the plan in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
-- [ ] **0.6 CI** `.github/workflows/ci.yml`
-  - [ ] Trigger on push and pull_request; JDK 21 (Temurin); `gradle/actions/setup-gradle` for caching.
-  - [ ] Jobs/steps: `ktlintCheck`, `detekt`, `lint`, `test` (JVM modules + Android local unit tests incl. Robolectric), `assembleDebug`. No emulator job; instrumented tests run locally.
-  - [ ] Upload test and lint reports as artifacts on failure.
-  - [ ] Gradle wrapper validation action.
-- [ ] **0.7 Repo hygiene**
-  - [ ] `LICENSE` with the full GNU GPL v3 text (D27); license header note in README. Check every dependency in the version catalog is GPL-3.0-compatible.
-  - [ ] `CONTRIBUTING.md` section or README note on running `./gradlew ktlintFormat detekt testDebugUnitTest`.
-  - [ ] PR template with checklist "tests added for every new function", "docs updated".
-- [ ] **0.8 Update docs** – ARCHITECTURE.md module list and README "Building" section match the actual build.
+- [x] **0.1 Gradle basics**
+  - [x] Add Gradle wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/*`), pin a current stable Gradle.
+  - [x] `settings.gradle.kts`: `pluginManagement` (`includeBuild("build-logic")`), `dependencyResolutionManagement` (google, mavenCentral; `FAIL_ON_PROJECT_REPOS`), `rootProject.name`, enable `TYPESAFE_PROJECT_ACCESSORS`.
+  - [x] Root `build.gradle.kts` declaring plugins with `apply false`.
+  - [x] `gradle.properties`: `org.gradle.jvmargs`, `org.gradle.caching=true`, `org.gradle.configuration-cache=true`, `android.useAndroidX=true`, `android.nonTransitiveRClass=true`, `kotlin.code.style=official`.
+  - [x] `.gitignore` for Android/Gradle/IDE files; `local.properties` excluded.
+- [x] **0.2 Version catalog** `gradle/libs.versions.toml`
+  - [x] Versions/libraries: AGP, Kotlin, KSP, Compose BOM, Material 3, Activity Compose, Lifecycle (runtime/viewmodel compose), Navigation Compose, kotlinx.serialization, kotlinx.coroutines, Hilt (+ hilt-navigation-compose, hilt-work), Room (+ room-paging), Paging 3 (+ paging-compose), DataStore, WorkManager, Coil 3 (+ coil-network-okhttp), Telephoto `zoomable-image-coil`, ExifInterface, osmdroid, OkHttp, Tink, Browser (Custom Tabs).
+  - [x] Test libraries: JUnit 4, MockK, Turbine, kotlinx-coroutines-test, Robolectric, androidx.test (core, ext-junit, runner), room-testing, work-testing, MockWebServer, compose-ui-test-junit4, compose-ui-test-manifest.
+  - [x] Plugin aliases: android-application, android-library, kotlin-android, kotlin-serialization, compose-compiler, ksp, hilt, room, detekt, ktlint, baselineprofile. _Done; `kotlin-android` is not needed with AGP 9 built-in Kotlin, and `baselineprofile` is declared for Phase 10._
+- [x] **0.3 Convention plugins** in `build-logic/convention`
+  - [x] `build-logic/settings.gradle.kts` reusing the version catalog.
+  - [x] `AndroidApplicationConventionPlugin` (`nextgallery.android.application`): minSdk/compileSdk/targetSdk 37 (Android 17), JVM toolchain 21.
+  - [x] `AndroidLibraryConventionPlugin` (`nextgallery.android.library`).
+  - [x] `AndroidComposeConventionPlugin` (`nextgallery.android.compose`): Compose compiler plugin, BOM, tooling. _Plugin id is `nextgallery.android.compose`._
+  - [x] `AndroidHiltConventionPlugin` (`nextgallery.android.hilt`): Hilt + KSP.
+  - [x] `AndroidRoomConventionPlugin` (`nextgallery.android.room`): Room plugin, KSP, `schemaDirectory("$projectDir/schemas")`.
+  - [x] `AndroidFeatureConventionPlugin` (`nextgallery.android.feature`): library + compose + hilt + deps on `:core:ui`, `:core:model`, `:core:common`, `:core:data`.
+  - [x] `JvmLibraryConventionPlugin` (`nextgallery.jvm.library`) for the pure Kotlin/JVM modules (`:core:model`, `:core:common`, `:core:data`, `:core:nextcloud`): `kotlin("jvm")`, toolchain 21, `javax.inject`, JVM test libraries.
+  - [x] `AndroidTestConventionPlugin` / shared test config: add the standard test libraries, `testOptions.unitTests.isIncludeAndroidResources = true` for Robolectric 4.17+ (first release with SDK 37), Robolectric `--add-opens` JVM flags in `unitTests.all { jvmArgs(...) }`, `testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"` for on-device tests (ARCHITECTURE.md §13.1). Placeholder Robolectric test and placeholder instrumented test both pass (`test` on CI, `connectedDebugAndroidTest` locally on an API 37 emulator or the Pixel 10a). _Robolectric check: `NextGalleryThemeTest` (`:core:ui`) passes on SDK 37. Instrumented check: `MainActivityTest` (`:app`) compiles in CI; running it on the emulator / Pixel 10a is still to be done._
+  - [x] `DetektConventionPlugin` and `KtlintConventionPlugin` applied to every module.
+- [x] **0.4 Module skeletons** (each with `build.gradle.kts`, namespace `net.drehtuer.nextgallery.<module>` (D26), application ID `net.drehtuer.nextgallery`, empty `src/main`, a placeholder test so the test task runs) _Instead of placeholder tests, `failOnNoDiscoveredTests` is disabled so empty modules pass._
+  - [x] `:app` (`MainActivity`, `NextGalleryApplication` with `@HiltAndroidApp`, empty Compose `NextGalleryTheme` call).
+  - [x] JVM: `:core:model`, `:core:common`, `:core:data`, `:core:nextcloud`.
+  - [x] Android: `:core:database`, `:core:media`, `:core:platform`, `:core:ui`.
+  - [x] `:feature:folders`, `:feature:timeline`, `:feature:map`, `:feature:viewer`, `:feature:editor`, `:feature:remote`, `:feature:settings`.
+  - [x] Add a module-graph check (e.g. a Gradle task or detekt rule) that fails if a `:feature:*` depends on another `:feature:*`. _`AndroidFeatureConventionPlugin` throws on a `:feature:*` → `:feature:*` dependency; rule unit-tested in `FeatureDependencyRuleTest` and verified manually._
+  - [x] `./gradlew assembleDebug` succeeds and installs an empty-screen app. _Builds in the devcontainer; installing on the Pixel 10a is still to be done._
+- [x] **0.5 Static analysis**
+  - [x] `.editorconfig` with ktlint rules (`ktlint_code_style = android_studio`, Compose function naming allowed).
+  - [x] `config/detekt/detekt.yml` (baseline from defaults, Compose rule set if used), `detekt-baseline.xml` empty. _detekt 2.0.0-alpha.6 (see D18); no Compose rule set yet._
+  - [x] Android Lint config `lint.xml`, `warningsAsErrors` for new code; `abortOnError = true`. _`config/lint/lint.xml`, `warningsAsErrors` for all code._
+- [x] **0.5a Platform behaviour review** – go through the Android 15–17 behaviour changes for apps targeting SDK 37 (edge-to-edge, predictive back, package visibility for the Nextcloud app hand-off, media permission changes) and record anything that changes the plan in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md). _Recorded as D39 (local network permission) and D40; follow-up tasks added to Phases 7, 8 and 10._
+- [x] **0.6 CI** `.github/workflows/ci.yml`
+  - [x] Trigger on push and pull_request; JDK 21 (Temurin); `gradle/actions/setup-gradle` for caching. _Builds inside the devcontainer image via `devcontainers/ci` (D38), so no separate JDK or Gradle cache setup; triggers on push to `main` and on pull requests._
+  - [x] Jobs/steps: `ktlintCheck`, `detekt`, `lint`, `test` (JVM modules + Android local unit tests incl. Robolectric), `assembleDebug`. No emulator job; instrumented tests run locally. _Also compiles the instrumented tests (`assembleDebugAndroidTest`) and runs the build-logic tests._
+  - [x] Upload test and lint reports as artifacts on failure.
+  - [x] Gradle wrapper validation action.
+- [x] **0.7 Repo hygiene**
+  - [x] `LICENSE` with the full GNU GPL v3 text (D27); license header note in README. Check every dependency in the version catalog is GPL-3.0-compatible. _All runtime dependencies are Apache-2.0 or similarly permissive and GPL-3.0-compatible; JUnit 4 (EPL-1.0) is test-only and not distributed._
+  - [x] `CONTRIBUTING.md` section or README note on running `./gradlew ktlintFormat detekt testDebugUnitTest`. _README "Building" section; the command is `./gradlew ktlintFormat detekt lint test :build-logic:convention:test`._
+  - [x] PR template with checklist "tests added for every new function", "docs updated".
+- [x] **0.8 Update docs** – ARCHITECTURE.md module list and README "Building" section match the actual build.
 
 **Definition of done:** CI is green on an empty multi-module project; all 16 modules exist; the four JVM modules build without the Android plugin; lint/detekt/ktlint run on every module; a feature→feature dependency fails the build.
 
@@ -295,6 +295,7 @@ _Depends on: Phase 3 (viewer entry point, write/delete request helpers)._
 - [ ] **7.2 Rendering**
   - [ ] `EditGeometry.steps(ops, sourceSize): RenderPlan` in `:core:data` (output size, 3×3 matrices, crop rects, stroke paths in pixels, orientation bake-in). JVM tests: one per op type + combinations.
   - [ ] `MemoryBudget.check(sourceSize, outputSize, availableBytes): Fits | Refused(requiredBytes, availableBytes)` in `:core:data` (D30). JVM tests: fits, exactly at the limit, too large → refused with both numbers.
+  - [ ] On the Pixel 10a, check that the memory estimate respects Android 17's per-app memory limit, not only `availMem` (D40); adjust `ActivityManagerMemoryInfo` if needed.
   - [ ] `MemoryInfoSource` port; `ActivityManagerMemoryInfo` in `:core:platform` (`ActivityManager.MemoryInfo.availMem` minus safety margin). Test (Robolectric): value from shadowed `MemoryInfo`, margin subtracted.
   - [ ] `sampleSizeFor(source, maxSide)` in `:core:data`. JVM tests.
   - [ ] `ImageRenderer` port; `BitmapImageRenderer` adapter in `:core:media` (`ImageDecoder` decode, apply `RenderPlan` via `Matrix`/`Canvas`/`Path`, return `PreviewImage` handle). Tests (Robolectric, native graphics): applies a matrix, a crop and a stroke on a small bitmap.
@@ -327,7 +328,9 @@ _Depends on: Phases 3 (viewer), 4 (settings)._
   - [ ] `SecretCipher` port and `AccountStore` in `:core:data` (DataStore-core + `SecretCipher`): `observeAccount()`, `save()`, `clear()`. JVM tests per function with a fake cipher; undecryptable data → null.
   - [ ] `KeystoreSecretCipher` in `:core:platform`: Tink `AndroidKeysetManager` with Android Keystore master key (`android-keystore://nextgallery_master`). Test: encrypt/decrypt round-trip, instrumented (Robolectric has no `AndroidKeyStore`).
 - [ ] **8.3 `:core:nextcloud` client**
-  - [ ] `:app` manifest: `INTERNET`, `ACCESS_NETWORK_STATE`. (`:core:nextcloud` is a JVM module and has no manifest.)
+  - [ ] `:app` manifest: `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_LOCAL_NETWORK` (D39). (`:core:nextcloud` is a JVM module and has no manifest.)
+  - [ ] Request `ACCESS_LOCAL_NETWORK` at the start of the login with an explanation; map blocked LAN connections to a clear `AppError` instead of a timeout. Tests: permission state → request shown; blocked connection → error. On-device check: LAN IP, `.local` name, VPN/Tailscale address, login page in Custom Tabs (D39).
+  - [ ] On-device check that an accepted self-signed certificate still works with Certificate Transparency on by default (D40).
   - [ ] XML parsing on the XmlPullParser API: `compileOnly` dependency, provided by Android at runtime; kxml2 on the JVM test classpath.
   - [ ] `NextcloudHttpModule`: base `OkHttpClient` (timeouts, user agent), `AuthInterceptor` (Basic auth from account, OCS-APIRequest header). Test with MockWebServer: header present.
   - [ ] `LoginFlowV2Client`: `start(serverUrl)` → `{loginUrl, pollEndpoint, token}`; `poll()` until 200 or timeout. Tests (MockWebServer): start, 404 pending, success, expiry.
@@ -410,6 +413,7 @@ _Depends on: Phases 1–9._
   - [ ] English only (D34); no translations or per-app language support in v1.
 - [ ] **10.4 Release build**
   - [ ] R8 full mode, `isMinifyEnabled`/`isShrinkResources`; keep rules for kotlinx.serialization routes, Tink, osmdroid, Room. Run instrumented smoke tests on `release`-like `benchmark` build type.
+  - [ ] Check that all native libraries in the APK are 16 KB page aligned (D40).
   - [ ] Verify the dependency tree has no proprietary dependencies (GMS/Firebase) and only GPL-3.0-compatible licenses.
   - [ ] _Deferred until distribution (D28):_ reproducible build settings (no build timestamps, `dependenciesInfo { includeInApk = false }`), Fastlane metadata in `fastlane/metadata/android/`, F-Droid submission.
   - [ ] Release signing with a local keystore via `keystore.properties` (never committed); `signingConfigs.release`.

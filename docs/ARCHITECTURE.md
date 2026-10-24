@@ -93,14 +93,22 @@ Rules:
 
 - Gradle Kotlin DSL; dependencies and versions in `gradle/libs.versions.toml`.
 - Convention plugins in `build-logic/convention`:
-  - `nextgallery.android.application` – `:app` defaults (SDK levels, Java/Kotlin toolchain 21, R8 config).
+  - `nextgallery.android.application` – `:app` defaults (SDK levels, application ID, Kotlin toolchain 21, R8 config).
   - `nextgallery.android.library` – Android library defaults.
-  - `nextgallery.android.library.compose` – enables Compose and adds the Compose BOM.
+  - `nextgallery.android.compose` – enables Compose and adds the Compose BOM.
   - `nextgallery.android.feature` – library + compose + Hilt + dependencies every feature needs (`:core:ui`, `:core:data`, `:core:model`, Navigation Compose, lifecycle-viewmodel-compose).
   - `nextgallery.android.hilt` – Hilt + KSP.
   - `nextgallery.android.room` – Room + KSP + schema export directory (`<module>/schemas`).
   - `nextgallery.jvm.library` – pure Kotlin/JVM modules (`:core:model`, `:core:common`, `:core:data`, `:core:nextcloud`): `kotlin("jvm")`, toolchain 21, `javax.inject` for `@Inject` constructors (Hilt bindings for them live in Android modules), JUnit/MockK/Turbine/coroutines-test.
-  - `nextgallery.android.test` – shared Android test dependencies (Robolectric 4.17+, androidx.test) and the `AndroidJUnitRunner` setup for instrumented tests.
+  - `nextgallery.android.test` – shared Android test dependencies (Robolectric 4.17+, androidx.test) and the `AndroidJUnitRunner` setup for instrumented tests. Applied by the application and library plugins.
+  - `nextgallery.detekt`, `nextgallery.ktlint` – static analysis (`config/detekt/detekt.yml`, `.editorconfig`), applied by every base plugin.
+- Shared conventions:
+  - Android namespaces are derived from the project path (`:core:database` → `net.drehtuer.nextgallery.core.database`; `:app` → `net.drehtuer.nextgallery`).
+  - `compileSdk` 37 with `compileSdkMinor = 0` (platform `android-37.0`); AGP 9 compiles Kotlin itself (built-in Kotlin), so Android modules do not apply `org.jetbrains.kotlin.android`.
+  - Lint runs with `warningsAsErrors`; `config/lint/lint.xml` only disables "newer version available" checks.
+  - The feature plugin fails the build if a `:feature:*` module declares a dependency on another `:feature:*` module.
+  - Espresso is pinned to 3.7.0 for tests, because the version pulled in by Compose UI test calls an API removed in SDK 37.
+- The build environment is a devcontainer (`.devcontainer/`: JDK 21, Android SDK platform `android-37.0`, build-tools 36.0.0); CI builds inside the same image (`devcontainers/ci`).
 - A JVM module cannot depend on an Android library (Gradle cannot resolve an AAR for a `kotlin("jvm")` module), so the Android-free core is enforced by the build itself.
 
 ### 3.2 Module dependency graph

@@ -1,3 +1,32 @@
 # Claude Code agent worktrees
 .claude/worktrees/
 .claude/settings.local.json
+
+# Gradle
+.gradle/
+build/
+.kotlin/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Local configuration
+local.properties
+keystore.properties
+*.jks
+*.keystore
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.fleet/
+
+# Android
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+
+# OS
+.DS_Store
+Thumbs.db

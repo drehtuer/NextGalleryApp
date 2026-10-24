@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Backup and device-transfer rules. The encrypted credentials store and the Tink keyset are excluded
+     here once they exist (Phase 8, ARCHITECTURE.md §11). -->
+<data-extraction-rules>
+  <cloud-backup />
+  <device-transfer />
+</data-extraction-rules>
