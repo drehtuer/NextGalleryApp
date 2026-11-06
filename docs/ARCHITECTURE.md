@@ -211,7 +211,11 @@ Package root and application ID: `net.drehtuer.nextgallery` (D26). Class names b
 | `RemoteFile` | `path`, `name`, `isDirectory`, `sizeBytes`, `contentType`, `etag`, `fileId`, `lastModifiedMillis`, `checksums: Map<ChecksumType, String>`, `hasPreview`. |
 | `UploadState` | sealed: `Unknown`, `NotUploaded`, `Uploaded(verifiedByChecksum: Boolean)`. |
 | `CertificateInfo` | `host`, `subject`, `issuer`, `notBefore`, `notAfter`, `sha256Fingerprint`, `changedFromPinned: Boolean`. |
-| `ViewContext` | `Folder(bucketId)`, `Timeline`, `Map` – used by the selection overview to decide which selected items the current view can show. |
+| `MediaSource` | The list a viewer pages through: `Folder(bucketId)`; the timeline and map add theirs in Phases 5 and 6. |
+| `ImageDetails` | What the image info sheet shows: file values plus formatted EXIF values. |
+| `ShareSpec` | Content URIs and MIME type to share; `:core:ui` turns it into an intent. |
+| `TrashEffect` | The next UI step when moving images to the trash: confirmation, message with undo, or failure. |
+| `ViewContext` | `Folder(bucketId)`, `Timeline`, `Map` (Phase 6) – used by the selection overview to decide which selected items the current view can show. |
 | `EditOperation` | sealed: `Rotate(quarterTurns)`, `Crop(rect: NormalizedRect, aspect)`, `Scale(targetWidth, targetHeight)`, `PenStroke(points: List<NormalizedPoint>, colorArgb, widthFraction)`. Coordinates are normalized (0..1) relative to the image *after* previous operations, so they are resolution independent. |
 | `AspectRatio` | `Free`, `Original`, `Square`, `FourThree`, `SixteenNine`. |
 | `NextcloudAccount` | `serverUrl`, `loginName`, `userId` (no secret). |
@@ -240,7 +244,7 @@ Ports (implemented by adapters):
 | `ExifSource` | `:core:media` | Raw EXIF values (date strings, offset, GPS, camera fields) for a content URI. |
 | `MediaContentSource` | `:core:media` | `openInputStream(contentUri)`, size, for checksums. |
 | `MediaWriteSink` | `:core:media` | Insert pending copy / open for overwrite / publish; returns `PlatformConfirmation` when the system must confirm. |
-| `MediaDeleteSource` | `:core:media` | Trash, untrash and permanent delete requests as `PlatformConfirmation`. |
+| `MediaDeleteSource` | `:core:media` | Trash, restore and permanent delete requests as `PlatformConfirmation`. |
 | `ImageRenderer` | `:core:media` | Decode at a max size, apply a list of `RenderStep`s (matrices, crops, strokes computed by `EditGeometry`), encode. |
 | `MediaPermissionSource` | `:core:media` | Currently granted media permissions as strings. |
 | `MediaIndexStore` | `:core:database` | Index reads/writes, folder list; paged queries returned as `Flow<PagingData<MediaItem>>` (the repository decides the `PagingConfig`; the Room adapter builds the `Pager` and maps entities). |
@@ -254,16 +258,16 @@ Repositories (interfaces + `Default…` implementations with `@Inject` construct
 
 | Repository | Responsibility |
 | --- | --- |
-| `MediaRepository` | Paged folder/timeline grids, item lookup, viewer id lists, location items for map, image details (EXIF on demand), share URIs. |
+| `MediaRepository` | Paged lists per `MediaSource` (grid and viewer), position of an image in a list, item lookup, location items for map, image details (EXIF on demand). |
 | `FolderRepository` | Folder list with counts/covers, filtered by folder rules. |
 | `FolderRulesRepository` | Include/exclude rules; changes trigger re-index of the affected scope. |
 | `IndexRepository` | Full scan, incremental sync, deletion detection (`MediaIndexer`); publishes `IndexStatus` flow. |
-| `DeleteRepository` | Delete/trash requests; removes rows after confirmed result. |
+| `MediaActionsRepository` | Delete/trash and restore requests, removes rows and deselects after a confirmed result, `ShareSpec` for images. `TrashFlow` (one instance per ViewModel) holds the steps of request, confirmation and undo. |
 | `EditRepository` | Edit pipeline: `EditGeometry` → `ImageRenderer` → `MediaWriteSink`, EXIF policy. |
 | `NextcloudRepository` | Login flow, account state, remote browsing (with `remote_cache`), preview requests. |
 | `UploadStateRepository` | Folder mapping, PROPFIND comparison, checksum confirmation, `upload_state` cache. |
 | `UploadHandoffRepository` | Prepares a hand-off to the Nextcloud app: filters out items already uploaded, returns a `ShareSpec` targeted at `com.nextcloud.client`, and requests an upload-state refresh when the app returns to the foreground. |
-| `SelectionRepository` | App-wide selection (`StateFlow<Set<MediaId>>`): toggle, range, select all, clear, and (Phase 3) `overview(context: ViewContext)` marking which selected items the given view can show. In-memory singleton. |
+| `SelectionRepository` | App-wide selection (`StateFlow<Set<MediaId>>`): toggle, range, select all, clear, and `observeOverview(context: ViewContext)` marking which selected items the given view can show. In-memory singleton. |
 | `TrustedCertificateRepository` | Pinned certificates per host (`TrustedCertificateStore`, DataStore): accept, remove, list. |
 | `SettingsRepository` | DataStore (Preferences, JVM artifact) for `AppSettings`; the file location is provided by `:core:platform`. |
 | `AccountStore` | Account + app password in DataStore, encrypted through `SecretCipher`. |
@@ -495,7 +499,7 @@ Details:
 - EXIF reading is the expensive part. GPS is read only for JPEG/HEIF/WebP during the scan, and in a **second pass** (`exif_scanned = false` rows) after the grid-relevant data is committed, so folders appear quickly on first launch. Date fallback order: `DATE_TAKEN` → EXIF `DateTimeOriginal` (with `OffsetTimeOriginal` when present) → `DATE_MODIFIED`.
 - Without `ACCESS_MEDIA_LOCATION`, `setRequireOriginal` throws / GPS is redacted; location is then left null and the map shows a hint.
 - With partial access, the scan only sees user-selected images. The selection cannot be read from the permission state, so the index is rebuilt (full scan) whenever the permission dialog or photo selection closes (`MainEvent.AccessRequestFinished`) and whenever the access level changes.
-- `.nomedia`: MediaStore already excludes folders that contain a `.nomedia` file from the image collection, so the indexer does not check for it (to be confirmed on the device by the instrumented `MediaStoreScannerTest`).
+- `.nomedia`: MediaStore already excludes folders that contain a `.nomedia` file from the image collection, so the indexer does not check for it (confirmed on the Pixel 10a by the instrumented `MediaStoreScannerTest`). MediaStore applies it when it scans, so the image disappears after the next scan of that folder, not at the moment the `.nomedia` file is created.
 - Phase 1 status: dates are resolved (incl. the EXIF fallback); GPS and the second EXIF pass come in Phase 6, and `IndexWorker` does not report progress yet.
 - `IndexWorker` is expedited for the first scan, runs as normal work otherwise, and reports progress through `setProgress` for the UI's indexing indicator.
 
@@ -543,22 +547,23 @@ sequenceDiagram
     Grid->>Nav: onOpenItem mediaId and source
     Nav->>UI: navigate ViewerRoute
     UI->>VM: init with route args
-    VM->>Repo: idsForSource(source) Flow of List of Long
-    VM->>Repo: item(mediaId)
-    VM-->>UI: ViewerUiState with ids and initialPage
+    VM->>Repo: pagedItems(source) Flow of PagingData
+    VM->>Repo: indexOf(source, mediaId)
+    VM-->>UI: ViewerUiState with initialIndex plus paging flow
     UI->>Z: render current page, original via Coil
     Z->>Z: subsampled tiles for large images
-    UI->>VM: PageChanged index
-    VM->>Repo: item(id)
-    UI->>VM: InfoRequested
-    VM->>Repo: details(id) reads EXIF on IO
+    UI->>VM: PageChanged item
+    UI->>VM: ShowInfo
+    VM->>Repo: imageDetails(id) reads EXIF on IO
     Repo-->>VM: ImageDetails
     VM-->>UI: info sheet state
-    UI->>VM: ShareClicked or DeleteClicked or EditClicked
+    UI->>VM: Share or Delete
 ```
 
-- `source` is a sealed route argument: `Folder(bucketId)`, `Timeline`, `MapCluster(ids)`, `Remote(parentPath)`. The id list is a lightweight `Flow<List<Long>>` (50k longs ≈ 400 KB) so the pager knows its size; items are loaded per page.
-- Adjacent pages are preloaded at screen size via Coil; full-resolution tiles only for the visible page.
+- The viewer pages through the same paged list as the grid (`MediaSource`), so the pager knows its size from the placeholders, items are loaded per page, and deleted images disappear through Room invalidation. If an image disappears, the next one takes its place; if none are left, the viewer closes. Currently `ViewerRoute(mediaId, bucketId)`; the timeline and map add their sources in Phases 5 and 6, and remote images (Phase 8) get their own screen data.
+- The adjacent pages are composed ahead (`beyondViewportPageCount = 1`), so Coil loads them before they are swiped to; full-resolution tiles only for the visible page.
+- The viewer always uses the dark theme, hides the bottom bar, and hides the system bars together with its controls.
+- Another app can open an image (`ACTION_VIEW` with an `image/*` content URI). `ExternalImageScreen` then shows just that image with zooming: it need not be in the index, and no media permission is needed.
 - Share uses `Intent.ACTION_SEND`/`ACTION_SEND_MULTIPLE` with MediaStore content URIs and `FLAG_GRANT_READ_URI_PERMISSION`.
 
 ### 5.4 Editing and saving
@@ -622,14 +627,14 @@ sequenceDiagram
     autonumber
     participant UI as Grid or Viewer
     participant VM as ViewModel
-    participant D as DeleteRepository
+    participant D as MediaActionsRepository
     participant MD as MediaDeleteSource port
     participant Sys as System dialog
     participant DB as Room
 
     UI->>VM: DeleteSelected ids
-    VM->>D: requestDelete(ids)
-    D->>MD: createTrashRequest(uris, true)
+    VM->>D: delete(ids), through TrashFlow
+    D->>MD: trashRequest(uris)
     MD-->>VM: PlatformConfirmation
     VM-->>UI: UiEffect RequestConfirmation
     UI->>Sys: launch via rememberConfirmationLauncher
@@ -640,12 +645,13 @@ sequenceDiagram
     VM-->>UI: snackbar Moved to trash, Undo
     opt user taps Undo
         UI->>VM: UndoTrash
-        VM->>D: createTrashRequest(uris, false)
+        VM->>D: restore(uris)
+        D->>MD: restoreRequest(uris), then the system dialog again
     end
 ```
 
 - Room rows are removed optimistically after confirmation so the grid updates instantly; the next `IndexWorker` run reconciles regardless. Untrash re-inserts via the next incremental sync (the item gets a new generation).
-- `createDeleteRequest` (permanent) is offered as a secondary action (setting or long-press option).
+- `createDeleteRequest` (permanent) is available through `MediaActionsRepository.delete(ids, permanent = true)`; no screen offers it yet.
 
 ### 5.6 Nextcloud Login Flow v2
 
@@ -802,7 +808,7 @@ Rules:
 
 - Route arguments carry only IDs/paths, never full objects. Large ID lists (map clusters) are passed via a short-lived `SavedStateHandle`-backed holder in the repository keyed by a token, not through the route.
 - Feature screens receive navigation lambdas (`onOpenItem: (Long, ViewerSource) -> Unit`) instead of a `NavController`.
-- Deep links (`ACTION_VIEW` of an image) open `ViewerRoute` directly (post-v1).
+- `ACTION_VIEW` of an image opens `ExternalImageScreen` instead of the navigation graph (see 5.3).
 
 ## 7. State management
 
@@ -812,38 +818,39 @@ Pattern per screen:
 data class FolderGridUiState(
     val title: String = "",
     val selectedIds: Set<MediaId> = emptySet(), // app-wide, from SelectionRepository
-    val uploadBadgesEnabled: Boolean = false, // logged in and Nextcloud app installed
-    val isIndexing: Boolean = false,
-    val error: UiText? = null,
+    val uploadBadgesEnabled: Boolean = false, // Phase 9: logged in and Nextcloud app installed
 )
 
 sealed interface FolderGridEvent {
-    data class ItemClicked(val id: Long) : FolderGridEvent
-    data class ItemLongPressed(val id: Long) : FolderGridEvent
+    data class ItemClicked(val id: MediaId) : FolderGridEvent
+    data class ItemLongPressed(val id: MediaId) : FolderGridEvent
+    data object SelectAll : FolderGridEvent
     data object ClearSelection : FolderGridEvent
     data object DeleteSelected : FolderGridEvent
     data object ShareSelected : FolderGridEvent
-    data object UploadSelected : FolderGridEvent
-    data class DeleteResult(val confirmed: Boolean) : FolderGridEvent
+    data object UploadSelected : FolderGridEvent // Phase 9
+    data class ConfirmationResult(val confirmed: Boolean) : FolderGridEvent
+    data object UndoDelete : FolderGridEvent
 }
 
 sealed interface FolderGridEffect {
-    data class OpenViewer(val id: Long) : FolderGridEffect
-    data class RequestConfirmation(val request: PlatformConfirmation) : FolderGridEffect
+    data class OpenViewer(val id: MediaId) : FolderGridEffect
     data class Share(val spec: ShareSpec) : FolderGridEffect // also used for the Nextcloud hand-off
-    data class ShowMessage(val text: UiText, val undo: Boolean) : FolderGridEffect
+    data class Trash(val effect: TrashEffect) : FolderGridEffect // confirmation, message with undo, failure
 }
 
 @HiltViewModel(assistedFactory = FolderGridViewModel.Factory::class)
 class FolderGridViewModel @AssistedInject constructor(
     @Assisted private val bucketId: Long,
     private val media: MediaRepository,
-    private val delete: DeleteRepository,
+    private val folders: FolderRepository,
     private val selection: SelectionRepository,
-    private val upload: UploadHandoffRepository,
+    private val actions: MediaActionsRepository,
+    private val trashFlow: TrashFlow,
+    private val upload: UploadHandoffRepository, // Phase 9
 ) : ViewModel() {
     @AssistedFactory interface Factory { fun create(bucketId: Long): FolderGridViewModel }
-    val items: Flow<PagingData<MediaItem>> = media.pagedFolderItems(bucketId).cachedIn(viewModelScope)
+    val items: Flow<PagingData<MediaItem>> = media.pagedItems(MediaSource.Folder(bucketId)).cachedIn(viewModelScope)
     val state: StateFlow<FolderGridUiState> = /* combine(...).stateIn(viewModelScope, WhileSubscribed(5_000), FolderGridUiState()) */
     val effects: Flow<FolderGridEffect> = /* Channel(BUFFERED).receiveAsFlow() */
     fun onEvent(event: FolderGridEvent) { /* ... */ }

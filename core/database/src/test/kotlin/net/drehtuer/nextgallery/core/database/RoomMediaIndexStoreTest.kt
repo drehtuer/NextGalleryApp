@@ -45,6 +45,22 @@ class RoomMediaIndexStoreTest {
     }
 
     @Test
+    fun getByIds_manyIds_readsInChunksBelowSqliteLimit() = runTest {
+        coEvery { dao.getByIds(any()) } returns emptyList()
+
+        store.getByIds((1L..1_801L).map { MediaId(it) })
+
+        coVerify(exactly = 3) { dao.getByIds(any()) }
+    }
+
+    @Test
+    fun indexInBucket_passesIdToDao() = runTest {
+        coEvery { dao.indexInBucket(7, 1) } returns 4
+
+        assertEquals(4, store.indexInBucket(7, MediaId(1)))
+    }
+
+    @Test
     fun idsInBucket_mapsDaoIdsToMediaIds() = runTest {
         coEvery { dao.idsInBucket(7) } returns listOf(1L)
 

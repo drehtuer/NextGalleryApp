@@ -2,6 +2,7 @@ package net.drehtuer.nextgallery.feature.folders
 
 import app.cash.turbine.test
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -16,9 +17,14 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import net.drehtuer.nextgallery.core.data.media.FolderRepository
+import net.drehtuer.nextgallery.core.data.media.MediaActionsRepository
 import net.drehtuer.nextgallery.core.data.media.MediaRepository
+import net.drehtuer.nextgallery.core.data.media.TrashFlow
 import net.drehtuer.nextgallery.core.data.selection.SelectionRepository
 import net.drehtuer.nextgallery.core.model.MediaId
+import net.drehtuer.nextgallery.core.model.MediaSource
+import net.drehtuer.nextgallery.core.model.ShareSpec
+import net.drehtuer.nextgallery.core.model.TrashEffect
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -28,7 +34,7 @@ import org.junit.Test
 class FolderGridViewModelTest {
     private val selectedIds = MutableStateFlow<Set<MediaId>>(emptySet())
     private val mediaRepository = mockk<MediaRepository> {
-        every { pagedFolderItems(7) } returns emptyFlow()
+        every { pagedItems(MediaSource.Folder(7)) } returns emptyFlow()
         coEvery { folderItemIds(7) } returns listOf(MediaId(1), MediaId(2))
     }
     private val folderRepository = mockk<FolderRepository> {
@@ -38,19 +44,26 @@ class FolderGridViewModelTest {
         every { observe() } returns selectedIds
     }
 
+    private val spec = ShareSpec(listOf("content://media/1"), "image/jpeg")
+    private val actions = mockk<MediaActionsRepository> {
+        coEvery { shareSpec(setOf(MediaId(1))) } returns spec
+    }
+    private val trashFlow = mockk<TrashFlow>(relaxed = true)
+
     @Before
     fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
 
     @After
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun viewModel() = FolderGridViewModel(7, mediaRepository, folderRepository, selectionRepository)
+    private fun viewModel() =
+        FolderGridViewModel(7, mediaRepository, folderRepository, selectionRepository, actions, trashFlow)
 
     @Test
     fun init_loadsItemsOfRouteBucket() {
         viewModel()
 
-        verify { mediaRepository.pagedFolderItems(7) }
+        verify { mediaRepository.pagedItems(MediaSource.Folder(7)) }
     }
 
     @Test
@@ -104,5 +117,40 @@ class FolderGridViewModelTest {
         viewModel().onEvent(FolderGridEvent.ClearSelection)
 
         verify { selectionRepository.clear() }
+    }
+
+    @Test
+    fun onEvent_shareSelected_sendsShareEffect() = runTest {
+        selectedIds.value = setOf(MediaId(1))
+        val viewModel = viewModel()
+
+        viewModel.onEvent(FolderGridEvent.ShareSelected)
+
+        viewModel.effects.test { assertEquals(FolderGridEffect.Share(spec), awaitItem()) }
+    }
+
+    @Test
+    fun onEvent_deleteSelected_requestsTrashForWholeSelection() = runTest {
+        selectedIds.value = setOf(MediaId(1), MediaId(9))
+        coEvery { trashFlow.request(setOf(MediaId(1), MediaId(9))) } returns TrashEffect.Failed
+        val viewModel = viewModel()
+
+        viewModel.onEvent(FolderGridEvent.DeleteSelected)
+
+        viewModel.effects.test { assertEquals(FolderGridEffect.Trash(TrashEffect.Failed), awaitItem()) }
+    }
+
+    @Test
+    fun onEvent_confirmationResult_goesToTrashFlow() {
+        viewModel().onEvent(FolderGridEvent.ConfirmationResult(confirmed = true))
+
+        coVerify { trashFlow.onConfirmationResult(true) }
+    }
+
+    @Test
+    fun onEvent_undoDelete_goesToTrashFlow() {
+        viewModel().onEvent(FolderGridEvent.UndoDelete)
+
+        coVerify { trashFlow.undo() }
     }
 }

@@ -116,6 +116,40 @@ class MediaDaoTest {
         assertEquals(listOf(2L, 1L), dao.idsInBucket(7))
     }
 
+    @Test
+    fun getByIds_returnsOnlyGivenRows() = runTest {
+        dao.upsertAll(listOf(mediaEntity(1), mediaEntity(2)))
+
+        assertEquals(listOf(2L), dao.getByIds(listOf(2, 9)).map { it.id })
+    }
+
+    @Test
+    fun indexInBucket_countsNewerImages() = runTest {
+        dao.upsertAll(
+            listOf(
+                mediaEntity(1).copy(dateTakenMillis = 30),
+                mediaEntity(2).copy(dateTakenMillis = 20),
+                mediaEntity(3).copy(dateTakenMillis = 10),
+            ),
+        )
+
+        assertEquals(1, dao.indexInBucket(7, 2))
+    }
+
+    @Test
+    fun indexInBucket_equalDates_matchesPagingOrder() = runTest {
+        dao.upsertAll(listOf(mediaEntity(1), mediaEntity(2), mediaEntity(3)))
+
+        assertEquals(2, dao.indexInBucket(7, 1))
+    }
+
+    @Test
+    fun indexInBucket_ignoresOtherBuckets() = runTest {
+        dao.upsertAll(listOf(mediaEntity(1), mediaEntity(2).copy(bucketId = 8, dateTakenMillis = Long.MAX_VALUE)))
+
+        assertEquals(0, dao.indexInBucket(7, 1))
+    }
+
     private fun refresh(loadSize: Int) =
         PagingSource.LoadParams.Refresh<Int>(key = null, loadSize = loadSize, placeholdersEnabled = false)
 }

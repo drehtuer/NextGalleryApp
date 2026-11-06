@@ -12,6 +12,15 @@
     <string name="core_ui_clear_selection">Clear selection</string>
     <string name="core_ui_thumbnail_selected">Selected</string>
     <string name="core_ui_thumbnail_unavailable">Not shown in this view</string>
+    <string name="core_ui_share">Share</string>
+    <string name="core_ui_delete">Delete</string>
+    <string name="core_ui_selection_overview">Show selection</string>
+    <string name="core_ui_undo">Undo</string>
+    <string name="core_ui_trash_failed">The images could not be moved to the trash</string>
+    <plurals name="core_ui_moved_to_trash">
+        <item quantity="one">%d image moved to the trash</item>
+        <item quantity="other">%d images moved to the trash</item>
+    </plurals>
     <plurals name="core_ui_selected_count">
         <item quantity="one">%d selected</item>
         <item quantity="other">%d selected</item>

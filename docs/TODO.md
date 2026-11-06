@@ -50,7 +50,7 @@ are described in [ARCHITECTURE.md](ARCHITECTURE.md); rationale and open question
   - [x] `AndroidRoomConventionPlugin` (`nextgallery.android.room`): Room plugin, KSP, `schemaDirectory("$projectDir/schemas")`.
   - [x] `AndroidFeatureConventionPlugin` (`nextgallery.android.feature`): library + compose + hilt + deps on `:core:ui`, `:core:model`, `:core:common`, `:core:data`.
   - [x] `JvmLibraryConventionPlugin` (`nextgallery.jvm.library`) for the pure Kotlin/JVM modules (`:core:model`, `:core:common`, `:core:data`, `:core:nextcloud`): `kotlin("jvm")`, toolchain 21, `javax.inject`, JVM test libraries.
-  - [x] `AndroidTestConventionPlugin` / shared test config: add the standard test libraries, `testOptions.unitTests.isIncludeAndroidResources = true` for Robolectric 4.17+ (first release with SDK 37), Robolectric `--add-opens` JVM flags in `unitTests.all { jvmArgs(...) }`, `testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"` for on-device tests (ARCHITECTURE.md §13.1). Placeholder Robolectric test and placeholder instrumented test both pass (`test` on CI, `connectedDebugAndroidTest` locally on an API 37 emulator or the Pixel 10a). _Robolectric check: `NextGalleryThemeTest` (`:core:ui`) passes on SDK 37. Instrumented check: `MainActivityTest` (`:app`) compiles in CI; running it on the emulator / Pixel 10a is still to be done._
+  - [x] `AndroidTestConventionPlugin` / shared test config: add the standard test libraries, `testOptions.unitTests.isIncludeAndroidResources = true` for Robolectric 4.17+ (first release with SDK 37), Robolectric `--add-opens` JVM flags in `unitTests.all { jvmArgs(...) }`, `testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"` for on-device tests (ARCHITECTURE.md §13.1). Placeholder Robolectric test and placeholder instrumented test both pass (`test` on CI, `connectedDebugAndroidTest` locally on an API 37 emulator or the Pixel 10a). _Robolectric check: `NextGalleryThemeTest` (`:core:ui`) passes on SDK 37. Instrumented check: `MainActivityTest` (`:app`) passes on the Pixel 10a._
   - [x] `DetektConventionPlugin` and `KtlintConventionPlugin` applied to every module.
 - [x] **0.4 Module skeletons** (each with `build.gradle.kts`, namespace `net.drehtuer.nextgallery.<module>` (D26), application ID `net.drehtuer.nextgallery`, empty `src/main`, a placeholder test so the test task runs) _Instead of placeholder tests, `failOnNoDiscoveredTests` is disabled so empty modules pass._
   - [x] `:app` (`MainActivity`, `NextGalleryApplication` with `@HiltAndroidApp`, empty Compose `NextGalleryTheme` call).
@@ -97,7 +97,7 @@ _Depends on: Phase 0._
   - [x] `MediaAccess` enum (`Full`, `Partial`, `Denied`), `ScannedImage`, `RawExif`, `PlatformConfirmation` (opaque handle).
 - [x] **1.3 `:core:data` (JVM) – ports and indexing logic**
   - [x] Ports: `MediaScanSource` (`fullScan()`, `changesSince(generation)`, `allIds()`, `mediaStoreVersion()`, `noMediaPaths()`), `MediaChangeSource`, `ExifSource`, `MediaPermissionSource`, `MediaIndexStore`, `SyncStateStore`, `WorkScheduler`. Plus hand-written fakes in `testFixtures`. _Per-volume API; no `noMediaPaths()` (see next item). Fakes live in the module's tests; they move to `testFixtures` once another module needs them._
-  - [x] `NoMediaMatcher.isHidden(relativePath, noMediaPaths)`. Tests: folder with `.nomedia`, nested subfolder, unrelated sibling. _Dropped: MediaStore already hides folders with a `.nomedia` file (D6); to be confirmed by `MediaStoreScannerTest` on the device._
+  - [x] `NoMediaMatcher.isHidden(relativePath, noMediaPaths)`. Tests: folder with `.nomedia`, nested subfolder, unrelated sibling. _Dropped: MediaStore already hides folders with a `.nomedia` file (D6); confirmed by `MediaStoreScannerTest` on the Pixel 10a._
   - [x] `ExifDateParser.parse(dateTimeOriginal, offsetTimeOriginal, subSec)`. Tests: plain, with offset, with sub-seconds, malformed → null.
   - [x] `DateResolver.resolve(dateTaken, exifDate, dateModified, zone): ResolvedDate` (DATE_TAKEN → EXIF → DATE_MODIFIED, local date). Tests: each fallback branch, zone boundary at midnight.
   - [x] `MediaAccessResolver.resolve(grantedPermissions)` and `requiredPermissions()`. Tests: full, selected only, none. _Folded into `DefaultMediaAccessRepository` (`currentAccess()`, `requestedPermissions`)._
@@ -118,7 +118,7 @@ _Depends on: Phase 0._
 - [x] **1.5 `:core:media` (Android adapter)**
   - [x] `MediaStoreQuery`: projection, selection for supported mime types, `IS_PENDING = 0`, `IS_TRASHED = 0`. Test: generated selection/args (Robolectric). _Plain JVM test; MediaStore hides pending and trashed rows by default, so no extra conditions._
   - [x] `CursorMapper.toScannedImage(cursor)`. Test with `MatrixCursor` (Robolectric): all columns, nulls.
-  - [x] `MediaStoreScanner` implementing `MediaScanSource` (batches of 500, `GENERATION_MODIFIED`, `.nomedia` paths from `MediaStore.Files`). Tests: instrumented (local emulator / Pixel 10a) with inserted test images, one per method (ARCHITECTURE.md §13.1). _Instrumented `MediaStoreScannerTest` written and compiled; not run on a device yet._
+  - [x] `MediaStoreScanner` implementing `MediaScanSource` (batches of 500, `GENERATION_MODIFIED`, `.nomedia` paths from `MediaStore.Files`). Tests: instrumented (local emulator / Pixel 10a) with inserted test images, one per method (ARCHITECTURE.md §13.1). _Instrumented `MediaStoreScannerTest` passes on the Pixel 10a._
   - [x] `AndroidExifSource` implementing `ExifSource` (`androidx.exifinterface`, `MediaStore.setRequireOriginal` when `ACCESS_MEDIA_LOCATION` is granted); returns raw tag strings, no parsing. Tests: tag extraction from sample JPEGs in `src/test/resources` (Robolectric); `setRequireOriginal` with/without permission instrumented. _Only the date tags for now; GPS and `setRequireOriginal` come in Phase 6. EXIF test writes a real JPEG with Robolectric native graphics._
   - [x] `MediaStoreChangeObserver` implementing `MediaChangeSource` (`callbackFlow` over `ContentObserver`). Test: register/unregister on collect/cancel (Robolectric).
   - [x] `AndroidMediaPermissionSource` implementing `MediaPermissionSource`. Test: granted set reflects shadowed permissions (Robolectric).
@@ -158,7 +158,7 @@ _Depends on: Phase 1._
   - [x] `MediaRepository.pagedFolderItems(bucketId): Flow<PagingData<MediaItem>>` (`Pager`, page size ~ 120, `enablePlaceholders = true` for fast scroll). Test with `asSnapshot()`. _The repository sets the `PagingConfig` (with a jump threshold for the scrollbar); `RoomMediaIndexStore` builds the `Pager`, because entities stay in the adapter. Plus `folderItemIds(bucketId)`._
 - [x] **2.3 Thumbnails (`:core:ui` + `:app`)**
   - [x] `ImageLoaderModule` providing a singleton Coil 3 `ImageLoader` (memory cache %, disk cache dir/size, `crossfade` off for grids). Test: config values.
-  - [x] `MediaThumbnailKeyer`/fetcher using `ContentResolver.loadThumbnail(uri, size)` with fallback decode. Tests: keyer output stable per (id, dateModified, size) (JVM); `loadThumbnail` at the requested size (instrumented). _Instrumented `MediaThumbnailFetcherTest` written and compiled; not run on a device yet._
+  - [x] `MediaThumbnailKeyer`/fetcher using `ContentResolver.loadThumbnail(uri, size)` with fallback decode. Tests: keyer output stable per (id, dateModified, size) (JVM); `loadThumbnail` at the requested size (instrumented). _Instrumented `MediaThumbnailFetcherTest` passes on the Pixel 10a._
   - [x] `ThumbnailCell` composable (fixed aspect, placeholder, content description, selection overlay slot, badge slot for Phase 9, greyed-out state). Compose UI test: placeholder, selected state, greyed-out state.
 - [x] **2.4 Shared grid components (`:core:ui`)**
   - [x] `MediaGrid` (`LazyVerticalGrid`, adaptive columns, stable keys, `LazyPagingItems`). Compose test: renders N items, keys stable.
@@ -182,27 +182,27 @@ _Depends on: Phase 1._
 **Goal:** swipeable zoomable viewer with image info, plus delete and share for single and multi-selection.
 _Depends on: Phase 2 (grid, selection)._
 
-- [ ] **3.1 Model & data**
-  - [ ] `MediaSource` sealed type (`Folder(bucketId)`, `Timeline`, `Map(bounds?)`) so the viewer pages over the same list as the caller. Test: serialization round-trip (used in routes).
-  - [ ] `MediaRepository.pagedItems(source)` and `indexOf(source, mediaId)`. Tests per source.
-  - [ ] `ImageDetails` model (date, size, resolution, mime, path, lat/long, camera make/model, exposure, ISO, focal length…). `ImageDetailsMapper.from(rawExif, item)` in `:core:data` (JVM tests per field, missing values); `AndroidExifSource` extended with the camera tags (Robolectric fixture test).
-- [ ] **3.2 Delete (`:core:media` + `:core:data`)**
-  - [ ] `MediaDeleteSource` port; `MediaStoreDeleter` adapter: `createTrashRequest` (default) / `createDeleteRequest` (permanent) wrapped in `PlatformConfirmation`. Tests (Robolectric): trash, permanent.
-  - [ ] `MediaActionsRepository.delete(ids): DeleteOutcome` (`NeedsUserConfirmation(intentSender)`, `Failed`) and `onDeleteConfirmed(ids)` removing rows from Room immediately. Tests per outcome.
-  - [ ] `:core:ui` `rememberConfirmationLauncher()` unwrapping `PlatformConfirmation` and launching it via `StartIntentSenderForResult`. Compose test: result forwarded.
-- [ ] **3.3 Share**
-  - [ ] `ShareSpec.from(items)` in `:core:data` (single vs multiple, common mime or `image/*`; JVM tests) and `ShareIntentFactory` in `:core:ui` turning it into `ACTION_SEND`/`ACTION_SEND_MULTIPLE` with `FLAG_GRANT_READ_URI_PERMISSION` and `ClipData` (Robolectric test).
-- [ ] **3.4 `:feature:viewer`**
-  - [ ] `ViewerRoute(source: MediaSource, mediaId: Long)`.
-  - [ ] `ViewerViewModel`: paging over source, current index, `ViewerUiState(currentItem, chromeVisible, details?, pendingDelete?)`; events `PageChanged`, `ToggleChrome`, `ShowInfo`, `Delete`, `Share`, `DeleteConfirmed`. Tests per event.
-  - [ ] `ViewerScreen`: `HorizontalPager` + Telephoto `ZoomableAsyncImage` (Coil, subsampling, double-tap zoom); system-bars hide/show; top bar (back, share, delete, edit placeholder, info). Compose UI tests: swipe changes page, tap toggles chrome, delete shows confirmation flow.
-  - [ ] `ImageInfoSheet` (ModalBottomSheet with `ImageDetails`). Compose test: fields rendered, missing values hidden.
-  - [ ] Handle item disappearing (deleted externally) → move to neighbour or close. Test in ViewModel.
-- [ ] **3.5 Multi-select actions in grids**
-  - [ ] Add delete/share actions to `SelectionTopBar` in `FolderGridScreen`; `FolderGridViewModel` uses `MediaActionsRepository` / `ShareIntentFactory`. Actions apply to the whole app-wide selection. Tests: events → outcomes.
-  - [ ] Selection overview (D33): `SelectionRepresentability.canShow(item, context)` in `:core:data` (Folder: same bucket; Timeline: always; Map: has GPS – added in Phase 6). JVM tests per context. `SelectionRepository.overview(context)` → items with a `greyedOut` flag. JVM test. `SelectionOverviewRoute(context)` screen (grid, greyed-out items, same actions). ViewModel tests; Compose test: greyed-out item rendered.
-- [ ] **3.6 `:app`** – route `ViewerRoute` from folder grid; handle `ACTION_VIEW` intent for `image/*` content URIs (open viewer for a single external item). Test: intent parsing.
-- [ ] **3.7 Update docs** – ARCHITECTURE.md (viewer, delete flow) and README match code.
+- [x] **3.1 Model & data**
+  - [x] `MediaSource` sealed type (`Folder(bucketId)`, `Timeline`, `Map(bounds?)`) so the viewer pages over the same list as the caller. Test: serialization round-trip (used in routes). _Only `Folder` for now; Phases 5 and 6 add theirs. `ViewerRoute` carries `mediaId` and `bucketId` as plain values, so nothing needs serializing._
+  - [x] `MediaRepository.pagedItems(source)` and `indexOf(source, mediaId)`. Tests per source. _Replaces `pagedFolderItems`._
+  - [x] `ImageDetails` model (date, size, resolution, mime, path, lat/long, camera make/model, exposure, ISO, focal length…). `ImageDetailsMapper.from(rawExif, item)` in `:core:data` (JVM tests per field, missing values); `AndroidExifSource` extended with the camera tags (Robolectric fixture test).
+- [x] **3.2 Delete (`:core:media` + `:core:data`)**
+  - [x] `MediaDeleteSource` port; `MediaStoreDeleter` adapter: `createTrashRequest` (default) / `createDeleteRequest` (permanent) wrapped in `PlatformConfirmation`. Tests (Robolectric): trash, permanent. _Instrumented instead (`MediaStoreDeleterTest`, passes on the Pixel 10a), because the requests need the real MediaStore (ARCHITECTURE.md §13.1). Plus a restore request for undo._
+  - [x] `MediaActionsRepository.delete(ids): DeleteOutcome` (`NeedsUserConfirmation(intentSender)`, `Failed`) and `onDeleteConfirmed(ids)` removing rows from Room immediately. Tests per outcome. _`TrashFlow` holds the steps (request, confirmation, undo) for all screens. `delete` can delete permanently (D10), but no screen offers that yet._
+  - [x] `:core:ui` `rememberConfirmationLauncher()` unwrapping `PlatformConfirmation` and launching it via `StartIntentSenderForResult`. Compose test: result forwarded.
+- [x] **3.3 Share**
+  - [x] `ShareSpec.from(items)` in `:core:data` (single vs multiple, common mime or `image/*`; JVM tests) and `ShareIntentFactory` in `:core:ui` turning it into `ACTION_SEND`/`ACTION_SEND_MULTIPLE` with `FLAG_GRANT_READ_URI_PERMISSION` and `ClipData` (Robolectric test). _`ShareSpec` is in `:core:model`, because `:core:ui` does not depend on `:core:data`._
+- [x] **3.4 `:feature:viewer`**
+  - [x] `ViewerRoute(source: MediaSource, mediaId: Long)`. _`ViewerRoute(mediaId, bucketId)`, see 3.1._
+  - [x] `ViewerViewModel`: paging over source, current index, `ViewerUiState(currentItem, chromeVisible, details?, pendingDelete?)`; events `PageChanged`, `ToggleChrome`, `ShowInfo`, `Delete`, `Share`, `DeleteConfirmed`. Tests per event.
+  - [x] `ViewerScreen`: `HorizontalPager` + Telephoto `ZoomableAsyncImage` (Coil, subsampling, double-tap zoom); system-bars hide/show; top bar (back, share, delete, edit placeholder, info). Compose UI tests: swipe changes page, tap toggles chrome, delete shows confirmation flow. _No edit placeholder; the button comes with the editor (Phase 7). The confirmation flow is tested in `TrashEffectHandlerTest`. Zooming itself has only been compiled; it needs the device checks._
+  - [x] `ImageInfoSheet` (ModalBottomSheet with `ImageDetails`). Compose test: fields rendered, missing values hidden.
+  - [x] Handle item disappearing (deleted externally) → move to neighbour or close. Test in ViewModel.
+- [x] **3.5 Multi-select actions in grids**
+  - [x] Add delete/share actions to `SelectionTopBar` in `FolderGridScreen`; `FolderGridViewModel` uses `MediaActionsRepository` / `ShareIntentFactory`. Actions apply to the whole app-wide selection. Tests: events → outcomes.
+  - [x] Selection overview (D33): `SelectionRepresentability.canShow(item, context)` in `:core:data` (Folder: same bucket; Timeline: always; Map: has GPS – added in Phase 6). JVM tests per context. `SelectionRepository.overview(context)` → items with a `greyedOut` flag. JVM test. `SelectionOverviewRoute(context)` screen (grid, greyed-out items, same actions). ViewModel tests; Compose test: greyed-out item rendered. _`SelectionOverviewRoute(bucketId)` until the timeline opens it too (Phase 5). Tapping an image removes it from the selection._
+- [x] **3.6 `:app`** – route `ViewerRoute` from folder grid; handle `ACTION_VIEW` intent for `image/*` content URIs (open viewer for a single external item). Test: intent parsing. _`ExternalImageScreen` shows only the zoomable image: the file need not be in the index, so it has no info, share or delete._
+- [x] **3.7 Update docs** – ARCHITECTURE.md (viewer, delete flow) and README match code.
 
 **Definition of done:** open image from grid, swipe, pinch/double-tap zoom large images without OOM, view info, share 1..n images, delete 1..n images to the system trash (with undo) with grid updating; tests for every function; CI green.
 

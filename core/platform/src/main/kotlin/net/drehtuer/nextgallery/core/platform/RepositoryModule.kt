@@ -9,8 +9,10 @@ import net.drehtuer.nextgallery.core.data.access.MediaAccessRepository
 import net.drehtuer.nextgallery.core.data.index.DefaultIndexRepository
 import net.drehtuer.nextgallery.core.data.index.IndexRepository
 import net.drehtuer.nextgallery.core.data.media.DefaultFolderRepository
+import net.drehtuer.nextgallery.core.data.media.DefaultMediaActionsRepository
 import net.drehtuer.nextgallery.core.data.media.DefaultMediaRepository
 import net.drehtuer.nextgallery.core.data.media.FolderRepository
+import net.drehtuer.nextgallery.core.data.media.MediaActionsRepository
 import net.drehtuer.nextgallery.core.data.media.MediaRepository
 import net.drehtuer.nextgallery.core.data.rules.DefaultFolderRulesProvider
 import net.drehtuer.nextgallery.core.data.rules.FolderRulesProvider
@@ -27,6 +29,9 @@ interface RepositoryModule {
 
     @Binds
     fun bindMediaRepository(repository: DefaultMediaRepository): MediaRepository
+
+    @Binds
+    fun bindMediaActionsRepository(repository: DefaultMediaActionsRepository): MediaActionsRepository
 
     @Binds
     fun bindFolderRepository(repository: DefaultFolderRepository): FolderRepository
