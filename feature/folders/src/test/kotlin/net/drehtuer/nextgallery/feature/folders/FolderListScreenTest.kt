@@ -2,7 +2,7 @@ package net.drehtuer.nextgallery.feature.folders
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -23,14 +23,14 @@ class FolderListScreenTest {
     fun loading_showsLoadingIndicator() {
         show(FolderListUiState.Loading)
 
-        composeRule.onNodeWithContentDescription("Loading").assertIsDisplayed()
+        composeRule.onNodeWithTag(FOLDER_LIST_PLACEHOLDER_TAG).assertIsDisplayed()
     }
 
     @Test
     fun empty_showsMessage() {
         show(FolderListUiState.Empty)
 
-        composeRule.onNodeWithText("No photos found").assertIsDisplayed()
+        composeRule.onNodeWithText("No photos yet").assertIsDisplayed()
     }
 
     @Test
@@ -38,6 +38,13 @@ class FolderListScreenTest {
         show(FolderListUiState.Content(listOf(folder(name = "Camera", itemCount = 12))))
 
         composeRule.onNodeWithText("12 images").assertIsDisplayed()
+    }
+
+    @Test
+    fun content_largeCount_usesThousandsSeparator() {
+        show(FolderListUiState.Content(listOf(folder(itemCount = 1_204))))
+
+        composeRule.onNodeWithText("1,204 images").assertIsDisplayed()
     }
 
     @Test

@@ -26,6 +26,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -39,11 +41,11 @@ import net.drehtuer.nextgallery.core.ui.component.BackButton
 import net.drehtuer.nextgallery.core.ui.component.DeleteAction
 import net.drehtuer.nextgallery.core.ui.component.LoadingIndicator
 import net.drehtuer.nextgallery.core.ui.component.ShareAction
-import net.drehtuer.nextgallery.core.ui.theme.NextGalleryTheme
+import net.drehtuer.nextgallery.core.ui.theme.NextGalleryViewerTheme
 
 private const val CHROME_ALPHA = 0.6f
 
-/** The viewer is always dark, whatever the system theme, so that the app does not distract from the images. */
+/** The viewer is always black, whatever the theme, so that the app does not distract from the images. */
 @Composable
 fun ViewerScreen(
     state: ViewerUiState,
@@ -54,7 +56,7 @@ fun ViewerScreen(
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     pageContent: @Composable (MediaItem, onTap: () -> Unit) -> Unit = { item, onTap -> ZoomablePage(item, onTap) },
 ) {
-    NextGalleryTheme(darkTheme = true) {
+    NextGalleryViewerTheme {
         SystemBarsEffect(visible = state.chromeVisible)
         val refresh = items.loadState.refresh
         LaunchedEffect(items.itemCount, refresh) {
@@ -117,7 +119,17 @@ private fun ZoomablePage(item: MediaItem, onTap: () -> Unit) {
 @Composable
 private fun ViewerTopBar(current: MediaItem?, onEvent: (ViewerEvent) -> Unit, onBack: () -> Unit) {
     TopAppBar(
-        title = { current?.let { Text(it.displayName, maxLines = 1) } },
+        title = {
+            current?.let {
+                Text(
+                    it.displayName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        },
         navigationIcon = { BackButton(onClick = onBack) },
         actions = {
             ShareAction(onClick = { onEvent(ViewerEvent.Share) })

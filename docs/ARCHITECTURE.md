@@ -337,12 +337,12 @@ Pure logic (each class unit-tested on the JVM):
 
 #### `:core:ui`
 
-- `NextGalleryTheme` (Material 3, light/dark; spacing and sizes through `NextGalleryTheme.dimensions`). Placeholder colours, typography, shapes and dimensions until task 10.0 applies the delivered design in [DESIGN.md](DESIGN.md) (D22). Takes the user's accent colour from `AppSettings` (D34).
-- `MediaGrid` – `LazyVerticalGrid` driven by `LazyPagingItems<MediaItem>`, with selection and stable keys. Headers (timeline) come with Phase 5.
+- `NextGalleryTheme` (Material 3, light/dark; spacing and sizes through `NextGalleryTheme.dimensions`). Colours, typography, shapes and dimensions come from [DESIGN.md](DESIGN.md) (D22). `NextGalleryViewerTheme` is the always-black variant for the viewer and the editor. Takes the user's accent colour from `AppSettings` (D34).
+- `MediaGrid` – `LazyVerticalGrid` with a fixed column count (D51), driven by `LazyPagingItems<MediaItem>`, with selection and stable keys; `MediaGridPlaceholder` shows flat cells while the first page loads. Headers (timeline) come with Phase 5.
 - `FastScrollbar` – draggable thumb; drag fraction ↔ index math lives in `ScrollbarMath` (`:core:common`); shows an optional bubble label (e.g. "March 2024").
 - `SelectionTopBar` – total selection count (across all views), clear, and an actions slot for select all, share, delete, upload (hand-off) and the selection overview.
 - `CertificateWarningDialog` – shows `CertificateInfo` with a warning; Accept / Cancel.
-- `ThumbnailCell` – square cell with Coil `AsyncImage`, paging placeholder, selected and greyed-out states, badge slot. `MediaThumbnail` is its Coil model, with `MediaThumbnailKeyer` and `MediaThumbnailFetcher`.
+- `ThumbnailCell` – square cell with Coil `AsyncImage`, paging placeholder, failed, selected, selecting (empty ring) and greyed-out states, badge slot. `MediaThumbnail` is its Coil model, with `MediaThumbnailKeyer` and `MediaThumbnailFetcher`.
 - `PermissionGate` – requests media permissions, shows rationale, handles partial access ("Manage selected photos").
 - `rememberConfirmationLauncher()` – launches a `PlatformConfirmation` (unwraps the `IntentSender`) and reports the result.
 - `ErrorState`, `EmptyState`, `LoadingState` composables; `UiText` (string resource or raw).
@@ -562,7 +562,7 @@ sequenceDiagram
 
 - The viewer pages through the same paged list as the grid (`MediaSource`), so the pager knows its size from the placeholders, items are loaded per page, and deleted images disappear through Room invalidation. If an image disappears, the next one takes its place; if none are left, the viewer closes. Currently `ViewerRoute(mediaId, bucketId)`; the timeline and map add their sources in Phases 5 and 6, and remote images (Phase 8) get their own screen data.
 - The adjacent pages are composed ahead (`beyondViewportPageCount = 1`), so Coil loads them before they are swiped to; full-resolution tiles only for the visible page.
-- The viewer always uses the dark theme, hides the bottom bar, and hides the system bars together with its controls.
+- The viewer always uses `NextGalleryViewerTheme`, hides the bottom bar, and hides the system bars together with its controls.
 - Another app can open an image (`ACTION_VIEW` with an `image/*` content URI). `ExternalImageScreen` then shows just that image with zooming: it need not be in the index, and no media permission is needed.
 - Share uses `Intent.ACTION_SEND`/`ACTION_SEND_MULTIPLE` with MediaStore content URIs and `FLAG_GRANT_READ_URI_PERMISSION`.
 
@@ -818,12 +818,14 @@ Pattern per screen:
 data class FolderGridUiState(
     val title: String = "",
     val selectedIds: Set<MediaId> = emptySet(), // app-wide, from SelectionRepository
+    val selecting: Boolean = selectedIds.isNotEmpty(), // also true after the Select action, before anything is selected
     val uploadBadgesEnabled: Boolean = false, // Phase 9: logged in and Nextcloud app installed
 )
 
 sealed interface FolderGridEvent {
     data class ItemClicked(val id: MediaId) : FolderGridEvent
     data class ItemLongPressed(val id: MediaId) : FolderGridEvent
+    data object StartSelecting : FolderGridEvent
     data object SelectAll : FolderGridEvent
     data object ClearSelection : FolderGridEvent
     data object DeleteSelected : FolderGridEvent
@@ -939,8 +941,8 @@ Rules:
 - **TLS**: platform defaults via OkHttp; `network_security_config.xml` disallows cleartext traffic, so v1 accepts `https://` servers only (cleartext for debug builds only, via a debug-only config). User-installed CAs (`<certificates src="user"/>`) are trusted in addition to system CAs. Any other certificate is only trusted after the user accepts it in a warning dialog; it is then pinned per host by SHA-256 fingerprint (`PinningTrustManager`, D32). A changed certificate triggers the warning again. The same OkHttp client is used for WebDAV, the preview API and Coil, so all remote traffic follows the same rule.
 - Authorization header added only for requests to the configured server host (interceptor checks host), so redirects to other hosts never leak credentials.
 - **No tracking**: no analytics, no crash reporting SDKs, no Google Play Services. osmdroid tile requests go to OSM tile servers with a proper user agent (required by OSM tile usage policy); this is the only third-party network traffic and is triggered only by opening the map.
-- **Least privilege**: only `READ_MEDIA_IMAGES`, `READ_MEDIA_VISUAL_USER_SELECTED`, `ACCESS_MEDIA_LOCATION`, `INTERNET`, `ACCESS_NETWORK_STATE`, plus a `<queries>` entry for `com.nextcloud.client`. No foreground service or notification permission (uploads are done by the Nextcloud app). Destructive actions go through system dialogs.
-- Shared URIs are MediaStore content URIs with temporary read grants; no `FileProvider` exposing app storage.
+- **Least privilege**: only `READ_MEDIA_IMAGES`, `READ_MEDIA_VISUAL_USER_SELECTED`, `ACCESS_MEDIA_LOCATION`, `ACCESS_COARSE_LOCATION` (optional, D44), `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_LOCAL_NETWORK` (D39), plus a `<queries>` entry for `com.nextcloud.client`. No foreground service or notification permission (uploads are done by the Nextcloud app). Destructive actions go through system dialogs.
+- Shared local images use MediaStore content URIs with temporary read grants. Server images are downloaded first and shared through a `FileProvider` limited to one temporary cache folder (D48); the rest of the app's storage stays private.
 
 ## 12. Performance
 

@@ -1,6 +1,7 @@
 package net.drehtuer.nextgallery
 
 import android.app.Application
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -12,6 +13,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import net.drehtuer.nextgallery.core.model.MediaAccess
+import net.drehtuer.nextgallery.core.ui.component.ScreenBanner
 import net.drehtuer.nextgallery.feature.viewer.ViewerRoute
 import net.drehtuer.nextgallery.navigation.FoldersRoute
 import org.junit.Rule
@@ -31,7 +33,14 @@ class NextGalleryAppContentTest {
             state = MainUiState(access),
             onRequestAccess = {},
             onOpenSettings = {},
-            folders = { composable<FoldersRoute> { Text("Folders screen") } },
+            folders = {
+                composable<FoldersRoute> {
+                    Column {
+                        ScreenBanner()
+                        Text("Folders screen")
+                    }
+                }
+            },
         )
     }
 

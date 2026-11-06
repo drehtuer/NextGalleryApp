@@ -1,6 +1,6 @@
 # Design
 
-Status: delivered by Claude Design (D22), ready to build. This document is the handover for implementing the visual
+Status: delivered by Claude Design (D22) and applied to the screens that exist (task 10.0); later phases build their screens from it. This document is the handover for implementing the visual
 design: every value `NextGalleryTheme` needs, and the layout, wording and states of each screen that differs from stock
 Material 3. Behaviour and architecture stay in [ARCHITECTURE.md](ARCHITECTURE.md); the decisions behind the new
 behaviour are D22, D34 and D43–D47 in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
@@ -18,7 +18,7 @@ Sources, for reference only (private claude.ai artifacts of the project owner; t
 | Themes | Light and dark follow the system (Appearance can force either). The viewer and the editor are always black. | Images stand out on black, and the editor's colours must not shift with the theme. |
 | Dynamic colour | Off. The user picks one of five fixed accents instead (D34). | Accents are tested for contrast in both themes; wallpaper colours are not. |
 | Selected thumbnail | 3 dp accent border plus a 24 dp disc at the top right: filled accent with a check when selected, an empty white ring on a dark backing while selecting. | Both cues read over light and dark photos; the ring tells the user they are in selection mode. |
-| Grid density | 2 dp gap; 3 columns by default on the Pixel 10a (110 dp minimum cell); Appearance offers 3, 4 or 5. | 3 columns keep faces recognisable; 4–5 are for scanning large libraries. |
+| Grid density | 2 dp gap; 3 columns by default (D51); Appearance offers 3, 4 or 5. | 3 columns keep faces recognisable; 4–5 are for scanning large libraries. |
 | Nextcloud tab icon | A plain cloud with an up arrow. | Generic; the app is not an official Nextcloud product, so no Nextcloud mark. |
 | Timeline scrollbar | A date rail: the thumb plus three dates, the day in the middle of the screen large, the days before and after small (D43). | The user always sees where they are and what comes next. |
 | Fonts | System font (Roboto) through `FontFamily.Default`; no font files ship. | Nothing to license or bundle. |
@@ -113,7 +113,7 @@ Counts and times use tabular figures (`FontFeatureSettings("tnum")`).
 | `spacingSmall` | 8 dp | unchanged |
 | `spacingMedium` | 16 dp | unchanged |
 | `gridGap` | 2 dp | unchanged |
-| `mediaCellMinSize` | 110 dp | was 96; used when the column setting is "auto" |
+| `gridColumns` | 3 | replaces `mediaCellMinSize`; the default until Appearance sets it (D51) |
 | `folderCellMinSize` | 160 dp | unchanged; folders are 2 columns on the phone |
 | `selectionBorderWidth` | 3 dp | unchanged |
 | `scrollbarThumbWidth` | 6 dp | unchanged |
@@ -151,7 +151,7 @@ photos: photo icon, "No photos yet", "Photos you take or download appear here, s
 
 ### Folder grid
 
-Top bar: back, the folder name, a Select icon (long-press also starts selecting, O14). The grid uses `gridGap`, square
+Top bar: back, the folder name, a Select icon (long-press also starts selecting, D49). The grid uses `gridGap`, square
 cells and no rounding. Fast scrollbar on the right, no label. States:
 
 - Loading: `surfaceVariant` cells.
@@ -215,17 +215,19 @@ opened from another app shows only the image.
 ### Editor
 
 Black. Top bar: close, undo, redo (38 % when unavailable) and a filled "Save" that opens a menu: "Save as copy",
-"Overwrite original". Tools at the bottom as icon + label: Crop, Scale, Draw; the active one has a `#004A76` pill.
+"Overwrite original". Tools at the bottom as icon + label: Rotate, Crop, Scale, Draw (D50); the active one has a `#004A76` pill.
+
+- Rotate: each tap turns the image 90° clockwise. It is an action, so it does not stay active like the other tools.
 
 - Crop: white 2 dp frame with thirds lines and 5 dp corner and edge handles; outside darkened to 60 %. Aspect chips:
   Free, Original, 1:1, 4:3, 16:9.
 - Draw: six colour swatches (white, black, coral, orange, green, blue) and a width slider ("8 px").
-- Scale: dialog "Scale image" with Width and Height fields in px, "Proportions are kept. Original: 4000 × 3000
-  (12 MP), new: 3 MP.", Cancel / Scale.
+- Scale: dialog "Scale image" with Percent, Width and Height fields (D50); changing one updates the others.
+  "Proportions are kept. Original: 4000 × 3000 (12 MP), new: 3 MP.", Cancel / Scale.
 - Closing with changes: "Discard your changes?" / "Your changes to IMG_2041.jpg haven't been saved and will be lost."
   with "Keep editing" / "Discard".
-- Not enough memory: "Not enough memory to edit an image this large. Scale it down first, or close other apps and try
-  again."
+- Not enough memory (D30): "This image needs about 480 MB of memory, but only 300 MB are available. Close other apps
+  and try again."
 
 ### Nextcloud
 
@@ -257,6 +259,8 @@ Black. Top bar: close, undo, redo (38 % when unavailable) and a filled "Save" th
 - After moving: snackbar "3 images moved to Italy" with Undo (moves them back).
 - Name conflict: "IMG_2524.jpg is already in Italy", the dates and sizes of both files, a checkbox "Do the same for the
   other conflict", and stacked buttons "Keep both" (filled), "Replace the one in Italy", "Skip this image".
+- Share (D48): the images are downloaded first, with a progress bar and "Downloading 2 of 3…", then the Android share
+  sheet opens. Offline, images that are not cached show "You're offline. Sharing needs a connection to your server."
 - Delete: snackbar "1 image moved to the Nextcloud trash bin" with Undo (restores from the trash bin).
 - Offline: Move shows "You're offline. Moving needs a connection to your server."
 
@@ -276,15 +280,15 @@ Rows with an icon, title, secondary line and chevron: "Folders" (Include, exclud
 - About & licences: the app icon and "NextGallery", "Free software, GPL-3.0. No tracking.", "Version" with
   `BuildConfig.VERSION_NAME` and the build number, "Source code" linking to https://github.com/drehtuer/NextGalleryApp
   (opens the browser), "Open-source licences", and the note "Map data © OpenStreetMap contributors, available under the
-  Open Database Licence. Place names from GeoNames (geonames.org), CC BY 4.0, looked up on the phone." The app sets no
-  `versionName` yet; add one with this screen.
+  Open Database Licence. Place names from GeoNames (geonames.org), CC BY 4.0, looked up on the phone." The screen needs
+  `BuildConfig` enabled; `versionName` is already set.
 
 ## Icons
 
 24 dp grid, 2 dp stroke, round caps and joins, as vector drawables: folder, timeline (three tiles), map (folded map),
 Nextcloud tab (cloud with an up arrow), settings (two sliders), select (checklist), select all, show selection (eye),
 share, delete, details (i in a circle), upload (arrow onto a line), edit (pencil), refresh, move (folder with an arrow),
-crop, scale, draw, palette, zoom in, zoom out, my location (crosshair), the three upload badges, broken image, lock.
+rotate, crop, scale, draw, palette, zoom in, zoom out, my location (crosshair), the three upload badges, broken image, lock.
 Icon-only buttons have content descriptions.
 
 ## Implementation notes
@@ -292,7 +296,7 @@ Icon-only buttons have content descriptions.
 - All values go into `NextGalleryTheme` in `:core:ui` (task 10.0): a light and a dark scheme per accent, the fixed
   roles above, the always-dark colours and the new dimension tokens. Feature modules keep reading only the theme.
 - The viewer and editor wrap their content in a dark scheme built from the always-dark colours, whatever the setting.
-- The accent and theme mode come from `AppSettings` (D34); the column count from the Appearance setting, falling back
-  to `mediaCellMinSize`.
+- The accent and theme mode come from `AppSettings` (D34) once Phase 4 adds them; until then the theme follows the
+  system with the blue accent. The column count comes from the Appearance setting, by default 3 (D51).
 - The date rail and the map behaviour are specified in TODO Phases 5 and 6; moving and deleting on the server in
   Phase 8.

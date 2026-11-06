@@ -8,12 +8,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
-import net.drehtuer.nextgallery.core.ui.theme.NextGalleryTheme
+import net.drehtuer.nextgallery.core.ui.theme.NextGalleryViewerTheme
 
 /** Shows one image another app asked to open. It need not be in the index, so it offers only zooming. */
 @Composable
 fun ExternalImageScreen(contentUri: String, modifier: Modifier = Modifier) {
-    NextGalleryTheme(darkTheme = true) {
+    NextGalleryViewerTheme {
         Box(modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim)) {
             ZoomableAsyncImage(
                 model = contentUri,

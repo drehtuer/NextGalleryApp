@@ -4,8 +4,10 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -37,7 +39,7 @@ fun DeleteAction(onClick: () -> Unit, modifier: Modifier = Modifier) {
 @Composable
 fun SelectionOverviewAction(onClick: () -> Unit, modifier: Modifier = Modifier) {
     IconButton(onClick = onClick, modifier = modifier) {
-        Icon(painterResource(R.drawable.core_ui_ic_photo_library), stringResource(R.string.core_ui_selection_overview))
+        Icon(painterResource(R.drawable.core_ui_ic_show_selection), stringResource(R.string.core_ui_selection_overview))
     }
 }
 
@@ -59,5 +61,11 @@ fun SelectionTopBar(
             }
         },
         actions = actions,
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            navigationIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+            actionIconContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        ),
     )
 }

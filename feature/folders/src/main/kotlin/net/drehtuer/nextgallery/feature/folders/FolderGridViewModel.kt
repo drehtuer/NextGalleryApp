@@ -10,6 +10,7 @@ import dagger.assisted.AssistedInject
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -28,12 +29,19 @@ import net.drehtuer.nextgallery.core.model.ShareSpec
 import net.drehtuer.nextgallery.core.model.TrashEffect
 
 /** [selectedIds] is the app-wide selection, so it can contain images of other folders (D33). */
-data class FolderGridUiState(val title: String = "", val selectedIds: Set<MediaId> = emptySet())
+data class FolderGridUiState(
+    val title: String = "",
+    val selectedIds: Set<MediaId> = emptySet(),
+    val selecting: Boolean = selectedIds.isNotEmpty(),
+)
 
 sealed interface FolderGridEvent {
     data class ItemClicked(val id: MediaId) : FolderGridEvent
 
     data class ItemLongPressed(val id: MediaId) : FolderGridEvent
+
+    /** The Select action: starts selecting before anything is selected. */
+    data object StartSelecting : FolderGridEvent
 
     data object SelectAll : FolderGridEvent
 
@@ -71,6 +79,7 @@ class FolderGridViewModel @AssistedInject constructor(
     }
 
     private val effectChannel = Channel<FolderGridEffect>(Channel.BUFFERED)
+    private val startedSelecting = MutableStateFlow(false)
 
     val effects: Flow<FolderGridEffect> = effectChannel.receiveAsFlow()
 
@@ -80,7 +89,10 @@ class FolderGridViewModel @AssistedInject constructor(
     val state: StateFlow<FolderGridUiState> = combine(
         folderRepository.observeFolder(bucketId),
         selectionRepository.observe(),
-    ) { folder, selectedIds -> FolderGridUiState(folder?.name.orEmpty(), selectedIds) }
+        startedSelecting,
+    ) { folder, selectedIds, started ->
+        FolderGridUiState(folder?.name.orEmpty(), selectedIds, selecting = started || selectedIds.isNotEmpty())
+    }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), FolderGridUiState())
 
     fun onEvent(event: FolderGridEvent) {
@@ -89,11 +101,16 @@ class FolderGridViewModel @AssistedInject constructor(
 
             is FolderGridEvent.ItemLongPressed -> selectionRepository.toggle(event.id)
 
+            FolderGridEvent.StartSelecting -> startedSelecting.value = true
+
             FolderGridEvent.SelectAll -> viewModelScope.launch {
                 selectionRepository.selectAll(mediaRepository.folderItemIds(bucketId))
             }
 
-            FolderGridEvent.ClearSelection -> selectionRepository.clear()
+            FolderGridEvent.ClearSelection -> {
+                startedSelecting.value = false
+                selectionRepository.clear()
+            }
 
             FolderGridEvent.ShareSelected -> viewModelScope.launch {
                 actions.shareSpec(selectionRepository.observe().value)?.let {
@@ -115,7 +132,7 @@ class FolderGridViewModel @AssistedInject constructor(
 
     /** During a selection a click changes the selection; otherwise it opens the image. */
     private fun onItemClicked(id: MediaId) {
-        if (selectionRepository.observe().value.isEmpty()) {
+        if (!startedSelecting.value && selectionRepository.observe().value.isEmpty()) {
             effectChannel.trySend(FolderGridEffect.OpenViewer(id))
         } else {
             selectionRepository.toggle(id)

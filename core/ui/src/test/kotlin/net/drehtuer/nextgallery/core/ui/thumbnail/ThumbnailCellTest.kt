@@ -6,6 +6,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -18,6 +19,11 @@ import org.junit.runner.RunWith
 class ThumbnailCellTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    private companion object {
+        // This test has no thumbnail fetcher, so Coil reports an error shortly after the request starts.
+        const val WAIT_MILLIS = 5_000L
+    }
 
     private val thumbnail = MediaThumbnail(id = 1, contentUri = "content://media/1", dateModifiedSeconds = 100)
 
@@ -40,6 +46,39 @@ class ThumbnailCellTest {
         composeRule.setContent { ThumbnailCell(thumbnail, "IMG_1.jpg", sizePx = 256, selected = true) }
 
         composeRule.onNodeWithContentDescription("IMG_1.jpg", substring = true).assertIsSelected()
+    }
+
+    @Test
+    fun thumbnailCell_selectingButNotSelected_showsEmptyRing() {
+        composeRule.setContent { ThumbnailCell(thumbnail, "IMG_1.jpg", sizePx = 256, selecting = true) }
+
+        composeRule.onNodeWithTag(SELECTION_RING_TAG, useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun thumbnailCell_selected_showsNoEmptyRing() {
+        composeRule.setContent {
+            ThumbnailCell(thumbnail, "IMG_1.jpg", sizePx = 256, selected = true, selecting = true)
+        }
+
+        composeRule.onNodeWithTag(SELECTION_RING_TAG, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun thumbnailCell_notSelecting_showsNoRing() {
+        composeRule.setContent { ThumbnailCell(thumbnail, "IMG_1.jpg", sizePx = 256) }
+
+        composeRule.onNodeWithTag(SELECTION_RING_TAG, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun thumbnailCell_imageFails_showsBrokenImageIcon() {
+        composeRule.setContent { ThumbnailCell(thumbnail, "IMG_1.jpg", sizePx = 256) }
+
+        composeRule.waitUntil(WAIT_MILLIS) {
+            composeRule.onAllNodesWithTag(THUMBNAIL_FAILED_TAG, useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     @Test

@@ -9,7 +9,7 @@ A simple, fast Android gallery app with basic editing, multiple ways to browse y
 - [Architecture](docs/ARCHITECTURE.md) – modules, layers, data model and key flows (Mermaid diagrams).
 - [Design decisions & open questions](docs/DESIGN_DECISIONS.md) – what has been decided and what is still open.
 - [Implementation TODO](docs/TODO.md) – ordered, step-by-step implementation plan.
-- [Design handover](docs/DESIGN_HANDOVER.md) – brief for the visual design.
+- [Original design brief](docs/DESIGN_HANDOVER.md) – what Claude Design was asked for (historical).
 - [Status](docs/STATUS.md) – what is implemented, what is next, and what still needs checking on the device.
 - [Design](docs/DESIGN.md) – the visual design: colours, type, dimensions, wording and states of every screen.
 

@@ -12,11 +12,13 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.itemKey
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
 import net.drehtuer.nextgallery.core.ui.theme.NextGalleryTheme
+import net.drehtuer.nextgallery.core.ui.thumbnail.LARGE_THUMBNAIL_PX
 import net.drehtuer.nextgallery.core.ui.thumbnail.ThumbnailCell
 import net.drehtuer.nextgallery.core.ui.thumbnail.thumbnailSizePx
 import net.drehtuer.nextgallery.core.ui.thumbnail.toThumbnail
@@ -33,15 +35,17 @@ fun MediaGrid(
     onItemLongClick: (MediaItem) -> Unit,
     modifier: Modifier = Modifier,
     state: LazyGridState = rememberLazyGridState(),
+    selecting: Boolean = selectedIds.isNotEmpty(),
+    columns: Int = NextGalleryTheme.dimensions.gridColumns,
 ) {
     val dimensions = NextGalleryTheme.dimensions
     BoxWithConstraints(modifier) {
         val density = LocalDensity.current
         val sizePx = with(density) {
-            thumbnailSizePx(maxWidth.roundToPx(), dimensions.mediaCellMinSize.roundToPx())
+            thumbnailSizePx(maxWidth.roundToPx(), columns)
         }
         LazyVerticalGrid(
-            columns = GridCells.Adaptive(dimensions.mediaCellMinSize),
+            columns = GridCells.Fixed(columns),
             modifier = Modifier.fillMaxSize(),
             state = state,
             horizontalArrangement = Arrangement.spacedBy(dimensions.gridGap),
@@ -58,6 +62,7 @@ fun MediaGrid(
                     contentDescription = item?.displayName,
                     sizePx = sizePx,
                     selected = item?.id in selectedIds,
+                    selecting = selecting,
                     modifier = Modifier.combinedClickable(
                         enabled = item != null,
                         onClick = { item?.let(onItemClick) },
@@ -65,6 +70,26 @@ fun MediaGrid(
                     ),
                 )
             }
+        }
+    }
+}
+
+const val MEDIA_GRID_PLACEHOLDER_TAG = "media-grid-placeholder"
+private const val PLACEHOLDER_CELLS = 30
+
+/** Flat grey cells in the grid's layout while the first page loads. */
+@Composable
+fun MediaGridPlaceholder(modifier: Modifier = Modifier) {
+    val dimensions = NextGalleryTheme.dimensions
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(dimensions.gridColumns),
+        modifier = modifier.fillMaxSize().testTag(MEDIA_GRID_PLACEHOLDER_TAG),
+        horizontalArrangement = Arrangement.spacedBy(dimensions.gridGap),
+        verticalArrangement = Arrangement.spacedBy(dimensions.gridGap),
+        userScrollEnabled = false,
+    ) {
+        items(PLACEHOLDER_CELLS) {
+            ThumbnailCell(thumbnail = null, contentDescription = null, sizePx = LARGE_THUMBNAIL_PX)
         }
     }
 }

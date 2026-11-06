@@ -214,7 +214,7 @@ _Depends on: Phase 2 (grid, selection)._
 _Depends on: Phase 1 (FolderRules, IndexScheduler)._
 
 - [ ] **4.1 Settings storage (`:core:data`)**
-  - [ ] `UserSettings` model in `:core:model` (folderRules, gridColumns, theme mode, accent colour, defaultView).
+  - [ ] `UserSettings` model in `:core:model` (folderRules, gridColumns, theme mode, accent colour). `AccentColor` already exists.
   - [ ] Proto or Preferences DataStore `SettingsDataSource` (`settings.preferences_pb`), serializer for rules. Tests: read defaults, write/read each field, corrupt-file handler.
   - [ ] `SettingsRepository`: `observeSettings()`, `addRule()`, `removeRule()`, `setGridColumns()`, `setThemeMode()`, `setAccentColor()`. Tests per function.
 - [ ] **4.2 Rule application**
@@ -222,9 +222,9 @@ _Depends on: Phase 1 (FolderRules, IndexScheduler)._
   - [ ] `RuleChangeObserver`: rules change → enqueue full scan (rule change can add items). Test: change → enqueue once.
   - [ ] `FolderRepository.observeAllDeviceFolders()` – folders from MediaStore regardless of rules (needed to pick includes). Test.
 - [ ] **4.3 `:feature:settings`**
-  - [ ] `SettingsViewModel` / `SettingsScreen` (root list: Folders, Appearance, Nextcloud placeholder, About/licenses). Tests: state mapping, navigation callbacks.
+  - [ ] `SettingsViewModel` / `SettingsScreen` (root list: Folders, Appearance, Nextcloud placeholder, About/licenses), opened from a settings icon in the Folders top bar. About needs `BuildConfig` enabled for the version. Tests: state mapping, navigation callbacks.
   - [ ] `FolderRulesViewModel` / `FolderRulesScreen`: list of device folders with Include/Exclude/Default toggles, add custom exclude pattern, show `.nomedia` folders as excluded (read-only). Tests: each toggle event; Compose test: toggling updates UI.
-  - [ ] Appearance: theme mode, grid columns, accent colour (choice from the accents the design defines; placeholder set until then; D34). Tests.
+  - [ ] Appearance: theme mode, grid columns (3, 4 or 5; D51), accent colour (the five accents in DESIGN.md; D34). Tests.
   - [ ] Wire `NextGalleryTheme` and grids to settings. Test: `MainViewModel` emits theme.
 - [ ] **4.4 Update docs** – ARCHITECTURE.md (settings storage) and README match code.
 
@@ -250,7 +250,7 @@ _Depends on: Phases 2 (grid), 3 (viewer)._
   - [ ] Open viewer with `MediaSource.Timeline`. Test.
 - [ ] **5.4 Update docs** – ARCHITECTURE.md (timeline date resolution, separators) and README match code.
 
-**Definition of done:** timeline shows correct local dates (EXIF fallback verified), sticky headers, scrollbar shows year/month while dragging, smooth on 10k+ items; tests for every function; CI green.
+**Definition of done:** timeline shows correct local dates (EXIF fallback verified), sticky headers, the date rail shows the current day and its neighbours (D43), smooth on 10k+ items; tests for every function; CI green.
 
 ---
 
@@ -310,7 +310,7 @@ _Depends on: Phase 3 (viewer entry point, write/delete request helpers)._
   - [ ] `MediaWriteSink` port; `MediaStoreWriter` adapter: `insertPending(displayName, relativePath, mime)`, `requestOverwrite(contentUri): PlatformConfirmation` (`createWriteRequest`), `publish()`, `cleanupPending()`. Tests (Robolectric): insert sets `IS_PENDING`, publish clears it; overwrite request built for the URI.
   - [ ] `EditRepository.save(sourceId, ops, mode = NewCopy|Overwrite): SaveOutcome` → triggers incremental index. Tests per mode/outcome.
 - [ ] **7.4 `:feature:editor`**
-  - [ ] `EditorRoute(mediaId)`; `EditorViewModel` → `EditorUiState(previewBitmap, activeTool, history, cropRect, penColor, penWidth, saving)`; events per tool, `Undo`, `Redo`, `Save(mode)`, `Discard`. A refused scale or save (`InsufficientMemory`) leaves the image unchanged and shows a message with the required and available memory (D30). Tests per event, including both refusal cases; preview re-render runs on `Default` dispatcher.
+  - [ ] `EditorRoute(mediaId)`; `EditorViewModel` → `EditorUiState(previewBitmap, activeTool, history, cropRect, penColor, penWidth, saving)`; events per tool, `Undo`, `Redo`, `Save(mode)`, `Discard`. A refused scale or save (`InsufficientMemory`) leaves the image unchanged and shows a message with the required and available memory (D30, with the numbers). Tests per event, including both refusal cases; preview re-render runs on `Default` dispatcher.
   - [ ] `EditorScreen` with tool bar; `RotateTool`, `CropOverlay` (handles + aspect chips), `ScaleDialog` (percent / width / height), `PenCanvas` (pointer input, color & width pickers). Compose UI tests per tool.
   - [ ] Unsaved-changes dialog on back; save mode dialog (new copy default, overwrite). Compose tests.
   - [ ] Viewer "Edit" button shown only for editable formats (JPEG, PNG; D29) → `EditorRoute` in `:app`; after save, viewer navigates to the new copy. Test.
@@ -351,7 +351,8 @@ _Depends on: Phases 3 (viewer), 4 (settings)._
   - [ ] `NextcloudAccountRepository`: `login(serverUrl): Flow<LoginState>` (Started(loginUrl) → Polling → Success/Failed), `logout()` (revoke via `DELETE /ocs/v2.php/core/apppassword` best effort, clear store, remote cache and upload states; D35). Tests per state.
   - [ ] Logged-out guard: every remote call returns `AppError.NotLoggedIn` without network access. Test.
   - [ ] `TrustedCertificateRepository` + `TrustedCertificateStore` port (DataStore): `accept(info)`, `remove(host)`, `observe()`. JVM tests per function.
-  - [ ] `RemoteBrowseRepository.list(path): Flow<RemoteListing>` (in-memory cache per path, filter supported image mimes + folders). Tests.
+  - [ ] `RemoteBrowseRepository.list(path): Flow<RemoteListing>` (Room `remote_cache` per path, so offline browsing shows what was loaded before; filter supported image mimes + folders). Tests.
+  - [ ] `RemoteShareRepository.prepare(items)` (D48): downloads to a temporary cache folder with progress, returns a `ShareSpec`; `FileProvider` limited to that folder; old files removed at the next share and at app start. Tests: progress, failure, offline, cleanup; Robolectric: URIs and read grants.
   - [ ] `RemoteFileOperations` (D46): `move(items, targetFolder, conflictPolicy)` → per-item result (moved, renamed, replaced, skipped, failed), `undoMove`, `delete(items)` / `undoDelete` via the trash bin, `canWrite(folder)` from `oc:permissions`, `nextFreeName("IMG_1.jpg")` → "IMG_1 (2).jpg". Tests per function and per conflict policy.
 - [ ] **8.6 `:feature:remote` and settings**
   - [ ] `NextcloudSettingsViewModel` / `NextcloudSettingsScreen` in `:feature:settings`: server URL input, "Sign in" opens Custom Tab with `loginUrl`, shows polling/progress, account info, logout, remote root folder picker (used in Phase 9). Tests per event; Compose tests per state.
@@ -405,7 +406,7 @@ _Depends on: Phases 4 (settings), 8 (WebDAV client, account)._
 **Goal:** fast, accessible release build for local installation. F-Droid distribution is deferred (D28).
 _Depends on: Phases 1–9._
 
-- [ ] **10.0 Apply design** – replace the placeholder theme tokens with the values in [DESIGN.md](DESIGN.md) (delivered; can be done now): five accents × light/dark, fixed roles, always-dark viewer colours, type scale, shapes and the new dimension tokens. Adjust screens only where DESIGN.md changes the layout (selection ring, badges, Appearance, About with version and source link). Set a `versionName`. Compose tests: theme per accent and mode.
+- [x] **10.0 Apply design** – replace the placeholder theme tokens with the values in [DESIGN.md](DESIGN.md) (delivered; can be done now): five accents × light/dark, fixed roles, always-dark viewer colours, type scale, shapes and the new dimension tokens. Adjust screens only where DESIGN.md changes the layout (selection ring, badges, Appearance, About with version and source link). Set a `versionName`. Compose tests: theme per accent and mode. _Done before Phase 4. Applied to all existing screens, with new wording, states, icons and the Select action. The rest comes with the screens that need it: settings icon, Appearance and About in 4.3, upload action and badges in Phase 9. `versionName` was already set._
 - [ ] **10.1 Performance**
   - [ ] `:benchmark` (`com.android.test`) module with Macrobenchmark: cold start, folder grid scroll, timeline fast-scroll, viewer swipe. Run on the Pixel 10a against the D24 targets.
   - [ ] Baseline Profile generator (`androidx.baselineprofile` plugin) for `:app`; commit `baseline-prof.txt`. Verify startup improvement.

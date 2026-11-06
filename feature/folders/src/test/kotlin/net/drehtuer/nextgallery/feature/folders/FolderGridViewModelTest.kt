@@ -27,6 +27,8 @@ import net.drehtuer.nextgallery.core.model.ShareSpec
 import net.drehtuer.nextgallery.core.model.TrashEffect
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -96,6 +98,35 @@ class FolderGridViewModelTest {
         viewModel().onEvent(FolderGridEvent.ItemClicked(MediaId(1)))
 
         verify { selectionRepository.toggle(MediaId(1)) }
+    }
+
+    @Test
+    fun onEvent_startSelecting_setsSelecting() = runTest {
+        val viewModel = viewModel()
+
+        viewModel.onEvent(FolderGridEvent.StartSelecting)
+
+        assertTrue(viewModel.state.first { it.title.isNotEmpty() }.selecting)
+    }
+
+    @Test
+    fun onEvent_itemClickedAfterStartSelecting_togglesItem() {
+        val viewModel = viewModel()
+        viewModel.onEvent(FolderGridEvent.StartSelecting)
+
+        viewModel.onEvent(FolderGridEvent.ItemClicked(MediaId(1)))
+
+        verify { selectionRepository.toggle(MediaId(1)) }
+    }
+
+    @Test
+    fun onEvent_clearSelection_stopsSelecting() = runTest {
+        val viewModel = viewModel()
+        viewModel.onEvent(FolderGridEvent.StartSelecting)
+
+        viewModel.onEvent(FolderGridEvent.ClearSelection)
+
+        assertFalse(viewModel.state.first { it.title.isNotEmpty() }.selecting)
     }
 
     @Test
