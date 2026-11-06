@@ -10,6 +10,7 @@ A simple, fast Android gallery app with basic editing, multiple ways to browse y
 - [Design decisions & open questions](docs/DESIGN_DECISIONS.md) – what has been decided and what is still open.
 - [Implementation TODO](docs/TODO.md) – ordered, step-by-step implementation plan.
 - [Status](docs/STATUS.md) – what is implemented, what is next, and what still needs checking on the device.
+- [Design](docs/DESIGN.md) – the visual design: colours, type, dimensions, wording and states of every screen.
 
 ## Goals
 
@@ -26,12 +27,12 @@ A simple, fast Android gallery app with basic editing, multiple ways to browse y
 |---|---|
 | **Folders** (default) | Images grouped by folder, shown as a thumbnail grid. |
 | **Timeline** | Images grouped by year → month → day, with sticky date headers. |
-| **Map** | Images with GPS location (EXIF) shown as clustered markers on a map. Images without location data are skipped. |
+| **Map** | Images with GPS location (EXIF) shown as clustered markers on a map, from the whole globe down to street level. It opens at your current location. Clusters are named after the nearest town ("near Bolzano"), looked up offline. Images without location data are skipped. |
 | **Nextcloud** | Browse and view images stored on a Nextcloud server, without downloading them first. |
 
 - **Configurable sources** – choose which folders are scanned (include list), with optional exclusions (e.g. `WhatsApp/.Statuses`, app caches).
 - **Selection** – one selection across all views; a selection overview lists everything selected and greys out images the current view cannot show.
-- **Fast scroll** – draggable scrollbar on every grid; in the timeline it shows the current year/month while dragging.
+- **Fast scroll** – draggable scrollbar on every grid; in the timeline it shows the date in the middle of the screen, with the dates before and after.
 - **Thumbnails** – generated and cached on device; grids load lazily.
 - **Full-screen viewer** – swipe between images, pinch to zoom, double-tap to zoom, image info (date, size, resolution, location, EXIF).
 
@@ -53,8 +54,9 @@ A simple, fast Android gallery app with basic editing, multiple ways to browse y
 ### Nextcloud integration
 
 - **Built-in viewer** – browse folders on a Nextcloud server and view images full-screen. Thumbnails come from the server's preview API, so originals are only downloaded when opened.
+- **Organise server photos** – long-press an image (or a selection) to move it to another server folder, share it or delete it to the Nextcloud trash bin, with undo.
 
-NextGalleryApp does not duplicate what the official Nextcloud Android app already does (uploading, offline files, …); it hands off to that app instead. The built-in viewer is the one deliberate exception.
+NextGalleryApp does not duplicate what the official Nextcloud Android app already does (uploading, offline files, …); it hands off to that app instead. The built-in viewer and moving or deleting server images are the deliberate exceptions.
 - **Upload status** – each local image shows whether it already exists on Nextcloud (badge on the thumbnail).
 - **Upload** – hands a single image or a selection to the official Nextcloud Android app, which does the actual upload (target folder, name conflicts, large files). Requires the Nextcloud app to be installed.
 - **Login** – via Nextcloud Login Flow v2 (browser-based sign-in, app password), so the account password is never stored in the app. Without a login, Nextcloud features are unavailable and the app shows a hint to log in.
@@ -88,6 +90,7 @@ NextGalleryApp does not duplicate what the official Nextcloud Android app alread
 
 - `READ_MEDIA_IMAGES` – read photos; `READ_MEDIA_VISUAL_USER_SELECTED` – limited access to selected photos only.
 - `ACCESS_MEDIA_LOCATION` – read GPS data from EXIF for the map view.
+- `ACCESS_COARSE_LOCATION` – optional; opens the map at your current location. Without it, the map opens where most of your photos are.
 - `INTERNET` – Nextcloud only.
 - Package visibility for `com.nextcloud.client` (`<queries>`) – to hand uploads to the Nextcloud app.
 - Deleting and overwriting originals goes through the system confirmation dialogs (`MediaStore.createDeleteRequest` / `createWriteRequest`), so no broad storage permission is required.
