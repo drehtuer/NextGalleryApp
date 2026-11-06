@@ -1,0 +1,4 @@
+package net.drehtuer.nextgallery.core.model
+
+/** EXIF values exactly as stored in the file; parsing happens in `:core:data`. */
+data class RawExif(val dateTimeOriginal: String?, val offsetTimeOriginal: String?, val subSecTimeOriginal: String?)

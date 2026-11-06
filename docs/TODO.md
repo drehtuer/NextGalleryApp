@@ -84,61 +84,61 @@ are described in [ARCHITECTURE.md](ARCHITECTURE.md); rationale and open question
 **Goal:** the app asks for media permissions and keeps a Room index of all local images in sync with MediaStore.
 _Depends on: Phase 0._
 
-- [ ] **1.1 `:core:common` (JVM)**
-  - [ ] `DispatcherProvider` interface + `DefaultDispatcherProvider` (`io`, `default`, `main`). Test: `TestDispatcherProvider` returns injected `StandardTestDispatcher`.
-  - [ ] `AppResult<T>` / `runCatchingCancellable {}` helper that rethrows `CancellationException`. Tests: success, failure, cancellation rethrown.
-  - [ ] `Clock` abstraction (`SystemClock` impl) for testable timestamps. Test: returns injected instant.
-  - [ ] `Debouncer` / `Flow.debounceSignals()` helper. Test with virtual time: bursts collapse to one emission.
-- [ ] **1.2 `:core:model` (JVM)**
-  - [ ] `MediaId` (value class over MediaStore `_ID`), `MediaItem` (id, contentUri, displayName, relativePath, bucketId, bucketName, mimeType, sizeBytes, width, height, orientation, dateTakenMillis, dateModifiedSeconds, generationModified?, latitude?, longitude?, takenLocalDate).
-  - [ ] `Folder` (bucketId, name, relativePath, itemCount, coverItem).
-  - [ ] `SupportedMimeTypes` (`image/jpeg`, `image/png`, `image/webp`, `image/heic`, `image/heif`, `image/gif`) with `isSupported(mime)` and `isEditable(mime)` (JPEG, PNG only; D29). Tests: each supported/unsupported type, each editable/non-editable type.
-  - [ ] `FolderRule` (path, `Include`/`Exclude`) and `FolderRules.matches(relativePath)`; default excludes (`WhatsApp/Media/.Statuses`, `Android/data`). Tests: include match, exclude wins over include, prefix vs. sibling (`DCIM/Cam` vs `DCIM/Camera`), empty include list = all.
-  - [ ] `MediaAccess` enum (`Full`, `Partial`, `Denied`), `ScannedImage`, `RawExif`, `PlatformConfirmation` (opaque handle).
-- [ ] **1.3 `:core:data` (JVM) – ports and indexing logic**
-  - [ ] Ports: `MediaScanSource` (`fullScan()`, `changesSince(generation)`, `allIds()`, `mediaStoreVersion()`, `noMediaPaths()`), `MediaChangeSource`, `ExifSource`, `MediaPermissionSource`, `MediaIndexStore`, `SyncStateStore`, `WorkScheduler`. Plus hand-written fakes in `testFixtures`.
-  - [ ] `NoMediaMatcher.isHidden(relativePath, noMediaPaths)`. Tests: folder with `.nomedia`, nested subfolder, unrelated sibling.
-  - [ ] `ExifDateParser.parse(dateTimeOriginal, offsetTimeOriginal, subSec)`. Tests: plain, with offset, with sub-seconds, malformed → null.
-  - [ ] `DateResolver.resolve(dateTaken, exifDate, dateModified, zone): ResolvedDate` (DATE_TAKEN → EXIF → DATE_MODIFIED, local date). Tests: each fallback branch, zone boundary at midnight.
-  - [ ] `MediaAccessResolver.resolve(grantedPermissions)` and `requiredPermissions()`. Tests: full, selected only, none.
-  - [ ] `MediaIndexer` with `fullScan()` and `incrementalSync()` against fake ports:
-    - [ ] full scan: stream scan source, apply `FolderRules` + `NoMediaMatcher`, resolve taken date, upsert in batches, delete rows not seen. Tests: insert new, update changed, delete removed, excluded folder skipped, `.nomedia` skipped.
-    - [ ] incremental: `changesSince(lastGeneration)` plus id-diff for deletions; fall back to full scan when the MediaStore version changed. Tests: changed-only upsert, deleted item removed, version change → full scan.
-    - [ ] persist sync state after success. Test: state written only on success.
-  - [ ] `IndexRepository.sync(mode): AppResult<IndexStats>` and `observeStatus()`. Tests: success, scan failure → `Failure`.
-  - [ ] `IndexScheduler`: `onAppStart()` → `WorkScheduler.enqueueIndex(FULL)` if never indexed, else `INCREMENTAL`; collects `MediaChangeSource` debounced (2 s) → incremental; media access change → full. Tests: first launch → full, later → incremental, burst of changes → one enqueue, access change → full.
-  - [ ] `MediaRepository` interface + `DefaultMediaRepository`: `observeIndexedCount()`, `getItem(id)`. Tests per method with fake `MediaIndexStore`.
-- [ ] **1.4 `:core:database` (Android adapter)**
-  - [ ] `MediaEntity` (`media` table; PK `id`; indices on `bucket_id`, `taken_local_date`, `date_modified`, `relative_path`).
-  - [ ] `SyncStateEntity` (`sync_state`: last full scan time, last `GENERATION_MODIFIED`, MediaStore version string).
-  - [ ] `MediaDao`: `upsertAll`, `deleteByIds`, `deleteNotIn(ids)` (chunked), `getAllIdsWithModified()`, `observeCount()`, `getById()`. Tests (in-memory Room, Robolectric): one per method.
-  - [ ] `SyncStateDao`: `get()`, `put()`. Tests: default empty, round-trip.
-  - [ ] `NextGalleryDatabase` (version 1, exported schema in `core/database/schemas`). Test: `MigrationTestHelper` setup ready for future migrations.
-  - [ ] `RoomMediaIndexStore`, `RoomSyncStateStore` implementing the ports, with entity ↔ model mappers; `DatabaseModule` (Hilt) binding them. Tests: mapper round-trip; each store method delegates to the DAO (Robolectric, in-memory Room).
-- [ ] **1.5 `:core:media` (Android adapter)**
-  - [ ] `MediaStoreQuery`: projection, selection for supported mime types, `IS_PENDING = 0`, `IS_TRASHED = 0`. Test: generated selection/args (Robolectric).
-  - [ ] `CursorMapper.toScannedImage(cursor)`. Test with `MatrixCursor` (Robolectric): all columns, nulls.
-  - [ ] `MediaStoreScanner` implementing `MediaScanSource` (batches of 500, `GENERATION_MODIFIED`, `.nomedia` paths from `MediaStore.Files`). Tests: instrumented (local emulator / Pixel 10a) with inserted test images, one per method (ARCHITECTURE.md §13.1).
-  - [ ] `AndroidExifSource` implementing `ExifSource` (`androidx.exifinterface`, `MediaStore.setRequireOriginal` when `ACCESS_MEDIA_LOCATION` is granted); returns raw tag strings, no parsing. Tests: tag extraction from sample JPEGs in `src/test/resources` (Robolectric); `setRequireOriginal` with/without permission instrumented.
-  - [ ] `MediaStoreChangeObserver` implementing `MediaChangeSource` (`callbackFlow` over `ContentObserver`). Test: register/unregister on collect/cancel (Robolectric).
-  - [ ] `AndroidMediaPermissionSource` implementing `MediaPermissionSource`. Test: granted set reflects shadowed permissions (Robolectric).
-  - [ ] `MediaModule` (Hilt) binding the adapters.
-- [ ] **1.6 `:core:platform` (Android adapter and wiring)**
-  - [ ] `IndexWorker` (`@HiltWorker`, `CoroutineWorker`): input `mode`, calls `IndexRepository.sync(mode)`, maps `Success` → `success()`, `Failure` → `retry()`. Tests (`TestListenableWorkerBuilder`, Robolectric): success, failure → retry.
-  - [ ] `WorkManagerScheduler` implementing `WorkScheduler`: unique work `index`, `KEEP` for app start, `APPEND_OR_REPLACE` for changes. Tests (`WorkManagerTestInitHelper`): enqueued request has the expected name, policy and input.
-  - [ ] `DispatchersModule`, `ApplicationScopeModule`, `RepositoryModule` (binds `:core:data` interfaces). WorkManager initialization via `Configuration.Provider` with `HiltWorkerFactory` in `NextGalleryApplication` (remove default initializer in manifest).
-- [ ] **1.7 Permissions UI**
-  - [ ] `:app` manifest: `READ_MEDIA_IMAGES`, `READ_MEDIA_VISUAL_USER_SELECTED`, `ACCESS_MEDIA_LOCATION`. (`INTERNET` added in Phase 8.)
-  - [ ] `:core:ui` `rememberMediaPermissionState()` + `PermissionRationale` composable (explain, request, "select more photos" for partial, open app settings when permanently denied). Compose UI tests: each state renders the correct action.
-- [ ] **1.8 `:core:ui` foundation**
-  - [ ] `NextGalleryTheme` (Material 3, light/dark) with placeholder colour, typography, shape and spacing tokens; the final values come from Claude Design later (D22). Compose test: renders in light/dark.
-  - [ ] Common composables: `LoadingIndicator`, `EmptyState`, `ErrorState`. Compose UI test each.
-- [ ] **1.9 `:app` shell**
-  - [ ] Type-safe routes (`@Serializable object FoldersRoute`, …) in `:app` `navigation/Routes.kt`; `NextGalleryNavHost`.
-  - [ ] Bottom navigation bar (Folders, Timeline, Map, Nextcloud) with placeholder screens. Compose UI test: tab switching.
-  - [ ] `MainViewModel` exposing `MainUiState(mediaAccess, indexedCount)`; calls `IndexScheduler.onAppStart()`. JVM tests: state on permission granted/denied.
-  - [ ] Debug-only screen/log showing indexed count to verify indexing.
-- [ ] **1.10 Update docs** – ARCHITECTURE.md (indexing flow, DB schema v1) and README match code.
+- [x] **1.1 `:core:common` (JVM)**
+  - [x] `DispatcherProvider` interface + `DefaultDispatcherProvider` (`io`, `default`, `main`). Test: `TestDispatcherProvider` returns injected `StandardTestDispatcher`. _Only `io` and `default`; no `main` (ViewModels use `viewModelScope`)._
+  - [x] `AppResult<T>` / `runCatchingCancellable {}` helper that rethrows `CancellationException`. Tests: success, failure, cancellation rethrown. _Plus `AppError.from(throwable)`._
+  - [x] `Clock` abstraction (`SystemClock` impl) for testable timestamps. Test: returns injected instant. _`Clock` also provides the device time zone (`zone()`)._
+  - [x] `Debouncer` / `Flow.debounceSignals()` helper. Test with virtual time: bursts collapse to one emission. _Not needed: `IndexScheduler` uses kotlinx `debounce` directly; covered by its burst test._
+- [x] **1.2 `:core:model` (JVM)**
+  - [x] `MediaId` (value class over MediaStore `_ID`), `MediaItem` (id, contentUri, displayName, relativePath, bucketId, bucketName, mimeType, sizeBytes, width, height, orientation, dateTakenMillis, dateModifiedSeconds, generationModified?, latitude?, longitude?, takenLocalDate). _Fields as in ARCHITECTURE.md §3.3._
+  - [x] `Folder` (bucketId, name, relativePath, itemCount, coverItem).
+  - [x] `SupportedMimeTypes` (`image/jpeg`, `image/png`, `image/webp`, `image/heic`, `image/heif`, `image/gif`) with `isSupported(mime)` and `isEditable(mime)` (JPEG, PNG only; D29). Tests: each supported/unsupported type, each editable/non-editable type. _Includes `isEditable` (D29)._
+  - [x] `FolderRule` (path, `Include`/`Exclude`) and `FolderRules.matches(relativePath)`; default excludes (`WhatsApp/Media/.Statuses`, `Android/data`). Tests: include match, exclude wins over include, prefix vs. sibling (`DCIM/Cam` vs `DCIM/Camera`), empty include list = all. _`FolderRule` is in `:core:model`; matching is `FolderRuleMatcher` and the defaults are `DefaultFolderRulesProvider`, both in `:core:data` (they need `RelativePaths` from `:core:common`)._
+  - [x] `MediaAccess` enum (`Full`, `Partial`, `Denied`), `ScannedImage`, `RawExif`, `PlatformConfirmation` (opaque handle).
+- [x] **1.3 `:core:data` (JVM) – ports and indexing logic**
+  - [x] Ports: `MediaScanSource` (`fullScan()`, `changesSince(generation)`, `allIds()`, `mediaStoreVersion()`, `noMediaPaths()`), `MediaChangeSource`, `ExifSource`, `MediaPermissionSource`, `MediaIndexStore`, `SyncStateStore`, `WorkScheduler`. Plus hand-written fakes in `testFixtures`. _Per-volume API; no `noMediaPaths()` (see next item). Fakes live in the module's tests; they move to `testFixtures` once another module needs them._
+  - [x] `NoMediaMatcher.isHidden(relativePath, noMediaPaths)`. Tests: folder with `.nomedia`, nested subfolder, unrelated sibling. _Dropped: MediaStore already hides folders with a `.nomedia` file (D6); to be confirmed by `MediaStoreScannerTest` on the device._
+  - [x] `ExifDateParser.parse(dateTimeOriginal, offsetTimeOriginal, subSec)`. Tests: plain, with offset, with sub-seconds, malformed → null.
+  - [x] `DateResolver.resolve(dateTaken, exifDate, dateModified, zone): ResolvedDate` (DATE_TAKEN → EXIF → DATE_MODIFIED, local date). Tests: each fallback branch, zone boundary at midnight.
+  - [x] `MediaAccessResolver.resolve(grantedPermissions)` and `requiredPermissions()`. Tests: full, selected only, none. _Folded into `DefaultMediaAccessRepository` (`currentAccess()`, `requestedPermissions`)._
+  - [x] `MediaIndexer` with `fullScan()` and `incrementalSync()` against fake ports:
+    - [x] full scan: stream scan source, apply `FolderRules` + `NoMediaMatcher`, resolve taken date, upsert in batches, delete rows not seen. Tests: insert new, update changed, delete removed, excluded folder skipped, `.nomedia` skipped.
+    - [x] incremental: `changesSince(lastGeneration)` plus id-diff for deletions; fall back to full scan when the MediaStore version changed. Tests: changed-only upsert, deleted item removed, version change → full scan. _Also removes images that moved into an excluded folder._
+    - [x] persist sync state after success. Test: state written only on success.
+  - [x] `IndexRepository.sync(mode): AppResult<IndexStats>` and `observeStatus()`. Tests: success, scan failure → `Failure`.
+  - [x] `IndexScheduler`: `onAppStart()` → `WorkScheduler.enqueueIndex(FULL)` if never indexed, else `INCREMENTAL`; collects `MediaChangeSource` debounced (2 s) → incremental; media access change → full. Tests: first launch → full, later → incremental, burst of changes → one enqueue, access change → full.
+  - [x] `MediaRepository` interface + `DefaultMediaRepository`: `observeIndexedCount()`, `getItem(id)`. Tests per method with fake `MediaIndexStore`.
+- [x] **1.4 `:core:database` (Android adapter)**
+  - [x] `MediaEntity` (`media` table; PK `id`; indices on `bucket_id`, `taken_local_date`, `date_modified`, `relative_path`). _Also stores `bucket_name`; indices on `(bucket_id, date_taken_ms)`, `date_taken_ms`, `(local_year, local_month, local_day)`, `volume_name`._
+  - [x] `SyncStateEntity` (`sync_state`: last full scan time, last `GENERATION_MODIFIED`, MediaStore version string).
+  - [x] `MediaDao`: `upsertAll`, `deleteByIds`, `deleteNotIn(ids)` (chunked), `getAllIdsWithModified()`, `observeCount()`, `getById()`. Tests (in-memory Room, Robolectric): one per method. _`deleteNotIn` is computed in `MediaIndexer`; chunking in `RoomMediaIndexStore`._
+  - [x] `SyncStateDao`: `get()`, `put()`. Tests: default empty, round-trip. _Plus `hasAny()`._
+  - [x] `NextGalleryDatabase` (version 1, exported schema in `core/database/schemas`). Test: `MigrationTestHelper` setup ready for future migrations. _Schema v1 exported; the Room convention plugin adds the schemas to unit-test assets so `MigrationTestHelper` works under Robolectric._
+  - [x] `RoomMediaIndexStore`, `RoomSyncStateStore` implementing the ports, with entity ↔ model mappers; `DatabaseModule` (Hilt) binding them. Tests: mapper round-trip; each store method delegates to the DAO (Robolectric, in-memory Room).
+- [x] **1.5 `:core:media` (Android adapter)**
+  - [x] `MediaStoreQuery`: projection, selection for supported mime types, `IS_PENDING = 0`, `IS_TRASHED = 0`. Test: generated selection/args (Robolectric). _Plain JVM test; MediaStore hides pending and trashed rows by default, so no extra conditions._
+  - [x] `CursorMapper.toScannedImage(cursor)`. Test with `MatrixCursor` (Robolectric): all columns, nulls.
+  - [x] `MediaStoreScanner` implementing `MediaScanSource` (batches of 500, `GENERATION_MODIFIED`, `.nomedia` paths from `MediaStore.Files`). Tests: instrumented (local emulator / Pixel 10a) with inserted test images, one per method (ARCHITECTURE.md §13.1). _Instrumented `MediaStoreScannerTest` written and compiled; not run on a device yet._
+  - [x] `AndroidExifSource` implementing `ExifSource` (`androidx.exifinterface`, `MediaStore.setRequireOriginal` when `ACCESS_MEDIA_LOCATION` is granted); returns raw tag strings, no parsing. Tests: tag extraction from sample JPEGs in `src/test/resources` (Robolectric); `setRequireOriginal` with/without permission instrumented. _Only the date tags for now; GPS and `setRequireOriginal` come in Phase 6. EXIF test writes a real JPEG with Robolectric native graphics._
+  - [x] `MediaStoreChangeObserver` implementing `MediaChangeSource` (`callbackFlow` over `ContentObserver`). Test: register/unregister on collect/cancel (Robolectric).
+  - [x] `AndroidMediaPermissionSource` implementing `MediaPermissionSource`. Test: granted set reflects shadowed permissions (Robolectric).
+  - [x] `MediaModule` (Hilt) binding the adapters.
+- [x] **1.6 `:core:platform` (Android adapter and wiring)**
+  - [x] `IndexWorker` (`@HiltWorker`, `CoroutineWorker`): input `mode`, calls `IndexRepository.sync(mode)`, maps `Success` → `success()`, `Failure` → `retry()`. Tests (`TestListenableWorkerBuilder`, Robolectric): success, failure → retry. _`PermissionDenied` → `failure()` (retrying cannot help), other failures → `retry()`._
+  - [x] `WorkManagerScheduler` implementing `WorkScheduler`: unique work `index`, `KEEP` for app start, `APPEND_OR_REPLACE` for changes. Tests (`WorkManagerTestInitHelper`): enqueued request has the expected name, policy and input. _Every request uses `APPEND_OR_REPLACE`; full scans are expedited._
+  - [x] `DispatchersModule`, `ApplicationScopeModule`, `RepositoryModule` (binds `:core:data` interfaces). WorkManager initialization via `Configuration.Provider` with `HiltWorkerFactory` in `NextGalleryApplication` (remove default initializer in manifest). _Implemented as `PlatformModule` and `RepositoryModule`; no application scope needed yet (the change observer runs in `MainViewModel`)._
+- [x] **1.7 Permissions UI**
+  - [x] `:app` manifest: `READ_MEDIA_IMAGES`, `READ_MEDIA_VISUAL_USER_SELECTED`, `ACCESS_MEDIA_LOCATION`. (`INTERNET` added in Phase 8.)
+  - [x] `:core:ui` `rememberMediaPermissionState()` + `PermissionRationale` composable (explain, request, "select more photos" for partial, open app settings when permanently denied). Compose UI tests: each state renders the correct action. _Stateless `MediaAccessRequest` and `LimitedAccessBanner` in `:core:ui` (Compose tests); the permission launcher is wired in `MainActivity` and not unit-tested (Android glue)._
+- [x] **1.8 `:core:ui` foundation**
+  - [x] `NextGalleryTheme` (Material 3, light/dark) with placeholder colour, typography, shape and spacing tokens; the final values come from Claude Design later (D22). Compose test: renders in light/dark.
+  - [x] Common composables: `LoadingIndicator`, `EmptyState`, `ErrorState`. Compose UI test each.
+- [x] **1.9 `:app` shell**
+  - [x] Type-safe routes (`@Serializable object FoldersRoute`, …) in `:app` `navigation/Routes.kt`; `NextGalleryNavHost`.
+  - [x] Bottom navigation bar (Folders, Timeline, Map, Nextcloud) with placeholder screens. Compose UI test: tab switching. _Placeholder screens live in `:app` until the features replace them._
+  - [x] `MainViewModel` exposing `MainUiState(mediaAccess, indexedCount)`; calls `IndexScheduler.onAppStart()`. JVM tests: state on permission granted/denied. _`AccessRequestFinished` event forces a rebuild after the permission dialog or photo selection closes; the change observer starts once access is granted._
+  - [x] Debug-only screen/log showing indexed count to verify indexing. _The Folders placeholder shows the indexed count until Phase 2 replaces it._
+- [x] **1.10 Update docs** – ARCHITECTURE.md (indexing flow, DB schema v1) and README match code.
 
 **Definition of done:** on a device with photos, granting permission fills the `media` table; adding/deleting a photo updates the index within seconds; partial access indexes only selected photos; all new functions have tests; CI green.
 

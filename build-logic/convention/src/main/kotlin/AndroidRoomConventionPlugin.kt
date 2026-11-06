@@ -1,4 +1,5 @@
 import androidx.room.gradle.RoomExtension
+import com.android.build.api.dsl.CommonExtension
 import net.drehtuer.nextgallery.buildlogic.libs
 import net.drehtuer.nextgallery.buildlogic.library
 import org.gradle.api.Plugin
@@ -14,6 +15,8 @@ class AndroidRoomConventionPlugin : Plugin<Project> {
         extensions.configure<RoomExtension> {
             schemaDirectory("$projectDir/schemas")
         }
+        // The Room plugin only adds the schemas to instrumented-test assets; Robolectric migration tests need them too.
+        (extensions.getByName("android") as CommonExtension).sourceSets.getByName("test").assets.srcDir("$projectDir/schemas")
 
         dependencies {
             add("implementation", libs.library("androidx-room-runtime"))

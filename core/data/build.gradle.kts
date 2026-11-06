@@ -3,7 +3,7 @@ plugins {
 }
 
 dependencies {
-    implementation(projects.core.model)
-    implementation(projects.core.common)
+    api(projects.core.model)
+    api(projects.core.common)
     implementation(projects.core.nextcloud)
 }

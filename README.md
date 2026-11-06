@@ -2,13 +2,14 @@
 
 A simple, fast Android gallery app with basic editing, multiple ways to browse your photos, and built-in Nextcloud integration.
 
-> Status: early development. The build setup exists (Phase 0 of [TODO.md](docs/TODO.md)); app features are not implemented yet. This README describes the intended scope.
+> Status: early development. Photo access and background indexing work; the browsing views are next. See [STATUS.md](docs/STATUS.md). This README describes the intended scope.
 
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) – modules, layers, data model and key flows (Mermaid diagrams).
 - [Design decisions & open questions](docs/DESIGN_DECISIONS.md) – what has been decided and what is still open.
 - [Implementation TODO](docs/TODO.md) – ordered, step-by-step implementation plan.
+- [Status](docs/STATUS.md) – what is implemented, what is next, and what still needs checking on the device.
 
 ## Goals
 
