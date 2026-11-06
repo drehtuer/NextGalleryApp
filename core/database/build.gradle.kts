@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.nextgallery.android.library)
     alias(libs.plugins.nextgallery.android.room)
+    alias(libs.plugins.nextgallery.android.hilt)
 }
 
 dependencies {

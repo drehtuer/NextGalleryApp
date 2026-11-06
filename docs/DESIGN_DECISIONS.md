@@ -14,7 +14,7 @@ before the phase that depends on them starts.
 | D3 | Modularisation | Not specified | Multi-module Gradle build (`:app`, `:core:*`, `:feature:*`) with a version catalog and convention plugins in `build-logic/`. `:core:model`, `:core:common`, `:core:data` and `:core:nextcloud` are pure Kotlin/JVM modules (D25). |
 | D4 | Navigation | Not specified | Navigation Compose with type-safe routes (kotlinx.serialization). |
 | D5 | Grid loading | "Lazy loading" only | Paging 3 backed by Room `PagingSource`. |
-| D6 | Index sync | Room *and* MediaStore, but no sync strategy | Full scan on first start, then incremental sync: `GENERATION_MODIFIED` (deletions found by comparing ID sets). Triggered by a debounced `ContentObserver` and on app start. `.nomedia` is respected. |
+| D6 | Index sync | Room *and* MediaStore, but no sync strategy | Full scan on first start, then incremental sync: `GENERATION_MODIFIED` (deletions found by comparing ID sets). Triggered by a debounced `ContentObserver` and on app start. `.nomedia` is respected by MediaStore itself (folders containing it are not in the image collection), so the app does no own `.nomedia` check. |
 | D7 | Timeline date source | Not specified | `DATE_TAKEN` → EXIF `DateTimeOriginal` → `DATE_MODIFIED`, grouped in the device's local time zone. |
 | D8 | Media types | "Images" only | v1 supports images only (JPEG, PNG, WebP, HEIC/HEIF, static GIF). No video. |
 | D9 | Viewer zoom / subsampling | "Subsampling" without a library | Telephoto (`zoomable-image-coil`), because it is Compose-native and uses Coil. |

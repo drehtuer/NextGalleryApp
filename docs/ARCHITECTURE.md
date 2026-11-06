@@ -222,10 +222,10 @@ Package root and application ID: `net.drehtuer.nextgallery` (D26). Class names b
 
 #### `:core:common` (pure Kotlin)
 
-- `AppResult<T>` – `Success(value)` / `Failure(error: AppError)`; `AppError` sealed (`Io`, `NotFound`, `Network`, `Auth`, `Server(code)`, `InsufficientMemory(requiredBytes, availableBytes)`, `UntrustedCertificate(info: CertificateInfo)`, `NotLoggedIn`, `Cancelled`, `Unknown(cause)`).
-- `DispatcherProvider` interface (`io`, `default`, `main`) + `@Dispatcher(IO|DEFAULT)` qualifier; Hilt bindings live in `:core:platform`.
-- `Clock` abstraction (testable time), `TimeZoneProvider`.
-- Utilities: `RelativePaths` (normalize, `isUnder`, join), `debounceLatest`, `runCatchingCancellable` (never swallows `CancellationException`), byte/size formatting helpers.
+- `AppResult<T>` – `Success(value)` / `Failure(error: AppError)`; `AppError` sealed; implemented so far: `Io(message)`, `PermissionDenied`, `Unknown(cause)`, with `AppError.from(throwable)`. Added with the features that need them: `NotFound`, `Network`, `Auth`, `Server(code)`, `InsufficientMemory(requiredBytes, availableBytes)`, `UntrustedCertificate(info: CertificateInfo)`, `NotLoggedIn`.
+- `DispatcherProvider` interface (`io`, `default`) + `DefaultDispatcherProvider`; the Hilt binding lives in `:core:platform`. ViewModels use `viewModelScope`, so no main dispatcher is injected.
+- `Clock` (`nowMillis()`, `zone()`) + `SystemClock`.
+- Utilities: `RelativePaths` (`normalize`, case-insensitive `isUnder`), `runCatchingCancellable` (never swallows `CancellationException`).
 
 #### `:core:data` (pure Kotlin/JVM)
 
@@ -235,7 +235,7 @@ Ports (implemented by adapters):
 
 | Port | Implemented in | Purpose |
 | --- | --- | --- |
-| `MediaScanSource` | `:core:media` | `fullScan()`, `changesSince(generation)`, `allIds()`, `mediaStoreVersion()`, `noMediaPaths()`. |
+| `MediaScanSource` | `:core:media` | Per volume: `volumes()`, `mediaStoreVersion(volume)`, `currentGeneration(volume)`, `fullScan(volume)`, `changesSince(volume, generation)`, `allIds(volume)`. |
 | `MediaChangeSource` | `:core:media` | `Flow<Unit>` of MediaStore change notifications. |
 | `ExifSource` | `:core:media` | Raw EXIF values (date strings, offset, GPS, camera fields) for a content URI. |
 | `MediaContentSource` | `:core:media` | `openInputStream(contentUri)`, size, for checksums. |
@@ -273,8 +273,9 @@ Pure logic (each class unit-tested on the JVM):
 - `IndexScheduler` – decides full vs incremental, debounces `MediaChangeSource`, calls `WorkScheduler`.
 - `MediaIndexer` – full/incremental sync algorithm, batching, deletion detection.
 - `DateResolver`, `ExifDateParser` – `DATE_TAKEN` → EXIF `DateTimeOriginal` (+ offset) → `DATE_MODIFIED`.
-- `FolderRuleMatcher`, `NoMediaMatcher` – is a relative path indexed given rules and `.nomedia` paths?
-- `MediaAccessResolver` – granted permissions → `MediaAccess`.
+- `FolderRuleMatcher` – is a relative path indexed given the include/exclude rules? (`.nomedia` folders are already hidden by MediaStore, so there is no own `.nomedia` handling.)
+- `DefaultFolderRulesProvider` – default rules until Phase 4 adds user settings.
+- `MediaAccessRepository` – granted permissions → `MediaAccess`, and the permissions to request.
 - `FolderMapping` – local relative path → `<remoteRoot>/<relative path>`.
 - `UploadStateMatcher`, `ChecksumCalculator` (streams SHA-1 / MD5 of an `InputStream`), `ChecksumParser`.
 - `SelectionRepresentability` – can a view context show an item (Map: has GPS; Folder: same bucket; Timeline: always, since every item has a resolved date).
@@ -312,7 +313,7 @@ Pure logic (each class unit-tested on the JVM):
 
 | Class | Implements | Responsibility |
 | --- | --- | --- |
-| `MediaStoreScanner` | `MediaScanSource` | Queries `MediaStore.Images.Media` per external volume in batches of 500, using `GENERATION_MODIFIED` for incremental scans; `.nomedia` paths via `MediaStore.Files`. |
+| `MediaStoreScanner` | `MediaScanSource` | Queries `MediaStore.Images.Media` per external volume in batches of 500, using `GENERATION_MODIFIED` for incremental scans. |
 | `MediaStoreChangeObserver` | `MediaChangeSource` | `ContentObserver` on `MediaStore.Images.Media.EXTERNAL_CONTENT_URI` as `callbackFlow`. |
 | `AndroidExifSource` | `ExifSource` | `androidx.exifinterface` on `MediaStore.setRequireOriginal(uri)` streams; returns raw tag values, parsing happens in `ExifDateParser`. |
 | `ContentResolverContentSource` | `MediaContentSource` | Opens content URIs. |
@@ -328,7 +329,7 @@ Pure logic (each class unit-tested on the JVM):
 - `KeystoreSecretCipher` implements `SecretCipher` (Tink AEAD, keyset wrapped by an Android Keystore master key).
 - `ActivityManagerMemoryInfo` implements `MemoryInfoSource`.
 - `PackageManagerNextcloudAppSource` implements `NextcloudAppSource` (manifest `<queries>` entry for `com.nextcloud.client`).
-- Hilt modules: `DispatchersModule`, `DataStoreModule` (file locations), `RepositoryModule` (binds `:core:data` interfaces to `Default…` implementations), `NextcloudModule`, `ApplicationScopeModule`.
+- Hilt modules: `DispatchersModule`, `DataStoreModule` (file locations), `RepositoryModule` (binds `:core:data` interfaces to `Default…` implementations), `NextcloudModule`. Implemented so far: `PlatformModule` (dispatchers, clock, WorkManager, `WorkScheduler`) and `RepositoryModule`; `:core:database` and `:core:media` bind their own adapters (`DatabaseModule`, `MediaModule`).
 
 #### `:core:ui`
 
@@ -369,6 +370,7 @@ erDiagram
         string volume_name
         string content_uri
         long bucket_id
+        string bucket_name
         string relative_path
         string display_name
         string mime_type
@@ -427,7 +429,6 @@ erDiagram
     sync_state {
         string volume_name PK
         long last_generation
-        long last_date_modified_s
         string media_store_version
         long last_full_scan_ms
     }
@@ -469,10 +470,10 @@ sequenceDiagram
     participant Exif as ExifSource
     participant DB as Room
 
-    App->>Sched: onAppStart()
-    Sched->>W: enqueueUniqueWork KEEP
+    App->>Sched: onAppStart(access) or onAccessChanged(access)
+    Sched->>W: enqueueUniqueWork APPEND_OR_REPLACE, FULL or INCREMENTAL
     Obs-->>Sched: change event, debounced 2s
-    Sched->>W: enqueueUniqueWork APPEND_OR_REPLACE
+    Sched->>W: enqueueUniqueWork APPEND_OR_REPLACE, INCREMENTAL
     W->>Idx: sync()
     Idx->>DB: read sync_state and folder_rule
     alt no sync_state or MediaStore version changed
@@ -482,7 +483,7 @@ sequenceDiagram
     end
     loop each batch
         Scan-->>Idx: List of ScannedImage
-        Idx->>Idx: filter by FolderRuleMatcher and nomedia set
+        Idx->>Idx: filter by FolderRuleMatcher
         Idx->>Idx: DateResolver step 1 uses DATE_TAKEN
         opt DATE_TAKEN missing or location needed
             Idx->>Exif: read DateTimeOriginal and GPS via setRequireOriginal
@@ -502,7 +503,9 @@ Details:
 - Deletions are not reported by generation queries, so each sync compares ID sets (`allIds()` is a projection-only cursor; ~fast even at 50k rows). Rows are removed in chunks of 900 (SQLite variable limit).
 - EXIF reading is the expensive part. GPS is read only for JPEG/HEIF/WebP during the scan, and in a **second pass** (`exif_scanned = false` rows) after the grid-relevant data is committed, so folders appear quickly on first launch. Date fallback order: `DATE_TAKEN` → EXIF `DateTimeOriginal` (with `OffsetTimeOriginal` when present) → `DATE_MODIFIED`.
 - Without `ACCESS_MEDIA_LOCATION`, `setRequireOriginal` throws / GPS is redacted; location is then left null and the map shows a hint.
-- With partial access, the scan only sees user-selected images; the index is rebuilt from scratch whenever the selection changes (detected on resume via the permission state).
+- With partial access, the scan only sees user-selected images. The selection cannot be read from the permission state, so the index is rebuilt (full scan) whenever the permission dialog or photo selection closes (`MainEvent.AccessRequestFinished`) and whenever the access level changes.
+- `.nomedia`: MediaStore already excludes folders that contain a `.nomedia` file from the image collection, so the indexer does not check for it (to be confirmed on the device by the instrumented `MediaStoreScannerTest`).
+- Phase 1 status: dates are resolved (incl. the EXIF fallback); GPS and the second EXIF pass come in Phase 6, and `IndexWorker` does not report progress yet.
 - `IndexWorker` is expedited for the first scan, runs as normal work otherwise, and reports progress through `setProgress` for the UI's indexing indicator.
 
 ### 5.2 Opening a folder grid with paging
@@ -891,8 +894,8 @@ Process death: the route is restored by Navigation and passed in again through t
 
 Rules:
 
-- No `GlobalScope`. Long-lived app-level collectors (ContentObserver → scheduler) run in an `@ApplicationScope CoroutineScope` (`SupervisorJob + Default`) provided by Hilt.
-- Unique work names: `index` (one at a time; `APPEND_OR_REPLACE` coalesces triggers), `upload-state-sync` (periodic, `UPDATE`; plus a one-shot `upload-state-refresh` after a hand-off).
+- No `GlobalScope`. The MediaStore change observer runs in `MainViewModel`'s `viewModelScope`, i.e. while the UI exists; changes made while the app is closed are picked up by the incremental sync on the next start.
+- Unique work names: `index` (one at a time; every trigger uses `APPEND_OR_REPLACE`, so a sync requested during a running one is not lost; the 2 s debounce keeps the chain short), `upload-state-sync` (periodic, `UPDATE`; plus a one-shot `upload-state-refresh` after a hand-off).
 - Room writes in batches inside `withTransaction`; the indexer yields between batches (`ensureActive()`), so cancellation is prompt.
 - Editor full-resolution save runs in `viewModelScope` with `NonCancellable` around the final MediaStore commit (write + clear `IS_PENDING`), so a half-written entry is never left visible. A pending entry left by a crash is cleaned up on next start (pending items older than 1 day are deleted by `MediaWriteSink.cleanupPending()`).
 - Flows from repositories are cold; ViewModels convert with `stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initial)`.
@@ -970,7 +973,7 @@ Principles: every function gets a unit test; tests are small, independent and no
 | Layer / module | What is tested | How | Runs on CI |
 | --- | --- | --- | --- |
 | `:core:model`, `:core:common` | Model validation (`GeoPoint` ranges, `NormalizedRect`), `AppResult` helpers, `RelativePaths`, `runCatchingCancellable` | Plain JVM JUnit | Yes |
-| `:core:data` | All domain logic: `MediaIndexer` (full vs incremental vs version change), `IndexScheduler`, `DateResolver`/`ExifDateParser`, `FolderRuleMatcher`, `MediaAccessResolver`, `FolderMapping`, `UploadStateMatcher`, `UploadHandoffRepository`, `SelectionRepository` and `SelectionRepresentability`, checksums, `EditSession`/`EditGeometry`, `GridClusterer`, `SectionIndexBuilder`, `ScrollbarMath`, repositories, `AccountStore` (fake `SecretCipher`) | Plain JVM JUnit + hand-written fake ports, MockK, Turbine | Yes |
+| `:core:data` | All domain logic: `MediaIndexer` (full vs incremental vs version change), `IndexScheduler`, `DateResolver`/`ExifDateParser`, `FolderRuleMatcher`, `MediaAccessRepository`, `FolderMapping`, `UploadStateMatcher`, `UploadHandoffRepository`, `SelectionRepository` and `SelectionRepresentability`, checksums, `EditSession`/`EditGeometry`, `GridClusterer`, `SectionIndexBuilder`, `ScrollbarMath`, repositories, `AccountStore` (fake `SecretCipher`) | Plain JVM JUnit + hand-written fake ports, MockK, Turbine | Yes |
 | `:core:nextcloud` | PROPFIND parsing, request building (headers, depth, body), Login Flow v2 polling states, error mapping, auth interceptor host check, URL normalisation, `PinningTrustManager` (CA-signed, pinned, unknown, changed certificate) | Plain JVM JUnit, `MockWebServer` (with `okhttp-tls` self-signed `HeldCertificate`s), kxml2 parser | Yes |
 | ViewModels (feature modules) | Event → state transitions, effects emitted, paging flow wiring | Local unit tests without Robolectric: `runTest` + Turbine, fake repositories, route passed to the constructor | Yes |
 | `:core:database` | Each DAO query (paging order, rule filtering, section aggregation, cascade deletes), migrations, entity ↔ model mapping | Robolectric + in-memory Room; `MigrationTestHelper` with exported schemas | Yes |
@@ -992,7 +995,7 @@ Robolectric's shadows do not reproduce some platform behaviour. These parts are 
 
 | Area | Why Robolectric is not enough | On-device test |
 | --- | --- | --- |
-| MediaStore queries (`MediaStoreScanner`) | The shadow `ContentResolver` has no real MediaStore provider (`GENERATION_MODIFIED`, `IS_TRASHED`, `.nomedia` handling). | Insert test images through `MediaStore`, assert the scanner's results, delete them afterwards. |
+| MediaStore queries (`MediaStoreScanner`) | The shadow `ContentResolver` has no real MediaStore provider (`GENERATION_MODIFIED`, `IS_TRASHED`, `.nomedia` handling). `MediaStoreScannerTest` (`:core:media`). | Insert test images through `MediaStore`, assert the scanner's results, delete them afterwards. |
 | `ContentResolver.loadThumbnail` (Coil fetcher) | Not backed by the system thumbnail cache. | Thumbnail returned at the requested size bucket. |
 | EXIF GPS with `setRequireOriginal` | Location redaction depends on the real permission and provider. | GPS read with `ACCESS_MEDIA_LOCATION` granted, null without. |
 | Android Keystore (`KeystoreSecretCipher`) | Robolectric has no `AndroidKeyStore` provider. | Encrypt/decrypt round trip with a Keystore-wrapped keyset. |

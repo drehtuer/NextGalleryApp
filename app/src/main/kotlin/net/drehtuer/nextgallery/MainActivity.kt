@@ -1,24 +1,49 @@
 package net.drehtuer.nextgallery
 
+import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Surface
-import androidx.compose.ui.Modifier
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
+import androidx.compose.runtime.getValue
+import androidx.core.net.toUri
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import net.drehtuer.nextgallery.core.ui.theme.NextGalleryTheme
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private val viewModel: MainViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+            val state by viewModel.state.collectAsStateWithLifecycle()
+            val accessRequest =
+                rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+                    viewModel.onEvent(MainEvent.AccessRequestFinished)
+                }
+            LifecycleResumeEffect(Unit) {
+                viewModel.onEvent(MainEvent.Resumed)
+                onPauseOrDispose {}
+            }
             NextGalleryTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {}
+                NextGalleryAppContent(
+                    state = state,
+                    onRequestAccess = { accessRequest.launch(viewModel.requestedPermissions.toTypedArray()) },
+                    onOpenSettings = ::openAppSettings,
+                )
             }
         }
+    }
+
+    private fun openAppSettings() {
+        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:$packageName".toUri()))
     }
 }
