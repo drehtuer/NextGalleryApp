@@ -107,7 +107,7 @@ _Depends on: Phase 0._
     - [x] persist sync state after success. Test: state written only on success.
   - [x] `IndexRepository.sync(mode): AppResult<IndexStats>` and `observeStatus()`. Tests: success, scan failure → `Failure`.
   - [x] `IndexScheduler`: `onAppStart()` → `WorkScheduler.enqueueIndex(FULL)` if never indexed, else `INCREMENTAL`; collects `MediaChangeSource` debounced (2 s) → incremental; media access change → full. Tests: first launch → full, later → incremental, burst of changes → one enqueue, access change → full.
-  - [x] `MediaRepository` interface + `DefaultMediaRepository`: `observeIndexedCount()`, `getItem(id)`. Tests per method with fake `MediaIndexStore`.
+  - [x] `MediaRepository` interface + `DefaultMediaRepository`: `observeIndexedCount()`, `getItem(id)`. Tests per method with fake `MediaIndexStore`. _`observeIndexedCount()` was removed in Phase 2, when the folder list replaced the count placeholder._
 - [x] **1.4 `:core:database` (Android adapter)**
   - [x] `MediaEntity` (`media` table; PK `id`; indices on `bucket_id`, `taken_local_date`, `date_modified`, `relative_path`). _Also stores `bucket_name`; indices on `(bucket_id, date_taken_ms)`, `date_taken_ms`, `(local_year, local_month, local_day)`, `volume_name`._
   - [x] `SyncStateEntity` (`sync_state`: last full scan time, last `GENERATION_MODIFIED`, MediaStore version string).
@@ -131,13 +131,13 @@ _Depends on: Phase 0._
   - [x] `:app` manifest: `READ_MEDIA_IMAGES`, `READ_MEDIA_VISUAL_USER_SELECTED`, `ACCESS_MEDIA_LOCATION`. (`INTERNET` added in Phase 8.)
   - [x] `:core:ui` `rememberMediaPermissionState()` + `PermissionRationale` composable (explain, request, "select more photos" for partial, open app settings when permanently denied). Compose UI tests: each state renders the correct action. _Stateless `MediaAccessRequest` and `LimitedAccessBanner` in `:core:ui` (Compose tests); the permission launcher is wired in `MainActivity` and not unit-tested (Android glue)._
 - [x] **1.8 `:core:ui` foundation**
-  - [x] `NextGalleryTheme` (Material 3, light/dark) with placeholder colour, typography, shape and spacing tokens; the final values come from Claude Design later (D22). Compose test: renders in light/dark.
+  - [x] `NextGalleryTheme` (Material 3, light/dark) with placeholder colour, typography, shape and spacing tokens; the final values come from Claude Design later (D22). Compose test: renders in light/dark. _Spacing and sizes were added in Phase 2 (`NextGalleryTheme.dimensions`)._
   - [x] Common composables: `LoadingIndicator`, `EmptyState`, `ErrorState`. Compose UI test each.
 - [x] **1.9 `:app` shell**
   - [x] Type-safe routes (`@Serializable object FoldersRoute`, …) in `:app` `navigation/Routes.kt`; `NextGalleryNavHost`.
   - [x] Bottom navigation bar (Folders, Timeline, Map, Nextcloud) with placeholder screens. Compose UI test: tab switching. _Placeholder screens live in `:app` until the features replace them._
   - [x] `MainViewModel` exposing `MainUiState(mediaAccess, indexedCount)`; calls `IndexScheduler.onAppStart()`. JVM tests: state on permission granted/denied. _`AccessRequestFinished` event forces a rebuild after the permission dialog or photo selection closes; the change observer starts once access is granted._
-  - [x] Debug-only screen/log showing indexed count to verify indexing. _The Folders placeholder shows the indexed count until Phase 2 replaces it._
+  - [x] Debug-only screen/log showing indexed count to verify indexing. _Replaced in Phase 2: the folder list shows the number of images per folder._
 - [x] **1.10 Update docs** – ARCHITECTURE.md (indexing flow, DB schema v1) and README match code.
 
 **Definition of done:** on a device with photos, granting permission fills the `media` table; adding/deleting a photo updates the index within seconds; partial access indexes only selected photos; all new functions have tests; CI green.
@@ -149,29 +149,29 @@ _Depends on: Phase 0._
 **Goal:** default Folders screen listing folders and a paged thumbnail grid per folder with a draggable scrollbar.
 _Depends on: Phase 1._
 
-- [ ] **2.1 Database**
-  - [ ] `FolderDao.observeFolders(): Flow<List<FolderRow>>` (GROUP BY bucket, count, newest item as cover). Test: grouping, count, cover selection.
-  - [ ] `MediaDao.pagingByBucket(bucketId): PagingSource<Int, MediaEntity>` ordered by taken date desc. Test: `PagingSource.load` ordering and page size.
-  - [ ] `MediaDao.countByBucket(bucketId)`. Test.
-- [ ] **2.2 Repository**
-  - [ ] `FolderRepository.observeFolders(): Flow<List<Folder>>`. Test with Turbine.
-  - [ ] `MediaRepository.pagedFolderItems(bucketId): Flow<PagingData<MediaItem>>` (`Pager`, page size ~ 120, `enablePlaceholders = true` for fast scroll). Test with `asSnapshot()`.
-- [ ] **2.3 Thumbnails (`:core:ui` + `:app`)**
-  - [ ] `ImageLoaderModule` providing a singleton Coil 3 `ImageLoader` (memory cache %, disk cache dir/size, `crossfade` off for grids). Test: config values.
-  - [ ] `MediaThumbnailKeyer`/fetcher using `ContentResolver.loadThumbnail(uri, size)` with fallback decode. Tests: keyer output stable per (id, dateModified, size) (JVM); `loadThumbnail` at the requested size (instrumented).
-  - [ ] `ThumbnailCell` composable (fixed aspect, placeholder, content description, selection overlay slot, badge slot for Phase 9, greyed-out state). Compose UI test: placeholder, selected state, greyed-out state.
-- [ ] **2.4 Shared grid components (`:core:ui`)**
-  - [ ] `MediaGrid` (`LazyVerticalGrid`, adaptive columns, stable keys, `LazyPagingItems`). Compose test: renders N items, keys stable.
-  - [ ] `ScrollbarMath.indexForFraction()` / `fractionForIndex()` in `:core:data` (JVM tests), and the `FastScrollbar` composable (draggable thumb, optional `label: (index) -> String?` bubble). Compose test: drag scrolls grid.
-  - [ ] `SelectionRepository` in `:core:data` – app-wide in-memory selection (D33): `observe()`, toggle, range, select all, clear (JVM tests per function); `SelectionTopBar` in `:core:ui` (total count, actions slot). Unit tests per function; Compose test: long-press enters selection.
-- [ ] **2.5 `:feature:folders`**
-  - [ ] `FolderListViewModel` → `StateFlow<FolderListUiState>` (Loading/Empty/Content). Tests with Turbine: each state.
-  - [ ] `FolderListScreen` (grid of folder covers with name/count). Compose UI test: click emits `onFolderClick(bucketId)`.
-  - [ ] `FolderGridViewModel` (route passed via Hilt assisted injection, see ARCHITECTURE.md §7), exposes `PagingData` + app-wide selection state. JVM tests: selection events go to `SelectionRepository`, paging flow wired to the route's bucket.
-  - [ ] `FolderGridScreen` (MediaGrid + FastScrollbar + SelectionTopBar). Compose UI test: item click → `onOpenViewer(mediaId, source)`.
-  - [ ] Navigation entry points `folderListScreen()` / `folderGridScreen()` as `NavGraphBuilder` extensions; wired in `:app`.
+- [x] **2.1 Database**
+  - [x] `FolderDao.observeFolders(): Flow<List<FolderRow>>` (GROUP BY bucket, count, newest item as cover). Test: grouping, count, cover selection. _A plain query; no `@DatabaseView`, so the schema stays at version 1._
+  - [x] `MediaDao.pagingByBucket(bucketId): PagingSource<Int, MediaEntity>` ordered by taken date desc. Test: `PagingSource.load` ordering and page size.
+  - [x] `MediaDao.countByBucket(bucketId)`. Test. _Not needed: paging placeholders provide the count. Added `idsInBucket(bucketId)` for "select all" instead._
+- [x] **2.2 Repository**
+  - [x] `FolderRepository.observeFolders(): Flow<List<Folder>>`. Test with Turbine. _Plus `observeFolder(bucketId)` for the grid title._
+  - [x] `MediaRepository.pagedFolderItems(bucketId): Flow<PagingData<MediaItem>>` (`Pager`, page size ~ 120, `enablePlaceholders = true` for fast scroll). Test with `asSnapshot()`. _The repository sets the `PagingConfig` (with a jump threshold for the scrollbar); `RoomMediaIndexStore` builds the `Pager`, because entities stay in the adapter. Plus `folderItemIds(bucketId)`._
+- [x] **2.3 Thumbnails (`:core:ui` + `:app`)**
+  - [x] `ImageLoaderModule` providing a singleton Coil 3 `ImageLoader` (memory cache %, disk cache dir/size, `crossfade` off for grids). Test: config values.
+  - [x] `MediaThumbnailKeyer`/fetcher using `ContentResolver.loadThumbnail(uri, size)` with fallback decode. Tests: keyer output stable per (id, dateModified, size) (JVM); `loadThumbnail` at the requested size (instrumented). _Instrumented `MediaThumbnailFetcherTest` written and compiled; not run on a device yet._
+  - [x] `ThumbnailCell` composable (fixed aspect, placeholder, content description, selection overlay slot, badge slot for Phase 9, greyed-out state). Compose UI test: placeholder, selected state, greyed-out state.
+- [x] **2.4 Shared grid components (`:core:ui`)**
+  - [x] `MediaGrid` (`LazyVerticalGrid`, adaptive columns, stable keys, `LazyPagingItems`). Compose test: renders N items, keys stable.
+  - [x] `ScrollbarMath.indexForFraction()` / `fractionForIndex()` in `:core:data` (JVM tests), and the `FastScrollbar` composable (draggable thumb, optional `label: (index) -> String?` bubble). Compose test: drag scrolls grid. _`ScrollbarMath` is in `:core:common`, because `:core:ui` does not depend on `:core:data`. The folder grid shows no label; the timeline will (Phase 5)._
+  - [x] `SelectionRepository` in `:core:data` – app-wide in-memory selection (D33): `observe()`, toggle, range, select all, clear (JVM tests per function); `SelectionTopBar` in `:core:ui` (total count, actions slot). Unit tests per function; Compose test: long-press enters selection. _No gesture uses `selectRange` yet._
+- [x] **2.5 `:feature:folders`**
+  - [x] `FolderListViewModel` → `StateFlow<FolderListUiState>` (Loading/Empty/Content). Tests with Turbine: each state.
+  - [x] `FolderListScreen` (grid of folder covers with name/count). Compose UI test: click emits `onFolderClick(bucketId)`.
+  - [x] `FolderGridViewModel` (route passed via Hilt assisted injection, see ARCHITECTURE.md §7), exposes `PagingData` + app-wide selection state. JVM tests: selection events go to `SelectionRepository`, paging flow wired to the route's bucket.
+  - [x] `FolderGridScreen` (MediaGrid + FastScrollbar + SelectionTopBar). Compose UI test: item click → `onOpenViewer(mediaId, source)`. _The click becomes `FolderGridEffect.OpenViewer(mediaId)`; `source` comes with `MediaSource` in Phase 3, and until then `:app` ignores the effect._
+  - [x] Navigation entry points `folderListScreen()` / `folderGridScreen()` as `NavGraphBuilder` extensions; wired in `:app`. _As a nested graph, so the Folders tab stays selected inside a folder. The Hilt-backed wiring is covered by the build only; it runs for the first time on a device._
 - [ ] **2.6 Performance check** – Macrobenchmark smoke (or manual profiling) scrolling 10k items; no dropped-frame regressions noted in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md) if any trade-offs made.
-- [ ] **2.7 Update docs** – ARCHITECTURE.md (paging, thumbnail pipeline) and README match code.
+- [x] **2.7 Update docs** – ARCHITECTURE.md (paging, thumbnail pipeline) and README match code.
 
 **Definition of done:** Folders is the start screen; opening a folder shows a smoothly scrolling grid; scrollbar drag jumps through 10k+ images; tests for every new function; CI green.
 

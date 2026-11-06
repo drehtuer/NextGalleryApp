@@ -5,5 +5,5 @@ data class Folder(
     val name: String,
     val relativePath: String,
     val itemCount: Int,
-    val coverItemId: MediaId,
+    val coverItem: MediaItem,
 )

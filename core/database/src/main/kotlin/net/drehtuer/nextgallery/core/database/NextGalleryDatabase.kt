@@ -7,6 +7,8 @@ import androidx.room.RoomDatabase
 abstract class NextGalleryDatabase : RoomDatabase() {
     abstract fun mediaDao(): MediaDao
 
+    abstract fun folderDao(): FolderDao
+
     abstract fun syncStateDao(): SyncStateDao
 
     companion object {

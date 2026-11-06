@@ -1,9 +1,9 @@
 package net.drehtuer.nextgallery.core.database
 
+import androidx.paging.PagingSource
 import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
-import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface MediaDao {
@@ -19,6 +19,9 @@ interface MediaDao {
     @Query("SELECT * FROM media WHERE id = :id")
     suspend fun getById(id: Long): MediaEntity?
 
-    @Query("SELECT COUNT(*) FROM media")
-    fun observeCount(): Flow<Int>
+    @Query("SELECT * FROM media WHERE bucket_id = :bucketId ORDER BY date_taken_ms DESC, id DESC")
+    fun pagingByBucket(bucketId: Long): PagingSource<Int, MediaEntity>
+
+    @Query("SELECT id FROM media WHERE bucket_id = :bucketId ORDER BY date_taken_ms DESC, id DESC")
+    suspend fun idsInBucket(bucketId: Long): List<Long>
 }

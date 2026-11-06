@@ -1,6 +1,9 @@
 package net.drehtuer.nextgallery.core.data.index
 
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import kotlinx.coroutines.flow.Flow
+import net.drehtuer.nextgallery.core.model.Folder
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
 
@@ -14,5 +17,12 @@ interface MediaIndexStore {
 
     suspend fun getById(id: MediaId): MediaItem?
 
-    fun observeCount(): Flow<Int>
+    /** Images of a folder, newest first. */
+    fun pagedByBucket(bucketId: Long, config: PagingConfig): Flow<PagingData<MediaItem>>
+
+    /** Ids of all images of a folder, in the order of [pagedByBucket]. */
+    suspend fun idsInBucket(bucketId: Long): List<MediaId>
+
+    /** Folders that contain indexed images, sorted by name; the cover is the newest image. */
+    fun observeFolders(): Flow<List<Folder>>
 }

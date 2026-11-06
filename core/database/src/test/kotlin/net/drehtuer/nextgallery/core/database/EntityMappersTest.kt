@@ -13,6 +13,13 @@ class EntityMappersTest {
     }
 
     @Test
+    fun folderRow_toModel_takesFolderFieldsFromCover() {
+        val folder = FolderRow(mediaEntity(1), itemCount = 3).toModel()
+
+        assertEquals("Camera", folder.name)
+    }
+
+    @Test
     fun mediaEntity_toModel_buildsLocalDate() {
         assertEquals(LocalDate.of(2024, 3, 15), mediaEntity(1).toModel().takenLocalDate)
     }

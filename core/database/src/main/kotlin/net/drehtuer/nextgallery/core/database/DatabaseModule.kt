@@ -31,6 +31,9 @@ abstract class DatabaseModule {
         fun provideMediaDao(database: NextGalleryDatabase): MediaDao = database.mediaDao()
 
         @Provides
+        fun provideFolderDao(database: NextGalleryDatabase): FolderDao = database.folderDao()
+
+        @Provides
         fun provideSyncStateDao(database: NextGalleryDatabase): SyncStateDao = database.syncStateDao()
     }
 }

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="feature_folders_title">Folders</string>
+    <string name="feature_folders_empty">No photos found</string>
+    <string name="feature_folders_folder_empty">This folder is empty</string>
+    <string name="feature_folders_load_failed">The photos could not be loaded</string>
+    <string name="feature_folders_select_all">Select all</string>
+    <plurals name="feature_folders_item_count">
+        <item quantity="one">%d image</item>
+        <item quantity="other">%d images</item>
+    </plurals>
+</resources>

@@ -9,14 +9,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import net.drehtuer.nextgallery.core.data.access.MediaAccessRepository
 import net.drehtuer.nextgallery.core.data.index.IndexScheduler
-import net.drehtuer.nextgallery.core.data.media.MediaRepository
 import net.drehtuer.nextgallery.core.model.MediaAccess
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -30,7 +28,6 @@ class MainViewModelTest {
         every { currentAccess() } answers { access }
         every { requestedPermissions } returns listOf("permission")
     }
-    private val mediaRepository = mockk<MediaRepository> { every { observeIndexedCount() } returns flowOf(3) }
     private val scheduler = mockk<IndexScheduler>(relaxed = true) {
         coEvery { observeMediaChanges() } coAnswers { awaitCancellation() }
     }
@@ -41,7 +38,7 @@ class MainViewModelTest {
     @After
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun viewModel() = MainViewModel(accessRepository, mediaRepository, scheduler)
+    private fun viewModel() = MainViewModel(accessRepository, scheduler)
 
     @Test
     fun onEvent_firstResume_reportsAppStart() {
@@ -101,11 +98,11 @@ class MainViewModelTest {
     }
 
     @Test
-    fun state_combinesAccessAndIndexedCount() = runTest {
+    fun state_containsAccess() = runTest {
         val viewModel = viewModel()
         viewModel.onEvent(MainEvent.Resumed)
 
-        assertEquals(MainUiState(MediaAccess.FULL, 3), viewModel.state.first { it.access != null })
+        assertEquals(MainUiState(MediaAccess.FULL), viewModel.state.first { it.access != null })
     }
 
     @Test

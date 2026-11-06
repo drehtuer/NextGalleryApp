@@ -1,10 +1,10 @@
 package net.drehtuer.nextgallery.core.database
 
 import android.content.Context
+import androidx.paging.PagingSource
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -68,9 +68,54 @@ class MediaDaoTest {
     }
 
     @Test
-    fun observeCount_returnsNumberOfRows() = runTest {
+    fun pagingByBucket_ordersByTakenDateDescending() = runTest {
+        dao.upsertAll(listOf(mediaEntity(1).copy(dateTakenMillis = 10), mediaEntity(2).copy(dateTakenMillis = 20)))
+
+        val page = dao.pagingByBucket(7).load(refresh(loadSize = 2)) as PagingSource.LoadResult.Page
+
+        assertEquals(listOf(2L, 1L), page.data.map { it.id })
+    }
+
+    @Test
+    fun pagingByBucket_equalTakenDates_ordersByIdDescending() = runTest {
         dao.upsertAll(listOf(mediaEntity(1), mediaEntity(2)))
 
-        assertEquals(2, dao.observeCount().first())
+        val page = dao.pagingByBucket(7).load(refresh(loadSize = 2)) as PagingSource.LoadResult.Page
+
+        assertEquals(listOf(2L, 1L), page.data.map { it.id })
     }
+
+    @Test
+    fun pagingByBucket_limitsPageToLoadSize() = runTest {
+        dao.upsertAll(listOf(mediaEntity(1), mediaEntity(2), mediaEntity(3)))
+
+        val page = dao.pagingByBucket(7).load(refresh(loadSize = 2)) as PagingSource.LoadResult.Page
+
+        assertEquals(2, page.data.size)
+    }
+
+    @Test
+    fun pagingByBucket_skipsOtherBuckets() = runTest {
+        dao.upsertAll(listOf(mediaEntity(1), mediaEntity(2).copy(bucketId = 8)))
+
+        val page = dao.pagingByBucket(7).load(refresh(loadSize = 2)) as PagingSource.LoadResult.Page
+
+        assertEquals(listOf(1L), page.data.map { it.id })
+    }
+
+    @Test
+    fun idsInBucket_returnsIdsOfThatBucketNewestFirst() = runTest {
+        dao.upsertAll(
+            listOf(
+                mediaEntity(1).copy(dateTakenMillis = 10),
+                mediaEntity(2).copy(dateTakenMillis = 20),
+                mediaEntity(3).copy(bucketId = 8),
+            ),
+        )
+
+        assertEquals(listOf(2L, 1L), dao.idsInBucket(7))
+    }
+
+    private fun refresh(loadSize: Int) =
+        PagingSource.LoadParams.Refresh<Int>(key = null, loadSize = loadSize, placeholdersEnabled = false)
 }

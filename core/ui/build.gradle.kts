@@ -6,4 +6,7 @@ plugins {
 dependencies {
     implementation(projects.core.model)
     implementation(projects.core.common)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.paging.compose)
+    implementation(libs.coil.compose)
 }
