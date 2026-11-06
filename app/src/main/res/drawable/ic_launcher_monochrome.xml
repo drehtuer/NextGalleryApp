@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Themed-icon layer: front frame with the sun and mountain cut out; the back frame is an edge. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M41,38h30a7,7 0 0 1 7,7v26a7,7 0 0 1 -7,7H41a7,7 0 0 1 -7,-7V45a7,7 0 0 1 7,-7z M62,49a5,5 0 1 0 10,0a5,5 0 1 0 -10,0z M38,74l13,-17 9,11 6,-6 9,12z" />
+    <path
+        android:pathData="M30,66V37a7,7 0 0 1 7,-7h31"
+        android:strokeWidth="4"
+        android:strokeColor="#FFFFFF"
+        android:strokeLineCap="round" />
+</vector>
