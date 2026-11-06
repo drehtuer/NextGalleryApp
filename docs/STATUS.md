@@ -10,7 +10,7 @@ Where the implementation stands against the plan in [TODO.md](TODO.md). TODO.md 
 | --- | --- | --- |
 | 0 | Repository and build setup | Done (PR #3, #4). Open: install on the Pixel 10a, run `MainActivityTest` on a device. |
 | 1 | Skeleton, permissions, MediaStore indexing into Room | Done in code (PR #5), CI green. Open: checks on the device (see below). |
-| 2 | Folder view with thumbnail grid and fast scroll | Done in code; the CI checks pass locally in the devcontainer. Open: checks on the device and the performance check (2.6). |
+| 2 | Folder view with thumbnail grid and fast scroll | Done in code (PR #6), CI green. Open: checks on the device and the performance check (2.6). |
 | 3 | Full-screen viewer, delete, share | Next |
 | 4 | Settings: folder include/exclude list | Not started |
 | 5 | Timeline view | Not started |
