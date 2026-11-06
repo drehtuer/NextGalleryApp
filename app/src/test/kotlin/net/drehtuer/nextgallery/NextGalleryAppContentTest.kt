@@ -7,9 +7,12 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import net.drehtuer.nextgallery.core.model.MediaAccess
+import net.drehtuer.nextgallery.feature.viewer.ViewerRoute
 import net.drehtuer.nextgallery.navigation.FoldersRoute
 import org.junit.Rule
 import org.junit.Test
@@ -58,6 +61,28 @@ class NextGalleryAppContentTest {
         show(MediaAccess.FULL)
 
         composeRule.onNodeWithText("Folders screen").assertIsDisplayed()
+    }
+
+    @Test
+    fun viewerOpen_hidesBottomNavigation() {
+        lateinit var navController: NavHostController
+        composeRule.setContent {
+            navController = rememberNavController()
+            NextGalleryAppContent(
+                state = MainUiState(MediaAccess.FULL),
+                onRequestAccess = {},
+                onOpenSettings = {},
+                navController = navController,
+                folders = {
+                    composable<FoldersRoute> { Text("Folders screen") }
+                    composable<ViewerRoute> { Text("Viewer screen") }
+                },
+            )
+        }
+
+        composeRule.runOnIdle { navController.navigate(ViewerRoute(mediaId = 1, bucketId = 7)) }
+
+        composeRule.onNodeWithText("Timeline").assertDoesNotExist()
     }
 
     @Test

@@ -24,6 +24,7 @@ import net.drehtuer.nextgallery.core.model.MediaAccess
 import net.drehtuer.nextgallery.core.ui.component.LoadingIndicator
 import net.drehtuer.nextgallery.core.ui.permission.LimitedAccessBanner
 import net.drehtuer.nextgallery.core.ui.permission.MediaAccessRequest
+import net.drehtuer.nextgallery.feature.viewer.ViewerRoute
 import net.drehtuer.nextgallery.navigation.NextGalleryNavHost
 import net.drehtuer.nextgallery.navigation.TopLevelDestination
 import net.drehtuer.nextgallery.navigation.foldersGraph
@@ -41,10 +42,16 @@ fun NextGalleryAppContent(
 
         MediaAccess.DENIED -> MediaAccessRequest(onRequestAccess = onRequestAccess, onOpenSettings = onOpenSettings)
 
-        MediaAccess.FULL, MediaAccess.PARTIAL -> Scaffold(bottomBar = { BottomBar(navController) }) { padding ->
-            Column(Modifier.padding(padding).consumeWindowInsets(padding)) {
-                if (state.access == MediaAccess.PARTIAL) LimitedAccessBanner(onSelectMore = onRequestAccess)
-                NextGalleryNavHost(navController, folders)
+        MediaAccess.FULL, MediaAccess.PARTIAL -> {
+            val currentEntry by navController.currentBackStackEntryAsState()
+            val fullScreen = currentEntry?.destination?.hasRoute(ViewerRoute::class) == true
+            Scaffold(bottomBar = { if (!fullScreen) BottomBar(navController) }) { padding ->
+                Column(if (fullScreen) Modifier else Modifier.padding(padding).consumeWindowInsets(padding)) {
+                    if (state.access == MediaAccess.PARTIAL && !fullScreen) {
+                        LimitedAccessBanner(onSelectMore = onRequestAccess)
+                    }
+                    NextGalleryNavHost(navController, folders)
+                }
             }
         }
     }

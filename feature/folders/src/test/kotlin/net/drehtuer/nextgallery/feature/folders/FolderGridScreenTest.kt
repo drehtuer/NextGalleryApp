@@ -32,11 +32,12 @@ class FolderGridScreenTest {
         items: List<MediaItem> = listOf(mediaItem(1)),
         refresh: LoadState = LoadState.NotLoading(endOfPaginationReached = true),
         onBack: () -> Unit = {},
+        onOpenSelectionOverview: () -> Unit = {},
     ) {
         val finished = LoadState.NotLoading(endOfPaginationReached = true)
         val pages = flowOf(PagingData.from(items, LoadStates(refresh, finished, finished)))
         composeRule.setContent {
-            FolderGridScreen(state, pages.collectAsLazyPagingItems(), { events += it }, onBack)
+            FolderGridScreen(state, pages.collectAsLazyPagingItems(), { events += it }, onBack, onOpenSelectionOverview)
         }
     }
 
@@ -110,6 +111,34 @@ class FolderGridScreenTest {
         composeRule.onNodeWithContentDescription("Select all").performClick()
 
         assertEquals(listOf(FolderGridEvent.SelectAll), events)
+    }
+
+    @Test
+    fun shareClicked_sendsEvent() {
+        show(FolderGridUiState(selectedIds = setOf(MediaId(1))))
+
+        composeRule.onNodeWithContentDescription("Share").performClick()
+
+        assertEquals(listOf(FolderGridEvent.ShareSelected), events)
+    }
+
+    @Test
+    fun deleteClicked_sendsEvent() {
+        show(FolderGridUiState(selectedIds = setOf(MediaId(1))))
+
+        composeRule.onNodeWithContentDescription("Delete").performClick()
+
+        assertEquals(listOf(FolderGridEvent.DeleteSelected), events)
+    }
+
+    @Test
+    fun selectionOverviewClicked_invokesCallback() {
+        var opened = 0
+        show(FolderGridUiState(selectedIds = setOf(MediaId(1))), onOpenSelectionOverview = { opened++ })
+
+        composeRule.onNodeWithContentDescription("Show selection").performClick()
+
+        assertEquals(1, opened)
     }
 
     @Test

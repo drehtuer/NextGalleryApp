@@ -17,8 +17,12 @@ import androidx.navigation.compose.navigation
 import net.drehtuer.nextgallery.R
 import net.drehtuer.nextgallery.feature.folders.FolderGridRoute
 import net.drehtuer.nextgallery.feature.folders.FolderListRoute
+import net.drehtuer.nextgallery.feature.folders.SelectionOverviewRoute
 import net.drehtuer.nextgallery.feature.folders.folderGridScreen
 import net.drehtuer.nextgallery.feature.folders.folderListScreen
+import net.drehtuer.nextgallery.feature.folders.selectionOverviewScreen
+import net.drehtuer.nextgallery.feature.viewer.ViewerRoute
+import net.drehtuer.nextgallery.feature.viewer.viewerScreen
 
 /**
  * Navigation graph. The feature screens replace the placeholders in the following phases.
@@ -44,8 +48,11 @@ fun NavGraphBuilder.foldersGraph(navController: NavHostController) {
         folderListScreen(onFolderClick = { bucketId -> navController.navigate(FolderGridRoute(bucketId)) })
         folderGridScreen(
             onBack = navController::popBackStack,
-            onOpenViewer = { /* The viewer comes in Phase 3. */ },
+            onOpenViewer = { id, bucketId -> navController.navigate(ViewerRoute(id.value, bucketId)) },
+            onOpenSelectionOverview = { bucketId -> navController.navigate(SelectionOverviewRoute(bucketId)) },
         )
+        selectionOverviewScreen(onBack = navController::popBackStack)
+        viewerScreen(onBack = navController::popBackStack)
     }
 }
 

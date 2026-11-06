@@ -17,10 +17,15 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import net.drehtuer.nextgallery.core.data.media.FolderRepository
+import net.drehtuer.nextgallery.core.data.media.MediaActionsRepository
 import net.drehtuer.nextgallery.core.data.media.MediaRepository
+import net.drehtuer.nextgallery.core.data.media.TrashFlow
 import net.drehtuer.nextgallery.core.data.selection.SelectionRepository
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
+import net.drehtuer.nextgallery.core.model.MediaSource
+import net.drehtuer.nextgallery.core.model.ShareSpec
+import net.drehtuer.nextgallery.core.model.TrashEffect
 
 /** [selectedIds] is the app-wide selection, so it can contain images of other folders (D33). */
 data class FolderGridUiState(val title: String = "", val selectedIds: Set<MediaId> = emptySet())
@@ -33,10 +38,22 @@ sealed interface FolderGridEvent {
     data object SelectAll : FolderGridEvent
 
     data object ClearSelection : FolderGridEvent
+
+    data object ShareSelected : FolderGridEvent
+
+    data object DeleteSelected : FolderGridEvent
+
+    data class ConfirmationResult(val confirmed: Boolean) : FolderGridEvent
+
+    data object UndoDelete : FolderGridEvent
 }
 
 sealed interface FolderGridEffect {
     data class OpenViewer(val id: MediaId) : FolderGridEffect
+
+    data class Share(val spec: ShareSpec) : FolderGridEffect
+
+    data class Trash(val effect: TrashEffect) : FolderGridEffect
 }
 
 @HiltViewModel(assistedFactory = FolderGridViewModel.Factory::class)
@@ -45,6 +62,8 @@ class FolderGridViewModel @AssistedInject constructor(
     private val mediaRepository: MediaRepository,
     folderRepository: FolderRepository,
     private val selectionRepository: SelectionRepository,
+    private val actions: MediaActionsRepository,
+    private val trashFlow: TrashFlow,
 ) : ViewModel() {
     @AssistedFactory
     interface Factory {
@@ -55,7 +74,8 @@ class FolderGridViewModel @AssistedInject constructor(
 
     val effects: Flow<FolderGridEffect> = effectChannel.receiveAsFlow()
 
-    val items: Flow<PagingData<MediaItem>> = mediaRepository.pagedFolderItems(bucketId).cachedIn(viewModelScope)
+    val items: Flow<PagingData<MediaItem>> =
+        mediaRepository.pagedItems(MediaSource.Folder(bucketId)).cachedIn(viewModelScope)
 
     val state: StateFlow<FolderGridUiState> = combine(
         folderRepository.observeFolder(bucketId),
@@ -74,6 +94,22 @@ class FolderGridViewModel @AssistedInject constructor(
             }
 
             FolderGridEvent.ClearSelection -> selectionRepository.clear()
+
+            FolderGridEvent.ShareSelected -> viewModelScope.launch {
+                actions.shareSpec(selectionRepository.observe().value)?.let {
+                    effectChannel.send(FolderGridEffect.Share(it))
+                }
+            }
+
+            FolderGridEvent.DeleteSelected -> viewModelScope.launch {
+                sendTrashEffect(trashFlow.request(selectionRepository.observe().value))
+            }
+
+            is FolderGridEvent.ConfirmationResult -> viewModelScope.launch {
+                sendTrashEffect(trashFlow.onConfirmationResult(event.confirmed))
+            }
+
+            FolderGridEvent.UndoDelete -> viewModelScope.launch { sendTrashEffect(trashFlow.undo()) }
         }
     }
 
@@ -84,6 +120,10 @@ class FolderGridViewModel @AssistedInject constructor(
         } else {
             selectionRepository.toggle(id)
         }
+    }
+
+    private suspend fun sendTrashEffect(effect: TrashEffect?) {
+        effect?.let { effectChannel.send(FolderGridEffect.Trash(it)) }
     }
 
     private companion object {
