@@ -8,7 +8,7 @@ Where the implementation stands against the plan in [TODO.md](TODO.md). TODO.md 
 
 | Phase | Scope | State |
 | --- | --- | --- |
-| 0 | Repository and build setup | Done (PR #3, #4). Open: install on the Pixel 10a, run `MainActivityTest` on a device. |
+| 0 | Repository and build setup | Done (PR #3, #4). |
 | 1 | Skeleton, permissions, MediaStore indexing into Room | Done in code (PR #5), CI green. Open: checks on the device (see below). |
 | 2 | Folder view with thumbnail grid and fast scroll | Done in code (PR #6), CI green. Open: checks on the device and the performance check (2.6). |
 | 3 | Full-screen viewer, delete, share | Next |
@@ -41,8 +41,8 @@ These need the Pixel 10a or an API 37 emulator (`./gradlew connectedDebugAndroid
 - [ ] Drag the fast scrollbar through a large folder → it jumps without visible delay (2.6: 10k+ images, no dropped frames).
 - [ ] Long-press selects; tapping changes the selection; Back clears it first; the selection survives switching folders.
 - [ ] Inside a folder the Folders tab stays selected; switching tabs and back returns to that folder.
-- [ ] `MainActivityTest` (`:app`), `MediaStoreScannerTest` (`:core:media`) and `MediaThumbnailFetcherTest` (`:core:ui`) pass.
-- [ ] Images in a folder with a `.nomedia` file are not indexed (relied on MediaStore, D6).
+- [x] `MainActivityTest` (`:app`), `MediaStoreScannerTest` (`:core:media`) and `MediaThumbnailFetcherTest` (`:core:ui`) pass on the Pixel 10a (2026-11-06).
+- [x] Images in a folder with a `.nomedia` file are not returned by the scanner, after a media scan (D6; `MediaStoreScannerTest`).
 
 ## Known workarounds and technical debt
 
