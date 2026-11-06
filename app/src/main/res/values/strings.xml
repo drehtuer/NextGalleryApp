@@ -6,8 +6,4 @@
     <string name="destination_map">Map</string>
     <string name="destination_nextcloud">Nextcloud</string>
     <string name="placeholder_coming_soon">Coming soon</string>
-    <plurals name="indexed_images">
-        <item quantity="one">%d image indexed</item>
-        <item quantity="other">%d images indexed</item>
-    </plurals>
 </resources>

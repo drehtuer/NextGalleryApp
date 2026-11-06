@@ -7,17 +7,16 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import net.drehtuer.nextgallery.core.data.access.MediaAccessRepository
 import net.drehtuer.nextgallery.core.data.index.IndexScheduler
-import net.drehtuer.nextgallery.core.data.media.MediaRepository
 import net.drehtuer.nextgallery.core.model.MediaAccess
 import javax.inject.Inject
 
 /** `access` is null until it was checked for the first time. */
-data class MainUiState(val access: MediaAccess? = null, val indexedCount: Int = 0)
+data class MainUiState(val access: MediaAccess? = null)
 
 sealed interface MainEvent {
     data object Resumed : MainEvent
@@ -29,7 +28,6 @@ sealed interface MainEvent {
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val mediaAccessRepository: MediaAccessRepository,
-    mediaRepository: MediaRepository,
     private val indexScheduler: IndexScheduler,
 ) : ViewModel() {
     private val access = MutableStateFlow<MediaAccess?>(null)
@@ -37,7 +35,7 @@ class MainViewModel @Inject constructor(
 
     val requestedPermissions: List<String> = mediaAccessRepository.requestedPermissions
 
-    val state: StateFlow<MainUiState> = combine(access, mediaRepository.observeIndexedCount(), ::MainUiState)
+    val state: StateFlow<MainUiState> = access.map(::MainUiState)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), MainUiState())
 
     fun onEvent(event: MainEvent) {

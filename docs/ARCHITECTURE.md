@@ -184,7 +184,7 @@ graph TD
     common --> model
 ```
 
-`:core:ui` additionally depends on Coil (it provides the shared image loading composables); the Coil `ImageLoader` itself is configured in `:app` (see [9.1](#91-thumbnails-and-images)).
+`:core:ui` additionally depends on Coil and paging-compose (it provides the shared image loading and grid composables); the Coil `ImageLoader` itself is configured in `:app` (see [9.1](#91-thumbnails-and-images)).
 
 ### 3.3 Module responsibilities
 
@@ -198,14 +198,14 @@ Package root and application ID: `net.drehtuer.nextgallery` (D26). Class names b
 | `MainActivity` | Single activity, edge-to-edge, hosts `NextGalleryNavHost`. Handles `ACTION_VIEW`/`ACTION_SEND` intents later. |
 | `NextGalleryNavHost` | Navigation Compose graph; maps each feature's navigation callbacks to routes of other features. |
 | `TopLevelDestination` | Enum of bottom-bar destinations (Folders, Timeline, Map, Nextcloud). |
-| `ImageLoaderModule` | Hilt module building the Coil `ImageLoader` (memory + disk cache, MediaStore thumbnail fetcher, authenticated Nextcloud preview fetcher). |
+| `ImageLoaderModule` | Hilt module building the Coil `ImageLoader` (memory + disk cache, MediaStore thumbnail fetcher; the authenticated Nextcloud preview fetcher follows in Phase 8). |
 
 #### `:core:model` (pure Kotlin)
 
 | Type | Notes |
 | --- | --- |
 | `MediaItem` | `id: Long` (MediaStore `_ID`), `contentUri: String`, `relativePath`, `displayName`, `mimeType`, `sizeBytes`, `width`, `height`, `orientation`, `dateTakenMillis` (resolved, see 5.1), `dateModifiedMillis`, `location: GeoPoint?`, `bucketId`. |
-| `Folder` | `bucketId`, `relativePath`, `displayName`, `itemCount`, `coverItemId`, `latestDateMillis`. |
+| `Folder` | `bucketId`, `name`, `relativePath`, `itemCount`, `coverItem: MediaItem` (newest image). |
 | `FolderRule` | `relativePath`, `type: RuleType { INCLUDE, EXCLUDE }`. |
 | `GeoPoint` | `latitude`, `longitude` (validated ranges). |
 | `RemoteFile` | `path`, `name`, `isDirectory`, `sizeBytes`, `contentType`, `etag`, `fileId`, `lastModifiedMillis`, `checksums: Map<ChecksumType, String>`, `hasPreview`. |
@@ -225,7 +225,7 @@ Package root and application ID: `net.drehtuer.nextgallery` (D26). Class names b
 - `AppResult<T>` – `Success(value)` / `Failure(error: AppError)`; `AppError` sealed; implemented so far: `Io(message)`, `PermissionDenied`, `Unknown(cause)`, with `AppError.from(throwable)`. Added with the features that need them: `NotFound`, `Network`, `Auth`, `Server(code)`, `InsufficientMemory(requiredBytes, availableBytes)`, `UntrustedCertificate(info: CertificateInfo)`, `NotLoggedIn`.
 - `DispatcherProvider` interface (`io`, `default`) + `DefaultDispatcherProvider`; the Hilt binding lives in `:core:platform`. ViewModels use `viewModelScope`, so no main dispatcher is injected.
 - `Clock` (`nowMillis()`, `zone()`) + `SystemClock`.
-- Utilities: `RelativePaths` (`normalize`, case-insensitive `isUnder`), `runCatchingCancellable` (never swallows `CancellationException`).
+- Utilities: `RelativePaths` (`normalize`, case-insensitive `isUnder`), `runCatchingCancellable` (never swallows `CancellationException`), `ScrollbarMath` (fast scrollbar position ↔ first visible item; here rather than in `:core:data` because `:core:ui` uses it).
 
 #### `:core:data` (pure Kotlin/JVM)
 
@@ -243,7 +243,7 @@ Ports (implemented by adapters):
 | `MediaDeleteSource` | `:core:media` | Trash, untrash and permanent delete requests as `PlatformConfirmation`. |
 | `ImageRenderer` | `:core:media` | Decode at a max size, apply a list of `RenderStep`s (matrices, crops, strokes computed by `EditGeometry`), encode. |
 | `MediaPermissionSource` | `:core:media` | Currently granted media permissions as strings. |
-| `MediaIndexStore` | `:core:database` | Index reads/writes; paged queries returned as `Flow<PagingData<MediaItem>>` (the Room adapter builds the `Pager` and maps entities). |
+| `MediaIndexStore` | `:core:database` | Index reads/writes, folder list; paged queries returned as `Flow<PagingData<MediaItem>>` (the repository decides the `PagingConfig`; the Room adapter builds the `Pager` and maps entities). |
 | `FolderRuleStore`, `UploadStateStore`, `RemoteCacheStore`, `SyncStateStore` | `:core:database` | Room tables behind model-typed interfaces. |
 | `WorkScheduler` | `:core:platform` | `enqueueIndex(mode)`, `scheduleUploadStateSync()`, `requestUploadStateSync()`. |
 | `NextcloudAppSource` | `:core:platform` | `isInstalled()` for `com.nextcloud.client`. |
@@ -263,7 +263,7 @@ Repositories (interfaces + `Default…` implementations with `@Inject` construct
 | `NextcloudRepository` | Login flow, account state, remote browsing (with `remote_cache`), preview requests. |
 | `UploadStateRepository` | Folder mapping, PROPFIND comparison, checksum confirmation, `upload_state` cache. |
 | `UploadHandoffRepository` | Prepares a hand-off to the Nextcloud app: filters out items already uploaded, returns a `ShareSpec` targeted at `com.nextcloud.client`, and requests an upload-state refresh when the app returns to the foreground. |
-| `SelectionRepository` | App-wide selection (`StateFlow<Set<MediaId>>`): toggle, range, select all, clear, and `overview(context: ViewContext)` marking which selected items the given view can show. In-memory singleton. |
+| `SelectionRepository` | App-wide selection (`StateFlow<Set<MediaId>>`): toggle, range, select all, clear, and (Phase 3) `overview(context: ViewContext)` marking which selected items the given view can show. In-memory singleton. |
 | `TrustedCertificateRepository` | Pinned certificates per host (`TrustedCertificateStore`, DataStore): accept, remove, list. |
 | `SettingsRepository` | DataStore (Preferences, JVM artifact) for `AppSettings`; the file location is provided by `:core:platform`. |
 | `AccountStore` | Account + app password in DataStore, encrypted through `SecretCipher`. |
@@ -280,7 +280,7 @@ Pure logic (each class unit-tested on the JVM):
 - `UploadStateMatcher`, `ChecksumCalculator` (streams SHA-1 / MD5 of an `InputStream`), `ChecksumParser`.
 - `SelectionRepresentability` – can a view context show an item (Map: has GPS; Folder: same bucket; Timeline: always, since every item has a resolved date).
 - `EditSession` / `EditHistory`, `CropMath`, `ScaleMath`, `EditGeometry` (operations → output size and `RenderStep`s), `MemoryBudget` (fits / refuse with required vs available bytes), `EditableFormats` (JPEG, PNG).
-- `GridClusterer`, `SectionIndexBuilder`, `ScrollbarMath`.
+- `GridClusterer`, `SectionIndexBuilder`.
 
 #### `:core:nextcloud` (pure Kotlin/JVM)
 
@@ -299,10 +299,10 @@ Pure logic (each class unit-tested on the JVM):
 #### `:core:database` (Android adapter)
 
 - `GalleryDatabase` (Room, `exportSchema = true`, explicit `Migration`s from v1 on; schemas checked in).
-- Entities: `MediaEntity`, `FolderEntity` (Room view or table, see 4), `FolderRuleEntity`, `UploadStateEntity`, `RemoteFileCacheEntity`, `SyncStateEntity`.
+- Entities: `MediaEntity`, `FolderRuleEntity`, `UploadStateEntity`, `RemoteFileCacheEntity`, `SyncStateEntity`.
 - DAOs:
   - `MediaDao` – `upsertAll`, `deleteByIds`, `deleteNotIn(generation)`, `pagingByBucket(bucketId): PagingSource<Int, MediaEntity>`, `pagingTimeline(): PagingSource`, `observeWithLocation(bounds)`, `getById`, `observeIdsInBucket` (viewer pager), `timelineSections(tzOffset...)`.
-  - `FolderDao` – `observeFolders(sort)`.
+  - `FolderDao` – `observeFolders()`: `FolderRow` (the folder's newest image plus the image count), sorted by name.
   - `FolderRuleDao` – `observeRules`, `replaceAll`.
   - `UploadStateDao` – `observeForMedia(ids)`, `upsertAll`, `deleteForFolder`.
   - `RemoteFileCacheDao` – `replaceFolder(parentPath, files)`, `observeFolder(parentPath)`.
@@ -333,12 +333,12 @@ Pure logic (each class unit-tested on the JVM):
 
 #### `:core:ui`
 
-- `NextGalleryTheme` (Material 3, light/dark). Placeholder colours, typography, shapes and spacing until the Claude Design delivery replaces them (DESIGN_DECISIONS.md D22). Takes the user's accent colour from `AppSettings` (D34).
-- `ThumbnailGrid` – `LazyVerticalGrid` driven by `LazyPagingItems<GridItem>`; supports headers (`GridItem.Header`), selection, a greyed-out state (selection overview), upload badges, stable keys.
-- `FastScrollbar` – draggable thumb; drag fraction ↔ index math lives in `ScrollbarMath` (`:core:data`); shows a bubble label (e.g. "March 2024").
-- `SelectionTopBar` – total selection count (across all views), select all, share, delete, upload (hand-off), open selection overview.
+- `NextGalleryTheme` (Material 3, light/dark; spacing and sizes through `NextGalleryTheme.dimensions`). Placeholder colours, typography, shapes and dimensions until the Claude Design delivery replaces them (DESIGN_DECISIONS.md D22). Takes the user's accent colour from `AppSettings` (D34).
+- `MediaGrid` – `LazyVerticalGrid` driven by `LazyPagingItems<MediaItem>`, with selection and stable keys. Headers (timeline) come with Phase 5.
+- `FastScrollbar` – draggable thumb; drag fraction ↔ index math lives in `ScrollbarMath` (`:core:common`); shows an optional bubble label (e.g. "March 2024").
+- `SelectionTopBar` – total selection count (across all views), clear, and an actions slot for select all, share, delete, upload (hand-off) and the selection overview.
 - `CertificateWarningDialog` – shows `CertificateInfo` with a warning; Accept / Cancel.
-- `MediaThumbnail` – Coil `AsyncImage` with placeholder, fixed size request, badge slot.
+- `ThumbnailCell` – square cell with Coil `AsyncImage`, paging placeholder, selected and greyed-out states, badge slot. `MediaThumbnail` is its Coil model, with `MediaThumbnailKeyer` and `MediaThumbnailFetcher`.
 - `PermissionGate` – requests media permissions, shows rationale, handles partial access ("Manage selected photos").
 - `rememberConfirmationLauncher()` – launches a `PlatformConfirmation` (unwraps the `IntentSender`) and reports the result.
 - `ErrorState`, `EmptyState`, `LoadingState` composables; `UiText` (string resource or raw).
@@ -361,7 +361,7 @@ Each feature contains: `XxxRoute` (serializable route object/class), `XxxScreen`
 
 ### 4.1 Room schema
 
-`media` is a mirror of the subset of MediaStore that passes the folder rules, enriched with resolved date and GPS. Folders are derived from `media` (an aggregated query/`@DatabaseView`), so no separate write path can get out of sync.
+`media` is a mirror of the subset of MediaStore that passes the folder rules, enriched with resolved date and GPS. Folders are derived from `media` (an aggregated query in `FolderDao`, no table or view), so no separate write path can get out of sync.
 
 ```mermaid
 erDiagram
@@ -388,14 +388,6 @@ erDiagram
         double latitude "nullable"
         double longitude "nullable"
         boolean exif_scanned
-    }
-    folder_view {
-        long bucket_id PK
-        string relative_path
-        string display_name
-        int item_count
-        long cover_media_id
-        long latest_date_ms
     }
     folder_rule {
         long id PK
@@ -434,7 +426,6 @@ erDiagram
     }
 
     media ||--o| upload_state : "has cached"
-    folder_view ||--|{ media : "aggregates"
 ```
 
 Notes:
@@ -520,25 +511,21 @@ sequenceDiagram
     participant Coil as Coil ImageLoader
 
     UI->>VM: created with FolderGridRoute bucketId
-    VM->>Repo: pagedFolder(bucketId, sort)
+    VM->>Repo: pagedFolderItems(bucketId)
     Repo->>DAO: pagingByBucket(bucketId) PagingSource
     Repo-->>VM: Flow of PagingData of MediaItem
-    VM->>VM: map to GridItem, cachedIn viewModelScope
-    VM->>Repo: sectionIndex(bucketId)
-    Repo-->>VM: Flow of SectionIndex
+    VM->>VM: cachedIn viewModelScope
     VM-->>UI: StateFlow FolderGridUiState plus paging flow
     UI->>UI: collectAsLazyPagingItems
     loop visible cells
         UI->>Coil: load MediaStore thumbnail at cell size
         Coil-->>UI: bitmap from memory, disk or loadThumbnail
     end
-    UI->>VM: ScrollbarDragged fraction
-    VM-->>UI: target index and label
-    UI->>UI: scrollToItem index
+    UI->>UI: scrollbar dragged, scrollToItem index from ScrollbarMath
     Note over DAO,UI: Room invalidation re-emits pages after IndexWorker writes
 ```
 
-- Page size 120 (multiple of common column counts), prefetch distance 2 pages, `enablePlaceholders = true` so the total count is known and the fast scroll thumb maps 1:1 to positions.
+- Page size 120 (multiple of common column counts), prefetch distance 2 pages, `enablePlaceholders = true` so the total count is known and the fast scroll thumb maps 1:1 to positions, and a jump threshold of 3 pages, so a scrollbar jump loads the target page directly instead of every page in between.
 - Upload badges: the grid collects `UploadStateRepository.observeStates(visibleIds)`; the map is combined per cell, not via a SQL join, so the paging query stays simple and cheap.
 
 ### 5.3 Full-screen viewer
@@ -824,8 +811,7 @@ Pattern per screen:
 ```kotlin
 data class FolderGridUiState(
     val title: String = "",
-    val sectionIndex: SectionIndex = SectionIndex.Empty,
-    val selectionCount: Int = 0, // app-wide, from SelectionRepository
+    val selectedIds: Set<MediaId> = emptySet(), // app-wide, from SelectionRepository
     val uploadBadgesEnabled: Boolean = false, // logged in and Nextcloud app installed
     val isIndexing: Boolean = false,
     val error: UiText? = null,
@@ -850,15 +836,14 @@ sealed interface FolderGridEffect {
 
 @HiltViewModel(assistedFactory = FolderGridViewModel.Factory::class)
 class FolderGridViewModel @AssistedInject constructor(
-    @Assisted private val route: FolderGridRoute,
-    private val savedStateHandle: SavedStateHandle,
+    @Assisted private val bucketId: Long,
     private val media: MediaRepository,
     private val delete: DeleteRepository,
     private val selection: SelectionRepository,
     private val upload: UploadHandoffRepository,
 ) : ViewModel() {
-    @AssistedFactory interface Factory { fun create(route: FolderGridRoute): FolderGridViewModel }
-    val items: Flow<PagingData<GridItem>> = media.pagedFolder(route.bucketId).cachedIn(viewModelScope)
+    @AssistedFactory interface Factory { fun create(bucketId: Long): FolderGridViewModel }
+    val items: Flow<PagingData<MediaItem>> = media.pagedFolderItems(bucketId).cachedIn(viewModelScope)
     val state: StateFlow<FolderGridUiState> = /* combine(...).stateIn(viewModelScope, WhileSubscribed(5_000), FolderGridUiState()) */
     val effects: Flow<FolderGridEffect> = /* Channel(BUFFERED).receiveAsFlow() */
     fun onEvent(event: FolderGridEvent) { /* ... */ }
@@ -880,7 +865,7 @@ Other screens (abbreviated):
 | Login | `serverUrl`, `step: Idle / WaitingForBrowser / Verifying / Done`, `error` |
 | Settings | `settings: AppSettings`, `rules: List<FolderRule>`, `account: NextcloudAccount?`, `queueCount` |
 
-Process death: the route is restored by Navigation and passed in again through the assisted factory (`hiltViewModel<FolderGridViewModel, FolderGridViewModel.Factory> { it.create(route) }`); transient UI (selection, editor operations) is saved via `SavedStateHandle` where cheap (selection as `LongArray`, editor operations serialized with kotlinx.serialization).
+Process death: the route is restored by Navigation and passed in again through the assisted factory (`hiltViewModel<FolderGridViewModel, FolderGridViewModel.Factory> { it.create(route.bucketId) }`); transient UI (selection, editor operations) is saved via `SavedStateHandle` where cheap (selection as `LongArray`, editor operations serialized with kotlinx.serialization).
 
 ## 8. Threading and concurrency
 
@@ -907,8 +892,8 @@ Rules:
 - Single Coil 3 `ImageLoader` (app singleton) with:
   - Memory cache: 20 % of app memory.
   - Disk cache: `cacheDir/image_cache`, 250 MB (configurable later).
-  - Custom `MediaStoreThumbnailFetcher` for local grid cells: `ContentResolver.loadThumbnail(uri, Size, signal)` — uses the system thumbnail cache, which is faster than decoding originals. Cache key includes `id + date_modified + size bucket`, so edited images refresh.
-  - Size buckets (e.g. 256 / 512 px) instead of exact sizes to maximise cache hits across grid densities.
+  - Custom `MediaThumbnailFetcher` for local grid cells: `ContentResolver.loadThumbnail(uri, Size, signal)` — uses the system thumbnail cache, which is faster than decoding originals; if that fails, it decodes the original at the requested size. Cache key includes `id + date_modified + size bucket`, so edited images refresh. Local thumbnails are kept in the memory cache and the system thumbnail cache, not again in the Coil disk cache, which is meant for remote images (9.2).
+  - Size buckets (256 / 512 px) instead of exact sizes to maximise cache hits across grid densities.
 - Viewer: Telephoto's `ZoomableAsyncImage` uses Coil for the screen-sized image and sub-sampled tiles for full resolution; tiles are not disk-cached (originals are local).
 - Hardware bitmaps enabled for grids; disabled in the editor (needs software bitmaps).
 
@@ -956,7 +941,7 @@ Targets (measured on the reference Pixel 10a, Android 17): warm start to first f
 
 - **Query only Room** for grids; MediaStore is touched only by the indexer.
 - **Paging 3 with placeholders** gives a stable item count, so `LazyVerticalGrid` can jump anywhere; Room's `PagingSource` uses `LIMIT/OFFSET` on indexed columns. For very deep jumps, the grid requests the page around the target via `scrollToItem` and placeholders render until loaded.
-- **Fast-scroll section index**: computed once per data version via aggregated SQL (`SELECT local_year, local_month, COUNT(*) … GROUP BY …`), turned into cumulative `firstIndex` offsets. Dragging the thumb is O(log n) (binary search in sections) and does not load items until the drag settles (throttled `scrollToItem`, e.g. every 32 ms).
+- **Fast-scroll section index** (timeline; the folder grid maps the thumb directly to positions): computed once per data version via aggregated SQL (`SELECT local_year, local_month, COUNT(*) … GROUP BY …`), turned into cumulative `firstIndex` offsets. Dragging the thumb is O(log n) (binary search in sections) and does not load items until the drag settles (throttled `scrollToItem`, e.g. every 32 ms).
 - **Timeline headers**: header items are inserted with `PagingData.insertSeparators` (day changes); sticky header text is derived from the first visible item's date, not from a separate list.
 - **Stable keys and content types** in lazy grids (`key = id`, `contentType = header/item`) to avoid recomposition and enable reuse.
 - **Thumbnails**: system `loadThumbnail` + size buckets + memory cache; no crossfade during fast scroll; requests cancelled when cells leave the screen (Coil does this per composable).
@@ -972,8 +957,8 @@ Principles: every function gets a unit test; tests are small, independent and no
 
 | Layer / module | What is tested | How | Runs on CI |
 | --- | --- | --- | --- |
-| `:core:model`, `:core:common` | Model validation (`GeoPoint` ranges, `NormalizedRect`), `AppResult` helpers, `RelativePaths`, `runCatchingCancellable` | Plain JVM JUnit | Yes |
-| `:core:data` | All domain logic: `MediaIndexer` (full vs incremental vs version change), `IndexScheduler`, `DateResolver`/`ExifDateParser`, `FolderRuleMatcher`, `MediaAccessRepository`, `FolderMapping`, `UploadStateMatcher`, `UploadHandoffRepository`, `SelectionRepository` and `SelectionRepresentability`, checksums, `EditSession`/`EditGeometry`, `GridClusterer`, `SectionIndexBuilder`, `ScrollbarMath`, repositories, `AccountStore` (fake `SecretCipher`) | Plain JVM JUnit + hand-written fake ports, MockK, Turbine | Yes |
+| `:core:model`, `:core:common` | Model validation (`GeoPoint` ranges, `NormalizedRect`), `AppResult` helpers, `RelativePaths`, `runCatchingCancellable`, `ScrollbarMath` | Plain JVM JUnit | Yes |
+| `:core:data` | All domain logic: `MediaIndexer` (full vs incremental vs version change), `IndexScheduler`, `DateResolver`/`ExifDateParser`, `FolderRuleMatcher`, `MediaAccessRepository`, `FolderMapping`, `UploadStateMatcher`, `UploadHandoffRepository`, `SelectionRepository` and `SelectionRepresentability`, checksums, `EditSession`/`EditGeometry`, `GridClusterer`, `SectionIndexBuilder`, repositories, `AccountStore` (fake `SecretCipher`) | Plain JVM JUnit + hand-written fake ports, MockK, Turbine | Yes |
 | `:core:nextcloud` | PROPFIND parsing, request building (headers, depth, body), Login Flow v2 polling states, error mapping, auth interceptor host check, URL normalisation, `PinningTrustManager` (CA-signed, pinned, unknown, changed certificate) | Plain JVM JUnit, `MockWebServer` (with `okhttp-tls` self-signed `HeldCertificate`s), kxml2 parser | Yes |
 | ViewModels (feature modules) | Event → state transitions, effects emitted, paging flow wiring | Local unit tests without Robolectric: `runTest` + Turbine, fake repositories, route passed to the constructor | Yes |
 | `:core:database` | Each DAO query (paging order, rule filtering, section aggregation, cascade deletes), migrations, entity ↔ model mapping | Robolectric + in-memory Room; `MigrationTestHelper` with exported schemas | Yes |

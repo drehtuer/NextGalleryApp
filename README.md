@@ -2,7 +2,7 @@
 
 A simple, fast Android gallery app with basic editing, multiple ways to browse your photos, and built-in Nextcloud integration.
 
-> Status: early development. Photo access and background indexing work; the browsing views are next. See [STATUS.md](docs/STATUS.md). This README describes the intended scope.
+> Status: early development. Photo access, background indexing and the folder view work; the full-screen viewer is next. See [STATUS.md](docs/STATUS.md). This README describes the intended scope.
 
 ## Documentation
 

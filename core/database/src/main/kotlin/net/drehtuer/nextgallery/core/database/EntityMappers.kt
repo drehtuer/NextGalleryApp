@@ -1,6 +1,7 @@
 package net.drehtuer.nextgallery.core.database
 
 import net.drehtuer.nextgallery.core.data.index.SyncState
+import net.drehtuer.nextgallery.core.model.Folder
 import net.drehtuer.nextgallery.core.model.GeoPoint
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
@@ -50,6 +51,14 @@ internal fun MediaItem.toEntity() = MediaEntity(
     latitude = location?.latitude,
     longitude = location?.longitude,
     exifScanned = false,
+)
+
+internal fun FolderRow.toModel() = Folder(
+    bucketId = cover.bucketId,
+    name = cover.bucketName,
+    relativePath = cover.relativePath,
+    itemCount = itemCount,
+    coverItem = cover.toModel(),
 )
 
 internal fun SyncStateEntity.toModel() = SyncState(volumeName, lastGeneration, mediaStoreVersion, lastFullScanMillis)

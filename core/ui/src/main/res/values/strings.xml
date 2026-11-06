@@ -8,4 +8,12 @@
     <string name="core_ui_media_access_open_settings">Open app settings</string>
     <string name="core_ui_limited_access_message">NextGallery can only see the photos you selected.</string>
     <string name="core_ui_limited_access_select_more">Select more</string>
+    <string name="core_ui_back">Back</string>
+    <string name="core_ui_clear_selection">Clear selection</string>
+    <string name="core_ui_thumbnail_selected">Selected</string>
+    <string name="core_ui_thumbnail_unavailable">Not shown in this view</string>
+    <plurals name="core_ui_selected_count">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
 </resources>

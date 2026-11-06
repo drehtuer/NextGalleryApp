@@ -7,4 +7,6 @@ plugins {
 dependencies {
     implementation(projects.core.data)
     implementation(projects.core.model)
+
+    testImplementation(libs.androidx.paging.testing)
 }

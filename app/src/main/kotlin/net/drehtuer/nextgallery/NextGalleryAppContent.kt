@@ -1,6 +1,7 @@
 package net.drehtuer.nextgallery
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -13,7 +14,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
@@ -23,6 +26,7 @@ import net.drehtuer.nextgallery.core.ui.permission.LimitedAccessBanner
 import net.drehtuer.nextgallery.core.ui.permission.MediaAccessRequest
 import net.drehtuer.nextgallery.navigation.NextGalleryNavHost
 import net.drehtuer.nextgallery.navigation.TopLevelDestination
+import net.drehtuer.nextgallery.navigation.foldersGraph
 
 @Composable
 fun NextGalleryAppContent(
@@ -30,6 +34,7 @@ fun NextGalleryAppContent(
     onRequestAccess: () -> Unit,
     onOpenSettings: () -> Unit,
     navController: NavHostController = rememberNavController(),
+    folders: NavGraphBuilder.(NavHostController) -> Unit = { foldersGraph(it) },
 ) {
     when (state.access) {
         null -> LoadingIndicator()
@@ -37,9 +42,9 @@ fun NextGalleryAppContent(
         MediaAccess.DENIED -> MediaAccessRequest(onRequestAccess = onRequestAccess, onOpenSettings = onOpenSettings)
 
         MediaAccess.FULL, MediaAccess.PARTIAL -> Scaffold(bottomBar = { BottomBar(navController) }) { padding ->
-            Column(Modifier.padding(padding)) {
+            Column(Modifier.padding(padding).consumeWindowInsets(padding)) {
                 if (state.access == MediaAccess.PARTIAL) LimitedAccessBanner(onSelectMore = onRequestAccess)
-                NextGalleryNavHost(navController, state.indexedCount)
+                NextGalleryNavHost(navController, folders)
             }
         }
     }
@@ -51,7 +56,7 @@ private fun BottomBar(navController: NavHostController) {
     NavigationBar {
         TopLevelDestination.entries.forEach { destination ->
             NavigationBarItem(
-                selected = currentEntry?.destination?.hasRoute(destination.route::class) == true,
+                selected = currentEntry?.destination?.hierarchy?.any { it.hasRoute(destination.route::class) } == true,
                 onClick = {
                     navController.navigate(destination.route) {
                         popUpTo(navController.graph.findStartDestination().id) { saveState = true }

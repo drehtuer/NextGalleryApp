@@ -1,10 +1,11 @@
 package net.drehtuer.nextgallery.core.data.fakes
 
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.TestDispatcher
 import net.drehtuer.nextgallery.core.common.Clock
 import net.drehtuer.nextgallery.core.common.DispatcherProvider
@@ -16,6 +17,7 @@ import net.drehtuer.nextgallery.core.data.index.MediaScanSource
 import net.drehtuer.nextgallery.core.data.index.SyncState
 import net.drehtuer.nextgallery.core.data.index.SyncStateStore
 import net.drehtuer.nextgallery.core.data.index.WorkScheduler
+import net.drehtuer.nextgallery.core.model.Folder
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
 import net.drehtuer.nextgallery.core.model.RawExif
@@ -58,6 +60,9 @@ class FakeMediaScanSource(
 
 class FakeMediaIndexStore : MediaIndexStore {
     val items = MutableStateFlow<Map<Long, MediaItem>>(emptyMap())
+    val folders = MutableStateFlow<List<Folder>>(emptyList())
+    var pagingConfig: PagingConfig? = null
+        private set
 
     override suspend fun upsertAll(items: List<MediaItem>) {
         this.items.value += items.associateBy { it.id.value }
@@ -72,7 +77,15 @@ class FakeMediaIndexStore : MediaIndexStore {
 
     override suspend fun getById(id: MediaId): MediaItem? = items.value[id.value]
 
-    override fun observeCount(): Flow<Int> = items.map { it.size }
+    override fun pagedByBucket(bucketId: Long, config: PagingConfig): Flow<PagingData<MediaItem>> {
+        pagingConfig = config
+        return flowOf(PagingData.from(items.value.values.filter { it.bucketId == bucketId }))
+    }
+
+    override suspend fun idsInBucket(bucketId: Long): List<MediaId> =
+        items.value.values.filter { it.bucketId == bucketId }.map { it.id }
+
+    override fun observeFolders(): Flow<List<Folder>> = folders
 }
 
 class FakeSyncStateStore(vararg initial: SyncState) : SyncStateStore {
