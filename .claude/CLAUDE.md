@@ -28,3 +28,4 @@ Android gallery app (Kotlin, Jetpack Compose). Start with [README.md](../README.
 - [docs/DESIGN_DECISIONS.md](../docs/DESIGN_DECISIONS.md) – decisions taken and open questions.
 - [docs/TODO.md](../docs/TODO.md) – ordered implementation plan; tick items off as they are done.
 - [docs/STATUS.md](../docs/STATUS.md) – summary of the implementation state; update it with each phase.
+- [docs/DESIGN_HANDOVER.md](../docs/DESIGN_HANDOVER.md) – brief for Claude Design; update it when screens or theme tokens change.
