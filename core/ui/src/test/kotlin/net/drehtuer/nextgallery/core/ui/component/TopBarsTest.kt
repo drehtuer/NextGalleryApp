@@ -28,6 +28,36 @@ class TopBarsTest {
     }
 
     @Test
+    fun shareAction_clicked_invokesCallback() {
+        var clicks = 0
+        composeRule.setContent { ShareAction(onClick = { clicks++ }) }
+
+        composeRule.onNodeWithContentDescription("Share").performClick()
+
+        assertEquals(1, clicks)
+    }
+
+    @Test
+    fun deleteAction_clicked_invokesCallback() {
+        var clicks = 0
+        composeRule.setContent { DeleteAction(onClick = { clicks++ }) }
+
+        composeRule.onNodeWithContentDescription("Delete").performClick()
+
+        assertEquals(1, clicks)
+    }
+
+    @Test
+    fun selectionOverviewAction_clicked_invokesCallback() {
+        var clicks = 0
+        composeRule.setContent { SelectionOverviewAction(onClick = { clicks++ }) }
+
+        composeRule.onNodeWithContentDescription("Show selection").performClick()
+
+        assertEquals(1, clicks)
+    }
+
+    @Test
     fun selectionTopBar_showsTotalCount() {
         composeRule.setContent { SelectionTopBar(selectionCount = 3, onClear = {}) }
 

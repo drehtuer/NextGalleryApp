@@ -17,11 +17,16 @@ interface MediaIndexStore {
 
     suspend fun getById(id: MediaId): MediaItem?
 
+    suspend fun getByIds(ids: Collection<MediaId>): List<MediaItem>
+
     /** Images of a folder, newest first. */
     fun pagedByBucket(bucketId: Long, config: PagingConfig): Flow<PagingData<MediaItem>>
 
     /** Ids of all images of a folder, in the order of [pagedByBucket]. */
     suspend fun idsInBucket(bucketId: Long): List<MediaId>
+
+    /** Position of an image in [pagedByBucket]. */
+    suspend fun indexInBucket(bucketId: Long, id: MediaId): Int
 
     /** Folders that contain indexed images, sorted by name; the cover is the newest image. */
     fun observeFolders(): Flow<List<Folder>>

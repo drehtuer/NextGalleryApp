@@ -24,6 +24,13 @@ class RoomMediaIndexStore @Inject constructor(private val mediaDao: MediaDao, pr
 
     override suspend fun getById(id: MediaId): MediaItem? = mediaDao.getById(id.value)?.toModel()
 
+    override suspend fun getByIds(ids: Collection<MediaId>): List<MediaItem> = ids.map { it.value }
+        .chunked(SQLITE_MAX_VARIABLES)
+        .flatMap { mediaDao.getByIds(it) }
+        .map { it.toModel() }
+
+    override suspend fun indexInBucket(bucketId: Long, id: MediaId): Int = mediaDao.indexInBucket(bucketId, id.value)
+
     override fun pagedByBucket(bucketId: Long, config: PagingConfig): Flow<PagingData<MediaItem>> =
         Pager(config) { mediaDao.pagingByBucket(bucketId) }.flow.map { page -> page.map { it.toModel() } }
 

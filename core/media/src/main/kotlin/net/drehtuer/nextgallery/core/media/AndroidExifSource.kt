@@ -23,6 +23,12 @@ class AndroidExifSource @Inject constructor(
                     dateTimeOriginal = exif.getAttribute(ExifInterface.TAG_DATETIME_ORIGINAL),
                     offsetTimeOriginal = exif.getAttribute(ExifInterface.TAG_OFFSET_TIME_ORIGINAL),
                     subSecTimeOriginal = exif.getAttribute(ExifInterface.TAG_SUBSEC_TIME_ORIGINAL),
+                    make = exif.getAttribute(ExifInterface.TAG_MAKE),
+                    model = exif.getAttribute(ExifInterface.TAG_MODEL),
+                    exposureTime = exif.getAttribute(ExifInterface.TAG_EXPOSURE_TIME),
+                    fNumber = exif.getAttribute(ExifInterface.TAG_F_NUMBER),
+                    iso = exif.getAttribute(ExifInterface.TAG_PHOTOGRAPHIC_SENSITIVITY),
+                    focalLength = exif.getAttribute(ExifInterface.TAG_FOCAL_LENGTH),
                 )
             }
         } catch (_: IOException) {

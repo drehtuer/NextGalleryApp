@@ -5,6 +5,8 @@
     <string name="feature_folders_folder_empty">This folder is empty</string>
     <string name="feature_folders_load_failed">The photos could not be loaded</string>
     <string name="feature_folders_select_all">Select all</string>
+    <string name="feature_folders_selection_overview">Selection</string>
+    <string name="feature_folders_selection_empty">Nothing selected</string>
     <plurals name="feature_folders_item_count">
         <item quantity="one">%d image</item>
         <item quantity="other">%d images</item>

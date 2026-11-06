@@ -182,27 +182,27 @@ _Depends on: Phase 1._
 **Goal:** swipeable zoomable viewer with image info, plus delete and share for single and multi-selection.
 _Depends on: Phase 2 (grid, selection)._
 
-- [ ] **3.1 Model & data**
-  - [ ] `MediaSource` sealed type (`Folder(bucketId)`, `Timeline`, `Map(bounds?)`) so the viewer pages over the same list as the caller. Test: serialization round-trip (used in routes).
-  - [ ] `MediaRepository.pagedItems(source)` and `indexOf(source, mediaId)`. Tests per source.
-  - [ ] `ImageDetails` model (date, size, resolution, mime, path, lat/long, camera make/model, exposure, ISO, focal length…). `ImageDetailsMapper.from(rawExif, item)` in `:core:data` (JVM tests per field, missing values); `AndroidExifSource` extended with the camera tags (Robolectric fixture test).
-- [ ] **3.2 Delete (`:core:media` + `:core:data`)**
-  - [ ] `MediaDeleteSource` port; `MediaStoreDeleter` adapter: `createTrashRequest` (default) / `createDeleteRequest` (permanent) wrapped in `PlatformConfirmation`. Tests (Robolectric): trash, permanent.
-  - [ ] `MediaActionsRepository.delete(ids): DeleteOutcome` (`NeedsUserConfirmation(intentSender)`, `Failed`) and `onDeleteConfirmed(ids)` removing rows from Room immediately. Tests per outcome.
-  - [ ] `:core:ui` `rememberConfirmationLauncher()` unwrapping `PlatformConfirmation` and launching it via `StartIntentSenderForResult`. Compose test: result forwarded.
-- [ ] **3.3 Share**
-  - [ ] `ShareSpec.from(items)` in `:core:data` (single vs multiple, common mime or `image/*`; JVM tests) and `ShareIntentFactory` in `:core:ui` turning it into `ACTION_SEND`/`ACTION_SEND_MULTIPLE` with `FLAG_GRANT_READ_URI_PERMISSION` and `ClipData` (Robolectric test).
-- [ ] **3.4 `:feature:viewer`**
-  - [ ] `ViewerRoute(source: MediaSource, mediaId: Long)`.
-  - [ ] `ViewerViewModel`: paging over source, current index, `ViewerUiState(currentItem, chromeVisible, details?, pendingDelete?)`; events `PageChanged`, `ToggleChrome`, `ShowInfo`, `Delete`, `Share`, `DeleteConfirmed`. Tests per event.
-  - [ ] `ViewerScreen`: `HorizontalPager` + Telephoto `ZoomableAsyncImage` (Coil, subsampling, double-tap zoom); system-bars hide/show; top bar (back, share, delete, edit placeholder, info). Compose UI tests: swipe changes page, tap toggles chrome, delete shows confirmation flow.
-  - [ ] `ImageInfoSheet` (ModalBottomSheet with `ImageDetails`). Compose test: fields rendered, missing values hidden.
-  - [ ] Handle item disappearing (deleted externally) → move to neighbour or close. Test in ViewModel.
-- [ ] **3.5 Multi-select actions in grids**
-  - [ ] Add delete/share actions to `SelectionTopBar` in `FolderGridScreen`; `FolderGridViewModel` uses `MediaActionsRepository` / `ShareIntentFactory`. Actions apply to the whole app-wide selection. Tests: events → outcomes.
-  - [ ] Selection overview (D33): `SelectionRepresentability.canShow(item, context)` in `:core:data` (Folder: same bucket; Timeline: always; Map: has GPS – added in Phase 6). JVM tests per context. `SelectionRepository.overview(context)` → items with a `greyedOut` flag. JVM test. `SelectionOverviewRoute(context)` screen (grid, greyed-out items, same actions). ViewModel tests; Compose test: greyed-out item rendered.
-- [ ] **3.6 `:app`** – route `ViewerRoute` from folder grid; handle `ACTION_VIEW` intent for `image/*` content URIs (open viewer for a single external item). Test: intent parsing.
-- [ ] **3.7 Update docs** – ARCHITECTURE.md (viewer, delete flow) and README match code.
+- [x] **3.1 Model & data**
+  - [x] `MediaSource` sealed type (`Folder(bucketId)`, `Timeline`, `Map(bounds?)`) so the viewer pages over the same list as the caller. Test: serialization round-trip (used in routes). _Only `Folder` for now; Phases 5 and 6 add theirs. `ViewerRoute` carries `mediaId` and `bucketId` as plain values, so nothing needs serializing._
+  - [x] `MediaRepository.pagedItems(source)` and `indexOf(source, mediaId)`. Tests per source. _Replaces `pagedFolderItems`._
+  - [x] `ImageDetails` model (date, size, resolution, mime, path, lat/long, camera make/model, exposure, ISO, focal length…). `ImageDetailsMapper.from(rawExif, item)` in `:core:data` (JVM tests per field, missing values); `AndroidExifSource` extended with the camera tags (Robolectric fixture test).
+- [x] **3.2 Delete (`:core:media` + `:core:data`)**
+  - [x] `MediaDeleteSource` port; `MediaStoreDeleter` adapter: `createTrashRequest` (default) / `createDeleteRequest` (permanent) wrapped in `PlatformConfirmation`. Tests (Robolectric): trash, permanent. _Instrumented instead (`MediaStoreDeleterTest`, passes on the Pixel 10a), because the requests need the real MediaStore (ARCHITECTURE.md §13.1). Plus a restore request for undo._
+  - [x] `MediaActionsRepository.delete(ids): DeleteOutcome` (`NeedsUserConfirmation(intentSender)`, `Failed`) and `onDeleteConfirmed(ids)` removing rows from Room immediately. Tests per outcome. _`TrashFlow` holds the steps (request, confirmation, undo) for all screens. `delete` can delete permanently (D10), but no screen offers that yet._
+  - [x] `:core:ui` `rememberConfirmationLauncher()` unwrapping `PlatformConfirmation` and launching it via `StartIntentSenderForResult`. Compose test: result forwarded.
+- [x] **3.3 Share**
+  - [x] `ShareSpec.from(items)` in `:core:data` (single vs multiple, common mime or `image/*`; JVM tests) and `ShareIntentFactory` in `:core:ui` turning it into `ACTION_SEND`/`ACTION_SEND_MULTIPLE` with `FLAG_GRANT_READ_URI_PERMISSION` and `ClipData` (Robolectric test). _`ShareSpec` is in `:core:model`, because `:core:ui` does not depend on `:core:data`._
+- [x] **3.4 `:feature:viewer`**
+  - [x] `ViewerRoute(source: MediaSource, mediaId: Long)`. _`ViewerRoute(mediaId, bucketId)`, see 3.1._
+  - [x] `ViewerViewModel`: paging over source, current index, `ViewerUiState(currentItem, chromeVisible, details?, pendingDelete?)`; events `PageChanged`, `ToggleChrome`, `ShowInfo`, `Delete`, `Share`, `DeleteConfirmed`. Tests per event.
+  - [x] `ViewerScreen`: `HorizontalPager` + Telephoto `ZoomableAsyncImage` (Coil, subsampling, double-tap zoom); system-bars hide/show; top bar (back, share, delete, edit placeholder, info). Compose UI tests: swipe changes page, tap toggles chrome, delete shows confirmation flow. _No edit placeholder; the button comes with the editor (Phase 7). The confirmation flow is tested in `TrashEffectHandlerTest`. Zooming itself has only been compiled; it needs the device checks._
+  - [x] `ImageInfoSheet` (ModalBottomSheet with `ImageDetails`). Compose test: fields rendered, missing values hidden.
+  - [x] Handle item disappearing (deleted externally) → move to neighbour or close. Test in ViewModel.
+- [x] **3.5 Multi-select actions in grids**
+  - [x] Add delete/share actions to `SelectionTopBar` in `FolderGridScreen`; `FolderGridViewModel` uses `MediaActionsRepository` / `ShareIntentFactory`. Actions apply to the whole app-wide selection. Tests: events → outcomes.
+  - [x] Selection overview (D33): `SelectionRepresentability.canShow(item, context)` in `:core:data` (Folder: same bucket; Timeline: always; Map: has GPS – added in Phase 6). JVM tests per context. `SelectionRepository.overview(context)` → items with a `greyedOut` flag. JVM test. `SelectionOverviewRoute(context)` screen (grid, greyed-out items, same actions). ViewModel tests; Compose test: greyed-out item rendered. _`SelectionOverviewRoute(bucketId)` until the timeline opens it too (Phase 5). Tapping an image removes it from the selection._
+- [x] **3.6 `:app`** – route `ViewerRoute` from folder grid; handle `ACTION_VIEW` intent for `image/*` content URIs (open viewer for a single external item). Test: intent parsing. _`ExternalImageScreen` shows only the zoomable image: the file need not be in the index, so it has no info, share or delete._
+- [x] **3.7 Update docs** – ARCHITECTURE.md (viewer, delete flow) and README match code.
 
 **Definition of done:** open image from grid, swipe, pinch/double-tap zoom large images without OOM, view info, share 1..n images, delete 1..n images to the system trash (with undo) with grid updating; tests for every function; CI green.
 

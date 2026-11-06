@@ -46,6 +46,28 @@ class AndroidExifSourceTest {
     }
 
     @Test
+    fun read_jpegWithCameraTags_returnsRawValues() = runTest {
+        val source = AndroidExifSource(context, testDispatchers())
+        val file = jpegWithExif()
+        ExifInterface(file).apply {
+            setAttribute(ExifInterface.TAG_MAKE, "Google")
+            setAttribute(ExifInterface.TAG_MODEL, "Pixel 10a")
+            setAttribute(ExifInterface.TAG_EXPOSURE_TIME, "0.008")
+            setAttribute(ExifInterface.TAG_F_NUMBER, "1.8")
+            setAttribute(ExifInterface.TAG_PHOTOGRAPHIC_SENSITIVITY, "400")
+            setAttribute(ExifInterface.TAG_FOCAL_LENGTH, "27/5")
+            saveAttributes()
+        }
+
+        val exif = source.read(Uri.fromFile(file).toString())
+
+        assertEquals(
+            listOf("Google", "Pixel 10a", "0.008", "1.8", "400", "27/5"),
+            listOf(exif?.make, exif?.model, exif?.exposureTime, exif?.fNumber, exif?.iso, exif?.focalLength),
+        )
+    }
+
+    @Test
     fun read_missingFile_returnsNull() = runTest {
         val source = AndroidExifSource(context, testDispatchers())
 

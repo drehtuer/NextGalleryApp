@@ -11,8 +11,8 @@ Where the implementation stands against the plan in [TODO.md](TODO.md). TODO.md 
 | 0 | Repository and build setup | Done (PR #3, #4). |
 | 1 | Skeleton, permissions, MediaStore indexing into Room | Done in code (PR #5), CI green. Open: checks on the device (see below). |
 | 2 | Folder view with thumbnail grid and fast scroll | Done in code (PR #6), CI green. Open: checks on the device and the performance check (2.6). |
-| 3 | Full-screen viewer, delete, share | Next |
-| 4 | Settings: folder include/exclude list | Not started |
+| 3 | Full-screen viewer, delete, share | Done in code; the CI checks pass locally in the devcontainer. Open: checks on the device. |
+| 4 | Settings: folder include/exclude list | Next |
 | 5 | Timeline view | Not started |
 | 6 | Map view | Not started |
 | 7 | Editor | Not started |
@@ -26,9 +26,12 @@ Where the implementation stands against the plan in [TODO.md](TODO.md). TODO.md 
 - With access, it indexes all images from MediaStore into Room in the background: a full scan the first time, afterwards incremental syncs via `GENERATION_MODIFIED`, triggered on app start, on MediaStore changes (debounced 2 s) and after the access changed.
 - Dates are resolved as `DATE_TAKEN` → EXIF `DateTimeOriginal` → `DATE_MODIFIED`; default folder rules exclude WhatsApp status images and `Android/data`.
 - The Folders tab lists the folders with cover image and image count. Opening a folder shows a paged thumbnail grid, newest first, with a draggable fast scrollbar.
-- Long-press selects images, which works across folders; the selection bar shows the total, and offers select all and clear. Delete and share come in Phase 3.
-- Tapping an image does nothing yet (the viewer comes in Phase 3). The other three tabs are still placeholders.
-- 219 tests run with the CI command (plain JVM, Robolectric, Compose UI).
+- Tapping an image opens the full-screen viewer: swipe between images, pinch or double-tap to zoom, tap to show or hide the controls, and an info sheet with the date, size, resolution, location and camera values.
+- Long-press selects images, which works across folders. The selection bar shows the total and offers select all, clear, share, delete and an overview of the selection, where images the current folder cannot show are greyed out.
+- Delete moves images to the system trash after the system's confirmation, with an undo option. Share uses the Android share sheet.
+- Other apps can open an image in NextGallery ("Open with"). This shows only the zoomable image.
+- The other three tabs are still placeholders.
+- 342 tests run with the CI command (plain JVM, Robolectric, Compose UI).
 
 ## To verify on the device
 
@@ -41,6 +44,14 @@ These need the Pixel 10a or an API 37 emulator (`./gradlew connectedDebugAndroid
 - [ ] Drag the fast scrollbar through a large folder → it jumps without visible delay (2.6: 10k+ images, no dropped frames).
 - [ ] Long-press selects; tapping changes the selection; Back clears it first; the selection survives switching folders.
 - [ ] Inside a folder the Folders tab stays selected; switching tabs and back returns to that folder.
+- [ ] Viewer: opens on the tapped image, even far down a large folder; swiping, pinch and double-tap zoom work, also with very large images and HEIC; panning a zoomed image does not switch pages by accident.
+- [ ] Viewer: tapping hides the controls and system bars; Back returns to the grid with the bars and the bottom navigation restored, in light and dark system theme.
+- [ ] Info sheet: the values match the photo, and missing values are left out.
+- [ ] Delete from the viewer and from a selection: the system dialog appears, cancelling changes nothing, confirming removes the images right away, and Undo brings them back after the next sync.
+- [ ] Deleting the last image of a folder closes the viewer; an image deleted by another app disappears from an open viewer.
+- [ ] Share one and several images, e.g. to a mail or messenger app.
+- [ ] Selection overview: images of other folders are greyed out; tapping removes an image; actions apply to the whole selection.
+- [ ] "Open with" from a file manager opens the image, also without media permission.
 - [x] `MainActivityTest` (`:app`), `MediaStoreScannerTest` (`:core:media`) and `MediaThumbnailFetcherTest` (`:core:ui`) pass on the Pixel 10a (2026-11-06).
 - [x] Images in a folder with a `.nomedia` file are not returned by the scanner, after a media scan (D6; `MediaStoreScannerTest`).
 

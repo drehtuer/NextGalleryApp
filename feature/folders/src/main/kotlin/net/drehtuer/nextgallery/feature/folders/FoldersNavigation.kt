@@ -1,7 +1,10 @@
 package net.drehtuer.nextgallery.feature.folders
 
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
@@ -10,12 +13,17 @@ import androidx.navigation.toRoute
 import androidx.paging.compose.collectAsLazyPagingItems
 import kotlinx.serialization.Serializable
 import net.drehtuer.nextgallery.core.model.MediaId
+import net.drehtuer.nextgallery.core.ui.platform.rememberTrashEffectHandler
+import net.drehtuer.nextgallery.core.ui.platform.shareImages
 
 @Serializable
 data object FolderListRoute
 
 @Serializable
 data class FolderGridRoute(val bucketId: Long)
+
+@Serializable
+data class SelectionOverviewRoute(val bucketId: Long)
 
 fun NavGraphBuilder.folderListScreen(onFolderClick: (bucketId: Long) -> Unit) {
     composable<FolderListRoute> {
@@ -25,20 +33,66 @@ fun NavGraphBuilder.folderListScreen(onFolderClick: (bucketId: Long) -> Unit) {
     }
 }
 
-fun NavGraphBuilder.folderGridScreen(onBack: () -> Unit, onOpenViewer: (MediaId) -> Unit) {
+fun NavGraphBuilder.folderGridScreen(
+    onBack: () -> Unit,
+    onOpenViewer: (id: MediaId, bucketId: Long) -> Unit,
+    onOpenSelectionOverview: (bucketId: Long) -> Unit,
+) {
     composable<FolderGridRoute> { entry ->
         val route = entry.toRoute<FolderGridRoute>()
         val viewModel = hiltViewModel<FolderGridViewModel, FolderGridViewModel.Factory>(
             creationCallback = { factory -> factory.create(route.bucketId) },
         )
         val state by viewModel.state.collectAsStateWithLifecycle()
+        val context = LocalContext.current
+        val snackbarHostState = remember { SnackbarHostState() }
+        val handleTrashEffect = rememberTrashEffectHandler(
+            snackbarHostState = snackbarHostState,
+            onConfirmationResult = { viewModel.onEvent(FolderGridEvent.ConfirmationResult(it)) },
+            onUndo = { viewModel.onEvent(FolderGridEvent.UndoDelete) },
+        )
         LaunchedEffect(viewModel) {
             viewModel.effects.collect { effect ->
                 when (effect) {
-                    is FolderGridEffect.OpenViewer -> onOpenViewer(effect.id)
+                    is FolderGridEffect.OpenViewer -> onOpenViewer(effect.id, route.bucketId)
+                    is FolderGridEffect.Share -> context.shareImages(effect.spec)
+                    is FolderGridEffect.Trash -> handleTrashEffect(effect.effect)
                 }
             }
         }
-        FolderGridScreen(state, viewModel.items.collectAsLazyPagingItems(), viewModel::onEvent, onBack)
+        FolderGridScreen(
+            state = state,
+            items = viewModel.items.collectAsLazyPagingItems(),
+            onEvent = viewModel::onEvent,
+            onBack = onBack,
+            onOpenSelectionOverview = { onOpenSelectionOverview(route.bucketId) },
+            snackbarHostState = snackbarHostState,
+        )
+    }
+}
+
+fun NavGraphBuilder.selectionOverviewScreen(onBack: () -> Unit) {
+    composable<SelectionOverviewRoute> { entry ->
+        val route = entry.toRoute<SelectionOverviewRoute>()
+        val viewModel = hiltViewModel<SelectionOverviewViewModel, SelectionOverviewViewModel.Factory>(
+            creationCallback = { factory -> factory.create(route.bucketId) },
+        )
+        val state by viewModel.state.collectAsStateWithLifecycle()
+        val context = LocalContext.current
+        val snackbarHostState = remember { SnackbarHostState() }
+        val handleTrashEffect = rememberTrashEffectHandler(
+            snackbarHostState = snackbarHostState,
+            onConfirmationResult = { viewModel.onEvent(SelectionOverviewEvent.ConfirmationResult(it)) },
+            onUndo = { viewModel.onEvent(SelectionOverviewEvent.UndoDelete) },
+        )
+        LaunchedEffect(viewModel) {
+            viewModel.effects.collect { effect ->
+                when (effect) {
+                    is SelectionOverviewEffect.Share -> context.shareImages(effect.spec)
+                    is SelectionOverviewEffect.Trash -> handleTrashEffect(effect.effect)
+                }
+            }
+        }
+        SelectionOverviewScreen(state, viewModel::onEvent, onBack, snackbarHostState = snackbarHostState)
     }
 }

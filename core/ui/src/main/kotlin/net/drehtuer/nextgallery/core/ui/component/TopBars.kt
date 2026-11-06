@@ -20,6 +20,27 @@ fun BackButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
+@Composable
+fun ShareAction(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    IconButton(onClick = onClick, modifier = modifier) {
+        Icon(painterResource(R.drawable.core_ui_ic_share), stringResource(R.string.core_ui_share))
+    }
+}
+
+@Composable
+fun DeleteAction(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    IconButton(onClick = onClick, modifier = modifier) {
+        Icon(painterResource(R.drawable.core_ui_ic_delete), stringResource(R.string.core_ui_delete))
+    }
+}
+
+@Composable
+fun SelectionOverviewAction(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    IconButton(onClick = onClick, modifier = modifier) {
+        Icon(painterResource(R.drawable.core_ui_ic_photo_library), stringResource(R.string.core_ui_selection_overview))
+    }
+}
+
 /** Top bar during a selection. [selectionCount] is the app-wide total, not only the images on this screen (D33). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

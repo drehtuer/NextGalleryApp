@@ -1,12 +1,18 @@
 package net.drehtuer.nextgallery.core.data.selection
 
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import net.drehtuer.nextgallery.core.data.fakes.FakeMediaIndexStore
+import net.drehtuer.nextgallery.core.data.fakes.mediaItem
 import net.drehtuer.nextgallery.core.model.MediaId
+import net.drehtuer.nextgallery.core.model.ViewContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DefaultSelectionRepositoryTest {
-    private val repository = DefaultSelectionRepository()
+    private val store = FakeMediaIndexStore()
+    private val repository = DefaultSelectionRepository(store)
     private val ids = listOf(MediaId(1), MediaId(2), MediaId(3), MediaId(4))
 
     @Test
@@ -67,5 +73,34 @@ class DefaultSelectionRepositoryTest {
         repository.clear()
 
         assertTrue(repository.observe().value.isEmpty())
+    }
+
+    @Test
+    fun deselect_removesOnlyGivenImages() {
+        repository.selectAll(listOf(MediaId(1), MediaId(2)))
+
+        repository.deselect(listOf(MediaId(1)))
+
+        assertEquals(setOf(MediaId(2)), repository.observe().value)
+    }
+
+    @Test
+    fun observeOverview_sortsNewestFirst() = runTest {
+        store.upsertAll(listOf(mediaItem(1, dateTakenMillis = 10), mediaItem(2, dateTakenMillis = 20)))
+        repository.selectAll(listOf(MediaId(1), MediaId(2)))
+
+        val overview = repository.observeOverview(ViewContext.Timeline).first()
+
+        assertEquals(listOf(MediaId(2), MediaId(1)), overview.map { it.item.id })
+    }
+
+    @Test
+    fun observeOverview_imageOfOtherFolder_isGreyedOut() = runTest {
+        store.upsertAll(listOf(mediaItem(1, bucketId = 8)))
+        repository.toggle(MediaId(1))
+
+        val overview = repository.observeOverview(ViewContext.Folder(7)).first()
+
+        assertTrue(overview.single().greyedOut)
     }
 }

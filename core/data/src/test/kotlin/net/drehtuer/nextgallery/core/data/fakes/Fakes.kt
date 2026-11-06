@@ -17,11 +17,13 @@ import net.drehtuer.nextgallery.core.data.index.MediaScanSource
 import net.drehtuer.nextgallery.core.data.index.SyncState
 import net.drehtuer.nextgallery.core.data.index.SyncStateStore
 import net.drehtuer.nextgallery.core.data.index.WorkScheduler
+import net.drehtuer.nextgallery.core.model.DateSource
 import net.drehtuer.nextgallery.core.model.Folder
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
 import net.drehtuer.nextgallery.core.model.RawExif
 import net.drehtuer.nextgallery.core.model.ScannedImage
+import java.time.LocalDate
 import java.time.ZoneId
 
 class FakeMediaScanSource(
@@ -76,6 +78,11 @@ class FakeMediaIndexStore : MediaIndexStore {
         items.value.values.filter { it.volumeName == volume }.map { it.id.value }.toSet()
 
     override suspend fun getById(id: MediaId): MediaItem? = items.value[id.value]
+
+    override suspend fun getByIds(ids: Collection<MediaId>): List<MediaItem> = ids.mapNotNull { items.value[it.value] }
+
+    override suspend fun indexInBucket(bucketId: Long, id: MediaId): Int =
+        items.value.values.filter { it.bucketId == bucketId }.indexOfFirst { it.id == id }
 
     override fun pagedByBucket(bucketId: Long, config: PagingConfig): Flow<PagingData<MediaItem>> {
         pagingConfig = config
@@ -133,6 +140,27 @@ class TestDispatcherProvider(dispatcher: TestDispatcher) : DispatcherProvider {
     override val io = dispatcher
     override val default = dispatcher
 }
+
+fun mediaItem(id: Long, bucketId: Long = 7, dateTakenMillis: Long = 1, mimeType: String = "image/jpeg") = MediaItem(
+    id = MediaId(id),
+    volumeName = FakeMediaScanSource.VOLUME,
+    contentUri = "content://media/$id",
+    bucketId = bucketId,
+    bucketName = "Camera",
+    relativePath = "DCIM/Camera/",
+    displayName = "IMG_$id.jpg",
+    mimeType = mimeType,
+    sizeBytes = 1,
+    width = 1,
+    height = 1,
+    orientation = 0,
+    dateTakenMillis = dateTakenMillis,
+    dateSource = DateSource.DATE_TAKEN,
+    takenLocalDate = LocalDate.of(2024, 3, 15),
+    dateModifiedSeconds = 1,
+    generationModified = 1,
+    location = null,
+)
 
 fun scannedImage(
     id: Long,

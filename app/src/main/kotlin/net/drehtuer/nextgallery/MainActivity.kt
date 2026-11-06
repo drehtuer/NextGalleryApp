@@ -15,6 +15,8 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dagger.hilt.android.AndroidEntryPoint
 import net.drehtuer.nextgallery.core.ui.theme.NextGalleryTheme
+import net.drehtuer.nextgallery.feature.viewer.ExternalImageScreen
+import net.drehtuer.nextgallery.navigation.externalImageUri
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -23,6 +25,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val externalImage = intent.externalImageUri()
+        if (externalImage != null) {
+            setContent { ExternalImageScreen(externalImage) }
+            return
+        }
         setContent {
             val state by viewModel.state.collectAsStateWithLifecycle()
             val accessRequest =
