@@ -17,6 +17,7 @@ import androidx.paging.PagingData
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.flow.flowOf
+import net.drehtuer.nextgallery.core.data.media.ImageDetailsMapper
 import net.drehtuer.nextgallery.core.model.MediaItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -49,6 +50,26 @@ class ViewerScreenTest {
                 },
             )
         }
+    }
+
+    @Test
+    fun defaultPage_showsZoomableImage() {
+        val finished = LoadState.NotLoading(endOfPaginationReached = true)
+        val pages = flowOf(PagingData.from(listOf(mediaItem(1)), LoadStates(finished, finished, finished)))
+        composeRule.setContent {
+            ViewerScreen(ViewerUiState(initialIndex = 0), pages.collectAsLazyPagingItems(), {}, {})
+        }
+
+        composeRule.onNodeWithContentDescription("IMG_1.jpg").assertIsDisplayed()
+    }
+
+    @Test
+    fun details_showInfoSheet() {
+        val details = ImageDetailsMapper.from(null, mediaItem(1)).copy(mimeType = "image/heic")
+
+        show(ViewerUiState(initialIndex = 0, details = details))
+
+        composeRule.onNodeWithText("image/heic").assertExists()
     }
 
     @Test

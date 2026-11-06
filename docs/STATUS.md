@@ -31,7 +31,7 @@ Where the implementation stands against the plan in [TODO.md](TODO.md). TODO.md 
 - Delete moves images to the system trash after the system's confirmation, with an undo option. Share uses the Android share sheet.
 - Other apps can open an image in NextGallery ("Open with"). This shows only the zoomable image.
 - The other three tabs are still placeholders.
-- 342 tests run with the CI command (plain JVM, Robolectric, Compose UI).
+- 349 tests run with the CI command (plain JVM, Robolectric, Compose UI).
 
 ## To verify on the device
 

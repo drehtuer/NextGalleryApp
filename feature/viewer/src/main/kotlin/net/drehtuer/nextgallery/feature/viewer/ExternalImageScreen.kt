@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import net.drehtuer.nextgallery.core.ui.theme.NextGalleryTheme
 
@@ -14,7 +15,11 @@ import net.drehtuer.nextgallery.core.ui.theme.NextGalleryTheme
 fun ExternalImageScreen(contentUri: String, modifier: Modifier = Modifier) {
     NextGalleryTheme(darkTheme = true) {
         Box(modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim)) {
-            ZoomableAsyncImage(model = contentUri, contentDescription = null, modifier = Modifier.fillMaxSize())
+            ZoomableAsyncImage(
+                model = contentUri,
+                contentDescription = stringResource(R.string.feature_viewer_external_image),
+                modifier = Modifier.fillMaxSize(),
+            )
         }
     }
 }

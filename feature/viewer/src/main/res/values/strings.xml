@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="feature_viewer_info">Image info</string>
+    <string name="feature_viewer_external_image">Opened image</string>
     <string name="feature_viewer_info_date">Date</string>
     <string name="feature_viewer_info_name">Name</string>
     <string name="feature_viewer_info_size">Size</string>

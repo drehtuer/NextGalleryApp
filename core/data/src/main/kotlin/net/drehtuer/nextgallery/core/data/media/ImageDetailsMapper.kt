@@ -47,7 +47,7 @@ object ImageDetailsMapper {
         val parts = raw?.split('/').orEmpty()
         val value = parts.firstOrNull()?.trim()?.toDoubleOrNull()
         val divisor = if (parts.size > 1) parts[1].trim().toDoubleOrNull() else 1.0
-        return if (value == null || divisor == null || divisor == 0.0) null else value / divisor
+        return divisor?.takeIf { it != 0.0 }?.let { value?.div(it) }
     }
 
     private fun format(value: Double): String = String.format(Locale.ROOT, "%.1f", value).removeSuffix(".0")

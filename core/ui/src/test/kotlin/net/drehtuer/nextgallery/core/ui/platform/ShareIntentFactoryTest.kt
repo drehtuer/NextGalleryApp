@@ -1,8 +1,11 @@
 package net.drehtuer.nextgallery.core.ui.platform
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import io.mockk.mockk
+import io.mockk.verify
 import net.drehtuer.nextgallery.core.model.ShareSpec
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -12,6 +15,15 @@ import org.junit.runner.RunWith
 class ShareIntentFactoryTest {
     private val one = ShareSpec(listOf("content://media/1"), "image/png")
     private val two = ShareSpec(listOf("content://media/1", "content://media/2"), "image/*")
+
+    @Test
+    fun shareImages_opensChooser() {
+        val context = mockk<Context>(relaxed = true)
+
+        context.shareImages(one)
+
+        verify { context.startActivity(match { it.action == Intent.ACTION_CHOOSER }) }
+    }
 
     @Test
     fun create_oneImage_usesSend() {
