@@ -100,7 +100,7 @@ Rules:
   - `nextgallery.android.hilt` – Hilt + KSP.
   - `nextgallery.android.room` – Room + KSP + schema export directory (`<module>/schemas`).
   - `nextgallery.jvm.library` – pure Kotlin/JVM modules (`:core:model`, `:core:common`, `:core:data`, `:core:nextcloud`): `kotlin("jvm")`, toolchain 21, `javax.inject` for `@Inject` constructors (Hilt bindings for them live in Android modules), JUnit/MockK/Turbine/coroutines-test.
-  - `nextgallery.android.test` – shared Android test dependencies (Robolectric 4.17+, androidx.test) and the `AndroidJUnitRunner` setup for instrumented tests. Applied by the application and library plugins.
+  - `nextgallery.android.test` – shared Android test dependencies (Robolectric 4.17+, androidx.test), the `AndroidJUnitRunner` setup for instrumented tests and JaCoCo unit test coverage. Applied by the application and library plugins.
   - `nextgallery.detekt`, `nextgallery.ktlint` – static analysis (`config/detekt/detekt.yml`, `.editorconfig`), applied by every base plugin.
 - Shared conventions:
   - Android namespaces are derived from the project path (`:core:database` → `net.drehtuer.nextgallery.core.database`; `:app` → `net.drehtuer.nextgallery`).
@@ -970,7 +970,7 @@ Principles: every function gets a unit test; tests are small, independent and no
 
 Test doubles: hand-written fakes for repositories (`FakeMediaRepository`) live next to the tests that need them; fakes of ports and repositories shared by several modules go into Gradle `testFixtures` of `:core:data`. MockK is used for leaf collaborators. Test names follow `functionName_condition_expectedResult`.
 
-CI (`.github/workflows/ci.yml`) runs on every branch push (direct pushes and merges into `main`) and on pull requests: ktlint, detekt, lint, `test` (the JVM modules' tests and the Android modules' local unit tests, including Robolectric), the build-logic tests, and the debug and instrumented-test builds. There is no emulator in CI: instrumented tests run locally with `./gradlew connectedDebugAndroidTest` on an API 37 emulator or the Pixel 10a before merging changes that touch an adapter.
+CI (`.github/workflows/ci.yml`) runs on every branch push (direct pushes and merges into `main`) and on pull requests: ktlint, detekt, lint, `test` (the JVM modules' tests and the Android modules' local unit tests, including Robolectric), the build-logic tests, the debug and instrumented-test builds, and the JaCoCo coverage reports (`coverageReport`). On pull requests and on `main` it then runs the SonarCloud scan (`sonar-project.properties`, D41), which needs the `SONAR_TOKEN` repository secret and is skipped without it. There is no emulator in CI: instrumented tests run locally with `./gradlew connectedDebugAndroidTest` on an API 37 emulator or the Pixel 10a before merging changes that touch an adapter.
 
 ### 13.1 Robolectric and on-device tests
 

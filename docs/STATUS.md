@@ -46,6 +46,7 @@ These need the Pixel 10a or an API 37 emulator (`./gradlew connectedDebugAndroid
 
 ## Known workarounds and technical debt
 
+- SonarCloud coverage only counts the tests CI runs, so adapters covered only by instrumented tests show as uncovered (D41).
 - detekt 2.0 is an alpha release, because detekt 1.23 does not work with AGP 9 (D18).
 - Espresso is pinned to 3.7.0 for tests; the version pulled in by Compose UI test calls an API removed in SDK 37.
 - `failOnNoDiscoveredTests` is disabled, so modules without tests yet (features) pass.

@@ -24,8 +24,14 @@ jobs:
   build:
     needs: wrapper-validation
     runs-on: ubuntu-latest
+    env:
+      # Only whether the token exists; the token itself goes to the scan step alone. Forks have no secrets.
+      HAS_SONAR_TOKEN: ${{ secrets.SONAR_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          # SonarCloud needs the history to detect new code and to attribute issues.
+          fetch-depth: 0
 
       # Builds inside the same devcontainer image as local development (.devcontainer/).
       # Instrumented tests are not run here; they run locally on an emulator or the Pixel 10a.
@@ -35,7 +41,14 @@ jobs:
           push: never
           runCmd: >-
             ./gradlew --continue
-            ktlintCheck detekt lint test :build-logic:convention:test assembleDebug assembleDebugAndroidTest
+            ktlintCheck detekt lint test :build-logic:convention:test assembleDebug assembleDebugAndroidTest coverageReport
+
+      # Pull requests and main only: every pull request push also triggers a branch run with the same result.
+      - name: SonarCloud scan
+        if: env.HAS_SONAR_TOKEN == 'true' && (github.event_name == 'pull_request' || github.ref == 'refs/heads/main')
+        uses: SonarSource/sonarqube-scan-action@e805d875275f728fac1885b413934be6d7c63f65 # v8.4.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       - name: Upload reports
         if: failure()

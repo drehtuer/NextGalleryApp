@@ -127,6 +127,10 @@ Before opening a pull request, run the checks CI runs:
 ./gradlew ktlintFormat detekt lint test :build-logic:convention:test
 ```
 
+`./gradlew coverageReport` writes the JaCoCo line and branch coverage reports (`build/reports/` in each module).
+
+CI sends the coverage and the code analysis to [SonarCloud](https://sonarcloud.io/project/overview?id=drehtuer_NextGalleryApp). This needs Automatic Analysis turned off in the SonarCloud project and a `SONAR_TOKEN` repository secret (see D41 in [DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md)).
+
 Instrumented tests do not run in CI. Run them on the host against an API 37 emulator or the Pixel 10a with `./gradlew connectedDebugAndroidTest` (this needs a local Android SDK).
 
 ## License

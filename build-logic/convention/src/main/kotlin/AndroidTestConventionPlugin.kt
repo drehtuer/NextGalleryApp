@@ -1,4 +1,7 @@
 import com.android.build.api.dsl.CommonExtension
+import net.drehtuer.nextgallery.buildlogic.COVERAGE_REPORT_TASK
+import net.drehtuer.nextgallery.buildlogic.configureJacoco
+import net.drehtuer.nextgallery.buildlogic.jacocoVersion
 import net.drehtuer.nextgallery.buildlogic.libs
 import net.drehtuer.nextgallery.buildlogic.library
 import org.gradle.api.Plugin
@@ -14,6 +17,14 @@ class AndroidTestConventionPlugin : Plugin<Project> {
         android.testOptions.unitTests.apply {
             isIncludeAndroidResources = true
             all { test -> test.jvmArgs(ROBOLECTRIC_JVM_ARGS) }
+        }
+
+        configureJacoco()
+        android.testCoverage.jacocoVersion = jacocoVersion()
+        android.buildTypes.getByName("debug").enableUnitTestCoverage = true
+        // AGP's report task fails in a module without tests, e.g. a feature that is still empty.
+        tasks.register(COVERAGE_REPORT_TASK) {
+            if (file("src/test").exists()) dependsOn("createDebugUnitTestCoverageReport")
         }
 
         // Modules without tests yet still get generated test sources (e.g. from Hilt).

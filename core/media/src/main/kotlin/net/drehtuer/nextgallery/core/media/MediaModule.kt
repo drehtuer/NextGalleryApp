@@ -11,16 +11,16 @@ import net.drehtuer.nextgallery.core.data.index.MediaScanSource
 
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class MediaModule {
+interface MediaModule {
     @Binds
-    abstract fun bindMediaScanSource(scanner: MediaStoreScanner): MediaScanSource
+    fun bindMediaScanSource(scanner: MediaStoreScanner): MediaScanSource
 
     @Binds
-    abstract fun bindExifSource(source: AndroidExifSource): ExifSource
+    fun bindExifSource(source: AndroidExifSource): ExifSource
 
     @Binds
-    abstract fun bindMediaChangeSource(observer: MediaStoreChangeObserver): MediaChangeSource
+    fun bindMediaChangeSource(observer: MediaStoreChangeObserver): MediaChangeSource
 
     @Binds
-    abstract fun bindMediaPermissionSource(source: AndroidMediaPermissionSource): MediaPermissionSource
+    fun bindMediaPermissionSource(source: AndroidMediaPermissionSource): MediaPermissionSource
 }

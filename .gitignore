@@ -2,6 +2,9 @@
 .claude/worktrees/
 .claude/settings.local.json
 
+# SonarCloud scanner
+.scannerwork/
+
 # Gradle
 .gradle/
 build/
