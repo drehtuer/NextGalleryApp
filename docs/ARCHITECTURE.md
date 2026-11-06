@@ -292,7 +292,7 @@ Pure logic (each class unit-tested on the JVM):
 | --- | --- |
 | `NextcloudHttpClient` | Provides the base `OkHttpClient` (TLS defaults, timeouts, user agent `NextGalleryApp/<version>`) and the authenticated client with `BasicAuthInterceptor` reading credentials through a `CredentialsProvider` interface. |
 | `LoginFlowV2Client` | `POST <server>/index.php/login/v2` → `{ login URL, poll token, endpoint }`; `poll()` until success, timeout (20 min) or cancellation. |
-| `WebDavClient` | `propfind(path, depth)` → `List<RemoteFile>` (requested props: `d:getcontentlength`, `d:getcontenttype`, `d:getetag`, `d:getlastmodified`, `d:resourcetype`, `oc:fileid`, `oc:checksums`, `nc:has-preview`); `get(path): InputStream`. Read-only: uploading is done by the Nextcloud app (D31). Paths are under `remote.php/dav/files/<userId>/`. |
+| `WebDavClient` | `propfind(path, depth)` → `List<RemoteFile>` (requested props: `d:getcontentlength`, `d:getcontenttype`, `d:getetag`, `d:getlastmodified`, `d:resourcetype`, `oc:fileid`, `oc:checksums`, `nc:has-preview`); `get(path): InputStream`; `move`, `createFolder`, `delete` and trash-bin restore for reorganising server images (D46). Uploading is done by the Nextcloud app (D31). Paths are under `remote.php/dav/files/<userId>/`. |
 | `PropfindParser` | Multistatus parser on the XmlPullParser API (`compileOnly`; provided by Android at runtime, kxml2 on the JVM test classpath). |
 | `PreviewUrlBuilder` | Builds `index.php/core/preview?fileId=…&x=…&y=…&a=1` URLs. |
 | `ServerUrlNormalizer` | Adds `https://`, strips trailing `/` and `/index.php`. |
@@ -337,7 +337,7 @@ Pure logic (each class unit-tested on the JVM):
 
 #### `:core:ui`
 
-- `NextGalleryTheme` (Material 3, light/dark; spacing and sizes through `NextGalleryTheme.dimensions`). Placeholder colours, typography, shapes and dimensions until the Claude Design delivery replaces them (DESIGN_DECISIONS.md D22). Takes the user's accent colour from `AppSettings` (D34).
+- `NextGalleryTheme` (Material 3, light/dark; spacing and sizes through `NextGalleryTheme.dimensions`). Placeholder colours, typography, shapes and dimensions until task 10.0 applies the delivered design in [DESIGN.md](DESIGN.md) (D22). Takes the user's accent colour from `AppSettings` (D34).
 - `MediaGrid` – `LazyVerticalGrid` driven by `LazyPagingItems<MediaItem>`, with selection and stable keys. Headers (timeline) come with Phase 5.
 - `FastScrollbar` – draggable thumb; drag fraction ↔ index math lives in `ScrollbarMath` (`:core:common`); shows an optional bubble label (e.g. "March 2024").
 - `SelectionTopBar` – total selection count (across all views), clear, and an actions slot for select all, share, delete, upload (hand-off) and the selection overview.

@@ -242,11 +242,11 @@ _Depends on: Phases 2 (grid), 3 (viewer)._
   - [ ] `MediaDao.observeDayCounts(): Flow<List<DayCount>>` (date, count) for headers and scrollbar map. Test.
 - [ ] **5.2 Repository**
   - [ ] `TimelineRepository.pagedTimeline(): Flow<PagingData<TimelineEntry>>` inserting `Header(year, month, day)` separators via `insertSeparators`. Tests: separators at day/month/year boundaries.
-  - [ ] `TimelineIndex` built from day counts: `labelForPosition(index): "MMMM yyyy"`, `positionForMonth(yearMonth)`. Tests per function.
+  - [ ] `TimelineIndex` built from day counts: `labelForPosition(index): "MMMM yyyy"`, `positionForMonth(yearMonth)`, `dayRailLabels(centerIndex)` → previous, current and next day ("24 Oct 2026"; null at the ends) for the date rail (D43). Tests per function.
   - [ ] Grouping granularity enum (`Day`, `Month`, `Year`) for pinch-to-change density (optional, behind setting). Tests.
 - [ ] **5.3 `:feature:timeline`**
   - [ ] `TimelineViewModel` → `TimelineUiState` (paging flow, granularity, app-wide selection count). Tests per event.
-  - [ ] `TimelineScreen`: `LazyVerticalGrid` with full-span `stickyHeader`-style headers (Compose `LazyGrid` header items + overlay sticky header), `FastScrollbar` with month/year label, multi-select delete/share. Compose UI tests: headers shown, scrollbar label text.
+  - [ ] `TimelineScreen`: `LazyVerticalGrid` with full-span `stickyHeader`-style headers (Compose `LazyGrid` header items + overlay sticky header), date rail (D43: track, thumb, current day large in a pill, neighbouring days small; drawn above the sticky headers), multi-select delete/share. Compose UI tests: headers shown, rail shows the day in the middle of the screen and its neighbours.
   - [ ] Open viewer with `MediaSource.Timeline`. Test.
 - [ ] **5.4 Update docs** – ARCHITECTURE.md (timeline date resolution, separators) and README match code.
 
@@ -267,14 +267,18 @@ _Depends on: Phases 1 (GPS in index, ACCESS_MEDIA_LOCATION), 3 (viewer)._
   - [ ] `GeoPoint`, `GeoBounds`, `Cluster(center, count, coverId, ids)` in `:core:model`.
   - [ ] `GridClusterer.cluster(points, bounds, zoom, cellPx)` (pure Kotlin, grid-based). Tests: single point, merge within cell, split at higher zoom, antimeridian handling.
   - [ ] `MapRepository.observeClusters(viewport: Flow<Viewport>)` (debounced, computed on `Dispatchers.Default`). Test with Turbine.
+  - [ ] `PlaceNamer` (D45): loads the bundled GeoNames `cities15000` extract (name, country, lat, lon) into a spatial grid; `nearest(point, maxKm = 30)` → place or null; `clusterTitle(cluster)` → "near X", "near X and N more places" or null (count only). JVM tests: within/outside 30 km, merged cluster named after its largest place with a town, no town.
+  - [ ] Build step that turns the GeoNames dump into the bundled asset (only the needed columns), plus the attribution in About. Test: asset parses and has the expected row count.
 - [ ] **6.3 `:feature:map`**
   - [ ] `MapRenderer` interface (`setClusters`, `setViewport`, `onViewportChanged`, `onClusterClick`) + `OsmdroidMapRenderer` in `AndroidView` (user agent set, tile cache in app cache dir, no Play Services). Test: `FakeMapRenderer` used in ViewModel tests; osmdroid config (user agent, tile URL) in Robolectric; instrumented test (local) that the map renders clusters.
   - [ ] Tile source setting (default OSM tile server, configurable URL; D23) in `SettingsRepository`, read by `OsmdroidMapRenderer`. Tests: default value, custom URL applied.
-  - [ ] Cluster marker drawable with thumbnail + count (Coil-loaded bitmap). Test: count text formatting.
+  - [ ] Cluster marker drawable with thumbnail + count (Coil-loaded bitmap). Test: count text formatting (`999+`).
+  - [ ] Viewport (D44): zoom 0–19, horizontal world repetition, multi-touch pinch and two-finger drag (osmdroid), zoom buttons and a "my location" button. Robolectric test: min/max zoom and repetition configured.
+  - [ ] Current location (D44): `ACCESS_COARSE_LOCATION` in the manifest; `LocationProvider` port with a `LocationManager` adapter (last known or one fresh fix, no Play Services); start viewport = current location at zoom 8, else the bounds of the largest cluster. Tests: permission granted/denied → start viewport; Compose test: location dot shown.
   - [ ] `MapViewModel` → `MapUiState(clusters, viewport, permissionNeeded)`; events `ViewportChanged`, `ClusterClicked`. Tests per event.
-  - [ ] `MapScreen`: map, permission prompt for `ACCESS_MEDIA_LOCATION`, empty state "no geotagged images". Compose UI test: states.
+  - [ ] `MapScreen`: map, permission prompts for `ACCESS_MEDIA_LOCATION` and `ACCESS_COARSE_LOCATION`, empty state "no geotagged images". Compose UI test: states.
   - [ ] Map rule in `SelectionRepresentability` (item has GPS) and selection overview entry from the map. JVM test: item without GPS greyed out for `ViewContext.Map`.
-  - [ ] Cluster tap → bottom-sheet grid of cluster items or viewer with `MediaSource.Map(ids/bounds)`. Test.
+  - [ ] Cluster tap → bottom-sheet grid of cluster items (title from `PlaceNamer`, else count and coordinates; own fast scrollbar) or viewer with `MediaSource.Map(ids/bounds)`. Test.
 - [ ] **6.4 Update docs** – ARCHITECTURE.md (MapRenderer abstraction, clustering) and README match code.
 
 **Definition of done:** geotagged images appear as clusters that split on zoom; tapping opens images; images without GPS are absent; works without Play Services; tests for every function; CI green.
@@ -335,9 +339,9 @@ _Depends on: Phases 3 (viewer), 4 (settings)._
   - [ ] `NextcloudHttpModule`: base `OkHttpClient` (timeouts, user agent), `AuthInterceptor` (Basic auth from account, OCS-APIRequest header). Test with MockWebServer: header present.
   - [ ] `LoginFlowV2Client`: `start(serverUrl)` → `{loginUrl, pollEndpoint, token}`; `poll()` until 200 or timeout. Tests (MockWebServer): start, 404 pending, success, expiry.
   - [ ] `ServerUrlNormalizer` (add https, strip `/index.php`, trailing slash). Tests per case.
-  - [ ] `PropfindRequestBuilder` (depth 1, props: resourcetype, getcontentlength, getcontenttype, getetag, getlastmodified, oc:fileid, oc:checksums). Test: XML body.
+  - [ ] `PropfindRequestBuilder` (depth 1, props: resourcetype, getcontentlength, getcontenttype, getetag, getlastmodified, oc:fileid, oc:checksums, oc:permissions). Test: XML body.
   - [ ] `MultistatusParser` (XmlPullParser) → `List<RemoteItem>`. Tests with fixture XML: files, folders, missing props, URL-encoded names.
-  - [ ] `WebDavClient` (read-only, D31): `list(path)`, `download(path, sink)`. Tests (MockWebServer) per method incl. 401/404.
+  - [ ] `WebDavClient`: `list(path)`, `download(path, sink)`, and (D46) `move(from, to, overwrite = false)`, `createFolder(path)`, `delete(path)`; trash-bin `restore(item)`. Uploading stays with the Nextcloud app (D31). Tests (MockWebServer) per method incl. 401/404, 412 on an existing target, 403 on a read-only folder.
   - [ ] `PinningTrustManager` + `HostnameVerifier` (D32): platform trust first, then pinned SHA-256 per host, else `UntrustedCertificateException(chain)`. JVM tests with `okhttp-tls` `HeldCertificate`: CA-signed accepted, unknown self-signed rejected, pinned accepted, pinned but changed rejected with `changedFromPinned`, pinned with hostname mismatch accepted.
   - [ ] `CertificateInfoMapper`. Test: fields and fingerprint of a fixture certificate.
   - [ ] `RemotePathMapper`: `davUrl(account, path)` (`/remote.php/dav/files/<userId>/…`, segment encoding), `previewUrl(fileId, size)` (`/index.php/core/preview?fileId=…&x=…&y=…&a=1`). Tests.
@@ -348,9 +352,12 @@ _Depends on: Phases 3 (viewer), 4 (settings)._
   - [ ] Logged-out guard: every remote call returns `AppError.NotLoggedIn` without network access. Test.
   - [ ] `TrustedCertificateRepository` + `TrustedCertificateStore` port (DataStore): `accept(info)`, `remove(host)`, `observe()`. JVM tests per function.
   - [ ] `RemoteBrowseRepository.list(path): Flow<RemoteListing>` (in-memory cache per path, filter supported image mimes + folders). Tests.
+  - [ ] `RemoteFileOperations` (D46): `move(items, targetFolder, conflictPolicy)` → per-item result (moved, renamed, replaced, skipped, failed), `undoMove`, `delete(items)` / `undoDelete` via the trash bin, `canWrite(folder)` from `oc:permissions`, `nextFreeName("IMG_1.jpg")` → "IMG_1 (2).jpg". Tests per function and per conflict policy.
 - [ ] **8.6 `:feature:remote` and settings**
   - [ ] `NextcloudSettingsViewModel` / `NextcloudSettingsScreen` in `:feature:settings`: server URL input, "Sign in" opens Custom Tab with `loginUrl`, shows polling/progress, account info, logout, remote root folder picker (used in Phase 9). Tests per event; Compose tests per state.
   - [ ] `RemoteBrowserViewModel` (current path, listing, breadcrumbs, `LoginRequired` state) / `RemoteBrowserScreen` (folder list + thumbnail grid with previews, pull-to-refresh, offline/error state; login-required hint with a login button, D35). Tests per event; Compose tests.
+  - [ ] Remote selection and context menu (D47): Select action, selection bar (Select all, Move), long-press menu (Move to folder…, Share, Delete) for one image or the whole selection. ViewModel tests per event; Compose test: long-press opens the menu.
+  - [ ] Move sheet (D46): folder picker with breadcrumbs, read-only folders disabled, "New folder", "Move here" disabled in the source folder; conflict dialog (keep both, replace, skip, apply to all); snackbars with Undo; offline hint. Tests per event; Compose tests per state.
   - [ ] `CertificateWarningDialog` in `:core:ui` and the accept-and-retry flow in the login and remote ViewModels (D32). Tests: untrusted → dialog effect, accept → pinned and retried, cancel → error state; Compose test: details shown.
   - [ ] `TrustedCertificatesScreen` in `:feature:settings` (list, remove). Tests.
   - [ ] `RemoteViewerViewModel` / `RemoteViewerScreen`: pager over folder's images, Telephoto zoom loading full image via authenticated loader (download to cache), info sheet from `RemoteItem`. Tests.
@@ -398,7 +405,7 @@ _Depends on: Phases 4 (settings), 8 (WebDAV client, account)._
 **Goal:** fast, accessible release build for local installation. F-Droid distribution is deferred (D28).
 _Depends on: Phases 1–9._
 
-- [ ] **10.0 Apply design** – replace the placeholder theme tokens with the Claude Design delivery (can happen earlier, whenever the design arrives); adjust screens only where the design changes layout.
+- [ ] **10.0 Apply design** – replace the placeholder theme tokens with the values in [DESIGN.md](DESIGN.md) (delivered; can be done now): five accents × light/dark, fixed roles, always-dark viewer colours, type scale, shapes and the new dimension tokens. Adjust screens only where DESIGN.md changes the layout (selection ring, badges, Appearance, About with version and source link). Set a `versionName`. Compose tests: theme per accent and mode.
 - [ ] **10.1 Performance**
   - [ ] `:benchmark` (`com.android.test`) module with Macrobenchmark: cold start, folder grid scroll, timeline fast-scroll, viewer swipe. Run on the Pixel 10a against the D24 targets.
   - [ ] Baseline Profile generator (`androidx.baselineprofile` plugin) for `:app`; commit `baseline-prof.txt`. Verify startup improvement.
