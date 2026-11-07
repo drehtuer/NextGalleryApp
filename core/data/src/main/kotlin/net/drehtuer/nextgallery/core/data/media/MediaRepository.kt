@@ -5,6 +5,7 @@ import androidx.paging.PagingData
 import kotlinx.coroutines.flow.Flow
 import net.drehtuer.nextgallery.core.data.index.ExifSource
 import net.drehtuer.nextgallery.core.data.index.MediaIndexStore
+import net.drehtuer.nextgallery.core.data.index.TimelineStore
 import net.drehtuer.nextgallery.core.model.ImageDetails
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
@@ -22,25 +23,32 @@ interface MediaRepository {
 
     suspend fun folderItemIds(bucketId: Long): List<MediaId>
 
+    suspend fun timelineItemIds(): List<MediaId>
+
     /** Returns null if the image is not in the index. Reads the EXIF data from the file. */
     suspend fun imageDetails(id: MediaId): ImageDetails?
 }
 
 class DefaultMediaRepository @Inject constructor(
     private val indexStore: MediaIndexStore,
+    private val timelineStore: TimelineStore,
     private val exifSource: ExifSource,
 ) : MediaRepository {
     override suspend fun getItem(id: MediaId): MediaItem? = indexStore.getById(id)
 
     override fun pagedItems(source: MediaSource): Flow<PagingData<MediaItem>> = when (source) {
         is MediaSource.Folder -> indexStore.pagedByBucket(source.bucketId, GRID_PAGING_CONFIG)
+        MediaSource.Timeline -> timelineStore.paged(GRID_PAGING_CONFIG)
     }
 
     override suspend fun indexOf(source: MediaSource, id: MediaId): Int = when (source) {
         is MediaSource.Folder -> indexStore.indexInBucket(source.bucketId, id)
+        MediaSource.Timeline -> timelineStore.indexOf(id)
     }
 
     override suspend fun folderItemIds(bucketId: Long): List<MediaId> = indexStore.idsInBucket(bucketId)
+
+    override suspend fun timelineItemIds(): List<MediaId> = timelineStore.ids()
 
     override suspend fun imageDetails(id: MediaId): ImageDetails? {
         val item = indexStore.getById(id) ?: return null

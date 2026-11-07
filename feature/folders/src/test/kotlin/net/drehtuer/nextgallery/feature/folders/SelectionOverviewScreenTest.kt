@@ -59,6 +59,22 @@ class SelectionOverviewScreenTest {
     }
 
     @Test
+    fun greyedOutImages_noteCountsThem() {
+        show(listOf(shown, shown.copy(item = mediaItem(2), greyedOut = true)))
+
+        composeRule.onNodeWithText(
+            "2 selected in all folders. Greyed out: 1 in other folders, which this view can't open.",
+        ).assertIsDisplayed()
+    }
+
+    @Test
+    fun noGreyedOutImages_noteOnlyCounts() {
+        show(listOf(shown))
+
+        composeRule.onNodeWithText("1 selected in all folders.").assertIsDisplayed()
+    }
+
+    @Test
     fun itemClicked_sendsEvent() {
         show(listOf(shown))
 

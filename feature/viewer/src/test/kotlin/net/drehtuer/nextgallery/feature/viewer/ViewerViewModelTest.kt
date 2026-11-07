@@ -59,6 +59,27 @@ class ViewerViewModelTest {
     }
 
     @Test
+    fun init_routeWithoutBucket_pagesThroughTimeline() {
+        every { mediaRepository.pagedItems(MediaSource.Timeline) } returns emptyFlow()
+        coEvery { mediaRepository.indexOf(MediaSource.Timeline, MediaId(1)) } returns 9
+
+        val viewModel = ViewerViewModel(ViewerRoute(mediaId = 1, bucketId = null), mediaRepository, actions, trashFlow)
+
+        assertEquals(9, viewModel.state.value.initialIndex)
+    }
+
+    @Test
+    fun onEvent_edit_opensEditorForCurrentImage() = runTest {
+        val viewModel = viewModelOnFirstImage()
+
+        viewModel.effects.test {
+            viewModel.onEvent(ViewerEvent.Edit)
+
+            assertEquals(ViewerEffect.OpenEditor(MediaId(1)), awaitItem())
+        }
+    }
+
+    @Test
     fun onEvent_pageChanged_updatesCurrentImage() {
         assertEquals(mediaItem(1), viewModelOnFirstImage().state.value.current)
     }

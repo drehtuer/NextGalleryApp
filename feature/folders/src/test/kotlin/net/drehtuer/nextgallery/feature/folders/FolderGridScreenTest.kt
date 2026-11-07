@@ -4,6 +4,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -15,6 +16,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.flow.flowOf
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
+import net.drehtuer.nextgallery.core.ui.component.MEDIA_GRID_PLACEHOLDER_TAG
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -66,17 +68,17 @@ class FolderGridScreenTest {
     }
 
     @Test
-    fun noItemsWhileLoading_showsLoadingIndicator() {
+    fun noItemsWhileLoading_showsPlaceholderGrid() {
         show(items = emptyList(), refresh = LoadState.Loading)
 
-        composeRule.onNodeWithContentDescription("Loading").assertIsDisplayed()
+        composeRule.onNodeWithTag(MEDIA_GRID_PLACEHOLDER_TAG).assertIsDisplayed()
     }
 
     @Test
     fun loadFailed_showsError() {
         show(items = emptyList(), refresh = LoadState.Error(IllegalStateException()))
 
-        composeRule.onNodeWithText("The photos could not be loaded").assertIsDisplayed()
+        composeRule.onNodeWithText("Couldn't load this folder").assertIsDisplayed()
     }
 
     @Test
@@ -102,6 +104,22 @@ class FolderGridScreenTest {
         show(FolderGridUiState(title = "Camera", selectedIds = setOf(MediaId(1), MediaId(2))))
 
         composeRule.onNodeWithText("2 selected").assertIsDisplayed()
+    }
+
+    @Test
+    fun selectClicked_sendsEvent() {
+        show()
+
+        composeRule.onNodeWithContentDescription("Select").performClick()
+
+        assertEquals(listOf(FolderGridEvent.StartSelecting), events)
+    }
+
+    @Test
+    fun selectingWithoutImages_showsSelectionBar() {
+        show(FolderGridUiState(selecting = true))
+
+        composeRule.onNodeWithText("0 selected").assertIsDisplayed()
     }
 
     @Test

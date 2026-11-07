@@ -1,6 +1,8 @@
 # NextGallery Design Handover
 
-Everything Claude Design needs to create the visual design of NextGallery. The app works today with a placeholder look. Your delivery replaces it (decision D22 in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md)).
+> Historical: this is the original brief to Claude Design. The delivered design is [DESIGN.md](DESIGN.md), which replaces it, and this file is not kept up to date.
+
+The brief as sent: everything Claude Design needs to create the visual design of NextGallery. The app works today with a placeholder look. Your delivery replaces it (decision D22 in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md)).
 
 ## The app
 

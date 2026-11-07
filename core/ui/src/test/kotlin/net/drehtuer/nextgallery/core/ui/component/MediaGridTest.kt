@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -85,6 +86,25 @@ class MediaGridTest {
         show(count = 1, selectedIds = setOf(MediaId(1)))
 
         composeRule.onNodeWithContentDescription("IMG_1.jpg", substring = true).assertIsSelected()
+    }
+
+    @Test
+    fun mediaGridPlaceholder_isShown() {
+        composeRule.setContent { MediaGridPlaceholder() }
+
+        composeRule.onNodeWithTag(MEDIA_GRID_PLACEHOLDER_TAG).assertIsDisplayed()
+    }
+
+    @Test
+    fun mediaGrid_columns_setsCellWidth() {
+        val pages = flowOf(PagingData.from(listOf(item(1))))
+        composeRule.setContent {
+            Box(Modifier.size(302.dp)) {
+                MediaGrid(pages.collectAsLazyPagingItems(), emptySet(), {}, {}, columns = 2)
+            }
+        }
+
+        composeRule.onNodeWithContentDescription("IMG_1.jpg", substring = true).assertWidthIsEqualTo(150.dp)
     }
 
     @Test

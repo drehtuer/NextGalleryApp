@@ -12,7 +12,11 @@ import net.drehtuer.nextgallery.core.common.Clock
 import net.drehtuer.nextgallery.core.common.DefaultDispatcherProvider
 import net.drehtuer.nextgallery.core.common.DispatcherProvider
 import net.drehtuer.nextgallery.core.common.SystemClock
+import net.drehtuer.nextgallery.core.data.edit.MemoryInfoSource
 import net.drehtuer.nextgallery.core.data.index.WorkScheduler
+import net.drehtuer.nextgallery.core.data.settings.SettingsDataSource
+import java.io.File
+import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -26,8 +30,17 @@ abstract class PlatformModule {
     @Binds
     abstract fun bindWorkScheduler(scheduler: WorkManagerScheduler): WorkScheduler
 
+    @Binds
+    abstract fun bindMemoryInfoSource(source: ActivityManagerMemoryInfo): MemoryInfoSource
+
     companion object {
         @Provides
         fun provideWorkManager(@ApplicationContext context: Context): WorkManager = WorkManager.getInstance(context)
+
+        /** One instance per file: DataStore does not allow two in a process. */
+        @Provides
+        @Singleton
+        fun provideSettingsDataSource(@ApplicationContext context: Context): SettingsDataSource =
+            SettingsDataSource.create(File(context.filesDir, "datastore/settings.preferences_pb"))
     }
 }

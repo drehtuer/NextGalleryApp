@@ -5,6 +5,9 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import net.drehtuer.nextgallery.core.data.access.MediaPermissionSource
+import net.drehtuer.nextgallery.core.data.edit.ExifWriter
+import net.drehtuer.nextgallery.core.data.edit.ImageRenderer
+import net.drehtuer.nextgallery.core.data.edit.MediaWriteSink
 import net.drehtuer.nextgallery.core.data.index.ExifSource
 import net.drehtuer.nextgallery.core.data.index.MediaChangeSource
 import net.drehtuer.nextgallery.core.data.index.MediaScanSource
@@ -27,4 +30,13 @@ interface MediaModule {
 
     @Binds
     fun bindMediaPermissionSource(source: AndroidMediaPermissionSource): MediaPermissionSource
+
+    @Binds
+    fun bindImageRenderer(renderer: BitmapImageRenderer): ImageRenderer
+
+    @Binds
+    fun bindMediaWriteSink(writer: MediaStoreWriter): MediaWriteSink
+
+    @Binds
+    fun bindExifWriter(writer: AndroidExifWriter): ExifWriter
 }

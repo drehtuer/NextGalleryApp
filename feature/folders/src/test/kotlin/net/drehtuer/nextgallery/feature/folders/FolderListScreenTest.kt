@@ -3,6 +3,7 @@ package net.drehtuer.nextgallery.feature.folders
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -16,21 +17,21 @@ class FolderListScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private fun show(state: FolderListUiState, onFolderClick: (Long) -> Unit = {}) =
-        composeRule.setContent { FolderListScreen(state, onFolderClick) }
+    private fun show(state: FolderListUiState, onOpenSettings: () -> Unit = {}, onFolderClick: (Long) -> Unit = {}) =
+        composeRule.setContent { FolderListScreen(state, onFolderClick, onOpenSettings) }
 
     @Test
     fun loading_showsLoadingIndicator() {
         show(FolderListUiState.Loading)
 
-        composeRule.onNodeWithContentDescription("Loading").assertIsDisplayed()
+        composeRule.onNodeWithTag(FOLDER_LIST_PLACEHOLDER_TAG).assertIsDisplayed()
     }
 
     @Test
     fun empty_showsMessage() {
         show(FolderListUiState.Empty)
 
-        composeRule.onNodeWithText("No photos found").assertIsDisplayed()
+        composeRule.onNodeWithText("No photos yet").assertIsDisplayed()
     }
 
     @Test
@@ -41,6 +42,13 @@ class FolderListScreenTest {
     }
 
     @Test
+    fun content_largeCount_usesThousandsSeparator() {
+        show(FolderListUiState.Content(listOf(folder(itemCount = 1_204))))
+
+        composeRule.onNodeWithText("1,204 images").assertIsDisplayed()
+    }
+
+    @Test
     fun folderClicked_reportsBucket() {
         var clicked: Long? = null
         show(FolderListUiState.Content(listOf(folder(bucketId = 8, name = "Screenshots")))) { clicked = it }
@@ -48,5 +56,15 @@ class FolderListScreenTest {
         composeRule.onNodeWithText("Screenshots").performClick()
 
         assertEquals(8L, clicked)
+    }
+
+    @Test
+    fun settingsIconClicked_opensSettings() {
+        var clicks = 0
+        show(FolderListUiState.Empty, onOpenSettings = { clicks++ })
+
+        composeRule.onNodeWithContentDescription("Settings").performClick()
+
+        assertEquals(1, clicks)
     }
 }

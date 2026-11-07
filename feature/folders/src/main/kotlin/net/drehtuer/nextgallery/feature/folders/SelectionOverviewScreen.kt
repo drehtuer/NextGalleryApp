@@ -6,9 +6,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -17,6 +19,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import net.drehtuer.nextgallery.core.data.selection.SelectionOverviewItem
 import net.drehtuer.nextgallery.core.ui.component.BackButton
@@ -57,7 +60,12 @@ fun SelectionOverviewScreen(
         Box(Modifier.padding(padding).fillMaxSize()) {
             when {
                 state.items == null -> LoadingIndicator()
-                state.items.isEmpty() -> EmptyState(stringResource(R.string.feature_folders_selection_empty))
+
+                state.items.isEmpty() -> EmptyState(
+                    title = stringResource(R.string.feature_folders_selection_empty),
+                    detail = stringResource(R.string.feature_folders_selection_empty_detail),
+                )
+
                 else -> OverviewGrid(state.items, onEvent)
             }
         }
@@ -68,20 +76,37 @@ fun SelectionOverviewScreen(
 private fun OverviewGrid(items: List<SelectionOverviewItem>, onEvent: (SelectionOverviewEvent) -> Unit) {
     val dimensions = NextGalleryTheme.dimensions
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(dimensions.mediaCellMinSize),
+        columns = GridCells.Fixed(dimensions.gridColumns),
         modifier = Modifier.fillMaxSize(),
         horizontalArrangement = Arrangement.spacedBy(dimensions.gridGap),
         verticalArrangement = Arrangement.spacedBy(dimensions.gridGap),
     ) {
+        item(span = { GridItemSpan(maxLineSpan) }) { SelectionNote(items) }
         items(items, key = { it.item.id.value }) { (item, greyedOut) ->
             ThumbnailCell(
                 thumbnail = item.toThumbnail(),
                 contentDescription = item.displayName,
                 sizePx = LARGE_THUMBNAIL_PX,
                 selected = true,
+                selecting = true,
                 greyedOut = greyedOut,
                 modifier = Modifier.clickable { onEvent(SelectionOverviewEvent.ItemClicked(item.id)) },
             )
         }
     }
+}
+
+@Composable
+private fun SelectionNote(items: List<SelectionOverviewItem>) {
+    val greyedOut = items.count { it.greyedOut }
+    Text(
+        text = if (greyedOut > 0) {
+            pluralStringResource(R.plurals.feature_folders_selection_note_greyed, items.size, items.size, greyedOut)
+        } else {
+            pluralStringResource(R.plurals.feature_folders_selection_note, items.size, items.size)
+        },
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(NextGalleryTheme.dimensions.spacingMedium),
+    )
 }

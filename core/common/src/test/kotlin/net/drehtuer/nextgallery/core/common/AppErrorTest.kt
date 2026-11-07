@@ -6,6 +6,11 @@ import java.io.IOException
 
 class AppErrorTest {
     @Test
+    fun from_originalDamaged_keepsWhetherACopyWasSaved() {
+        assertEquals(AppError.OriginalDamaged(true), AppError.from(OriginalDamagedException(true, null)))
+    }
+
+    @Test
     fun from_ioException_returnsIo() {
         assertEquals(AppError.Io("disk"), AppError.from(IOException("disk")))
     }

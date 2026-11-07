@@ -162,7 +162,7 @@ _Depends on: Phase 1._
   - [x] `ThumbnailCell` composable (fixed aspect, placeholder, content description, selection overlay slot, badge slot for Phase 9, greyed-out state). Compose UI test: placeholder, selected state, greyed-out state.
 - [x] **2.4 Shared grid components (`:core:ui`)**
   - [x] `MediaGrid` (`LazyVerticalGrid`, adaptive columns, stable keys, `LazyPagingItems`). Compose test: renders N items, keys stable.
-  - [x] `ScrollbarMath.indexForFraction()` / `fractionForIndex()` in `:core:data` (JVM tests), and the `FastScrollbar` composable (draggable thumb, optional `label: (index) -> String?` bubble). Compose test: drag scrolls grid. _`ScrollbarMath` is in `:core:common`, because `:core:ui` does not depend on `:core:data`. The folder grid shows no label; the timeline will (Phase 5)._
+  - [x] `ScrollbarMath.indexForFraction()` / `fractionForIndex()` in `:core:data` (JVM tests), and the `FastScrollbar` composable (draggable thumb, optional `label: (index) -> String?` bubble). Compose test: drag scrolls grid. _`ScrollbarMath` is in `:core:common`, because `:core:ui` does not depend on `:core:data`. The folder grid shows no label; the timeline has its own date rail (Phase 5)._
   - [x] `SelectionRepository` in `:core:data` – app-wide in-memory selection (D33): `observe()`, toggle, range, select all, clear (JVM tests per function); `SelectionTopBar` in `:core:ui` (total count, actions slot). Unit tests per function; Compose test: long-press enters selection. _No gesture uses `selectRange` yet._
 - [x] **2.5 `:feature:folders`**
   - [x] `FolderListViewModel` → `StateFlow<FolderListUiState>` (Loading/Empty/Content). Tests with Turbine: each state.
@@ -183,7 +183,7 @@ _Depends on: Phase 1._
 _Depends on: Phase 2 (grid, selection)._
 
 - [x] **3.1 Model & data**
-  - [x] `MediaSource` sealed type (`Folder(bucketId)`, `Timeline`, `Map(bounds?)`) so the viewer pages over the same list as the caller. Test: serialization round-trip (used in routes). _Only `Folder` for now; Phases 5 and 6 add theirs. `ViewerRoute` carries `mediaId` and `bucketId` as plain values, so nothing needs serializing._
+  - [x] `MediaSource` sealed type (`Folder(bucketId)`, `Timeline`, `Map(bounds?)`) so the viewer pages over the same list as the caller. Test: serialization round-trip (used in routes). _`Folder` and, since Phase 5, `Timeline`; Phase 6 adds its own. `ViewerRoute` carries `mediaId` and `bucketId` as plain values, so nothing needs serializing._
   - [x] `MediaRepository.pagedItems(source)` and `indexOf(source, mediaId)`. Tests per source. _Replaces `pagedFolderItems`._
   - [x] `ImageDetails` model (date, size, resolution, mime, path, lat/long, camera make/model, exposure, ISO, focal length…). `ImageDetailsMapper.from(rawExif, item)` in `:core:data` (JVM tests per field, missing values); `AndroidExifSource` extended with the camera tags (Robolectric fixture test).
 - [x] **3.2 Delete (`:core:media` + `:core:data`)**
@@ -193,14 +193,14 @@ _Depends on: Phase 2 (grid, selection)._
 - [x] **3.3 Share**
   - [x] `ShareSpec.from(items)` in `:core:data` (single vs multiple, common mime or `image/*`; JVM tests) and `ShareIntentFactory` in `:core:ui` turning it into `ACTION_SEND`/`ACTION_SEND_MULTIPLE` with `FLAG_GRANT_READ_URI_PERMISSION` and `ClipData` (Robolectric test). _`ShareSpec` is in `:core:model`, because `:core:ui` does not depend on `:core:data`._
 - [x] **3.4 `:feature:viewer`**
-  - [x] `ViewerRoute(source: MediaSource, mediaId: Long)`. _`ViewerRoute(mediaId, bucketId)`, see 3.1._
+  - [x] `ViewerRoute(source: MediaSource, mediaId: Long)`. _`ViewerRoute(mediaId, bucketId)`, see 3.1; a null `bucketId` means the timeline._
   - [x] `ViewerViewModel`: paging over source, current index, `ViewerUiState(currentItem, chromeVisible, details?, pendingDelete?)`; events `PageChanged`, `ToggleChrome`, `ShowInfo`, `Delete`, `Share`, `DeleteConfirmed`. Tests per event.
   - [x] `ViewerScreen`: `HorizontalPager` + Telephoto `ZoomableAsyncImage` (Coil, subsampling, double-tap zoom); system-bars hide/show; top bar (back, share, delete, edit placeholder, info). Compose UI tests: swipe changes page, tap toggles chrome, delete shows confirmation flow. _No edit placeholder; the button comes with the editor (Phase 7). The confirmation flow is tested in `TrashEffectHandlerTest`. Zooming itself has only been compiled; it needs the device checks._
   - [x] `ImageInfoSheet` (ModalBottomSheet with `ImageDetails`). Compose test: fields rendered, missing values hidden.
   - [x] Handle item disappearing (deleted externally) → move to neighbour or close. Test in ViewModel.
 - [x] **3.5 Multi-select actions in grids**
   - [x] Add delete/share actions to `SelectionTopBar` in `FolderGridScreen`; `FolderGridViewModel` uses `MediaActionsRepository` / `ShareIntentFactory`. Actions apply to the whole app-wide selection. Tests: events → outcomes.
-  - [x] Selection overview (D33): `SelectionRepresentability.canShow(item, context)` in `:core:data` (Folder: same bucket; Timeline: always; Map: has GPS – added in Phase 6). JVM tests per context. `SelectionRepository.overview(context)` → items with a `greyedOut` flag. JVM test. `SelectionOverviewRoute(context)` screen (grid, greyed-out items, same actions). ViewModel tests; Compose test: greyed-out item rendered. _`SelectionOverviewRoute(bucketId)` until the timeline opens it too (Phase 5). Tapping an image removes it from the selection._
+  - [x] Selection overview (D33): `SelectionRepresentability.canShow(item, context)` in `:core:data` (Folder: same bucket; Timeline: always; Map: has GPS – added in Phase 6). JVM tests per context. `SelectionRepository.overview(context)` → items with a `greyedOut` flag. JVM test. `SelectionOverviewRoute(context)` screen (grid, greyed-out items, same actions). ViewModel tests; Compose test: greyed-out item rendered. _`SelectionOverviewRoute(bucketId)`, where null means the timeline (Phase 5). Tapping an image removes it from the selection._
 - [x] **3.6 `:app`** – route `ViewerRoute` from folder grid; handle `ACTION_VIEW` intent for `image/*` content URIs (open viewer for a single external item). Test: intent parsing. _`ExternalImageScreen` shows only the zoomable image: the file need not be in the index, so it has no info, share or delete._
 - [x] **3.7 Update docs** – ARCHITECTURE.md (viewer, delete flow) and README match code.
 
@@ -213,20 +213,20 @@ _Depends on: Phase 2 (grid, selection)._
 **Goal:** users choose which folders are indexed; changes re-index.
 _Depends on: Phase 1 (FolderRules, IndexScheduler)._
 
-- [ ] **4.1 Settings storage (`:core:data`)**
-  - [ ] `UserSettings` model in `:core:model` (folderRules, gridColumns, theme mode, accent colour, defaultView).
-  - [ ] Proto or Preferences DataStore `SettingsDataSource` (`settings.preferences_pb`), serializer for rules. Tests: read defaults, write/read each field, corrupt-file handler.
-  - [ ] `SettingsRepository`: `observeSettings()`, `addRule()`, `removeRule()`, `setGridColumns()`, `setThemeMode()`, `setAccentColor()`. Tests per function.
-- [ ] **4.2 Rule application**
-  - [ ] `MediaIndexer` reads rules from `SettingsRepository` (replace Phase 1 defaults). Test: rules respected.
-  - [ ] `RuleChangeObserver`: rules change → enqueue full scan (rule change can add items). Test: change → enqueue once.
-  - [ ] `FolderRepository.observeAllDeviceFolders()` – folders from MediaStore regardless of rules (needed to pick includes). Test.
-- [ ] **4.3 `:feature:settings`**
-  - [ ] `SettingsViewModel` / `SettingsScreen` (root list: Folders, Appearance, Nextcloud placeholder, About/licenses). Tests: state mapping, navigation callbacks.
-  - [ ] `FolderRulesViewModel` / `FolderRulesScreen`: list of device folders with Include/Exclude/Default toggles, add custom exclude pattern, show `.nomedia` folders as excluded (read-only). Tests: each toggle event; Compose test: toggling updates UI.
-  - [ ] Appearance: theme mode, grid columns, accent colour (choice from the accents the design defines; placeholder set until then; D34). Tests.
-  - [ ] Wire `NextGalleryTheme` and grids to settings. Test: `MainViewModel` emits theme.
-- [ ] **4.4 Update docs** – ARCHITECTURE.md (settings storage) and README match code.
+- [x] **4.1 Settings storage (`:core:data`)**
+  - [x] `UserSettings` model in `:core:model` (folderRules, gridColumns, theme mode, accent colour). `AccentColor` already exists. _Also `excludePatterns`, for the pattern field in DESIGN.md._
+  - [x] Proto or Preferences DataStore `SettingsDataSource` (`settings.preferences_pb`), serializer for rules. Tests: read defaults, write/read each field, corrupt-file handler.
+  - [x] `SettingsRepository`: `observeSettings()`, `addRule()`, `removeRule()`, `setGridColumns()`, `setThemeMode()`, `setAccentColor()`. Tests per function. _Also `setExcludePatterns()`._
+- [x] **4.2 Rule application**
+  - [x] `MediaIndexer` reads rules from `SettingsRepository` (replace Phase 1 defaults). Test: rules respected. _`FolderRulesProvider` is gone. `FolderRuleMatcher` changed to the meaning in DESIGN.md (D52): an include no longer hides all other folders._
+  - [x] `RuleChangeObserver`: rules change → enqueue full scan (rule change can add items). Test: change → enqueue once. _Debounced by 2 s; started from `NextGalleryApplication`._
+  - [x] `FolderRepository.observeAllDeviceFolders()` – folders from MediaStore regardless of rules (needed to pick includes). Test. _Built on the existing `MediaScanSource.fullScan` and `MediaChangeSource`, so no new adapter code._
+- [x] **4.3 `:feature:settings`**
+  - [x] `SettingsViewModel` / `SettingsScreen` (root list: Folders, Appearance, Nextcloud placeholder, About/licenses), opened from a settings icon in the Folders top bar. About needs `BuildConfig` enabled for the version. Tests: state mapping, navigation callbacks. _No `SettingsViewModel` yet: the root has no state until Phase 8 adds the account. `BuildConfig` is enabled in `:app`, which passes the version to the screen, because a library's `BuildConfig` has no version. The licence list is a hand-kept resource until task 10.5 generates it._
+  - [x] `FolderRulesViewModel` / `FolderRulesScreen`: list of device folders with Include/Exclude/Default toggles, add custom exclude pattern, show `.nomedia` folders as excluded (read-only). Tests: each toggle event; Compose test: toggling updates UI. _`.nomedia` folders cannot be listed (D53); a note on the screen says so._
+  - [x] Appearance: theme mode, grid columns (3, 4 or 5; D51), accent colour (the five accents in DESIGN.md; D34). Tests.
+  - [x] Wire `NextGalleryTheme` and grids to settings. Test: `MainViewModel` emits theme. _The column count goes through `NextGalleryTheme.dimensions.gridColumns`, so every grid follows it; the folder list keeps its two covers (DESIGN.md)._
+- [x] **4.4 Update docs** – ARCHITECTURE.md (settings storage) and README match code.
 
 **Definition of done:** excluding a folder removes its items from all views after re-index; including restores them; settings persist across restarts; tests for every function; CI green.
 
@@ -237,20 +237,20 @@ _Depends on: Phase 1 (FolderRules, IndexScheduler)._
 **Goal:** all indexed images grouped by year → month → day with sticky headers and a date-labelled fast scroll.
 _Depends on: Phases 2 (grid), 3 (viewer)._
 
-- [ ] **5.1 Database**
-  - [ ] `MediaDao.pagingTimeline(): PagingSource<Int, MediaEntity>` ordered by `taken_local_date DESC, date_taken DESC`. Test.
-  - [ ] `MediaDao.observeDayCounts(): Flow<List<DayCount>>` (date, count) for headers and scrollbar map. Test.
-- [ ] **5.2 Repository**
-  - [ ] `TimelineRepository.pagedTimeline(): Flow<PagingData<TimelineEntry>>` inserting `Header(year, month, day)` separators via `insertSeparators`. Tests: separators at day/month/year boundaries.
-  - [ ] `TimelineIndex` built from day counts: `labelForPosition(index): "MMMM yyyy"`, `positionForMonth(yearMonth)`, `dayRailLabels(centerIndex)` → previous, current and next day ("24 Oct 2026"; null at the ends) for the date rail (D43). Tests per function.
-  - [ ] Grouping granularity enum (`Day`, `Month`, `Year`) for pinch-to-change density (optional, behind setting). Tests.
-- [ ] **5.3 `:feature:timeline`**
-  - [ ] `TimelineViewModel` → `TimelineUiState` (paging flow, granularity, app-wide selection count). Tests per event.
-  - [ ] `TimelineScreen`: `LazyVerticalGrid` with full-span `stickyHeader`-style headers (Compose `LazyGrid` header items + overlay sticky header), date rail (D43: track, thumb, current day large in a pill, neighbouring days small; drawn above the sticky headers), multi-select delete/share. Compose UI tests: headers shown, rail shows the day in the middle of the screen and its neighbours.
-  - [ ] Open viewer with `MediaSource.Timeline`. Test.
-- [ ] **5.4 Update docs** – ARCHITECTURE.md (timeline date resolution, separators) and README match code.
+- [x] **5.1 Database**
+  - [x] `MediaDao.pagingTimeline(): PagingSource<Int, MediaEntity>` ordered by `taken_local_date DESC, date_taken DESC`. Test. _In its own `TimelineDao` as `paging()`, behind the `TimelineStore` port. Uses the existing `local_year/month/day` columns; no schema change. Also `ids()` (select all) and `indexOf(id)` (viewer)._
+  - [x] `MediaDao.observeDayCounts(): Flow<List<DayCount>>` (date, count) for headers and scrollbar map. Test. _In `TimelineDao`._
+- [x] **5.2 Repository**
+  - [x] `TimelineRepository.pagedTimeline(): Flow<PagingData<TimelineEntry>>` inserting `Header(year, month, day)` separators via `insertSeparators`. Tests: separators at day/month/year boundaries. _No separators: `insertSeparators` only sees loaded pages, so the row count and the position of every header would change while scrolling, and the date rail could not jump. `TimelineRepository.observeIndex()` gives a `TimelineIndex` that knows all rows from the day counts; the images are the plain `MediaRepository.pagedItems(MediaSource.Timeline)`, the same list the viewer pages through._
+  - [x] `TimelineIndex` built from day counts: `labelForPosition(index): "MMMM yyyy"`, `positionForMonth(yearMonth)`, `dayRailLabels(centerIndex)` → previous, current and next day ("24 Oct 2026"; null at the ends) for the date rail (D43). Tests per function. _As `rowAt`, `isHeader`, `monthAt` and `dayRailAt`, which return dates; the feature module formats them. `positionForMonth` is left out, because nothing jumps to a month._
+  - [ ] Grouping granularity enum (`Day`, `Month`, `Year`) for pinch-to-change density (optional, behind setting). Tests. _Not done: optional, and it would need its own layout per level and a setting._
+- [x] **5.3 `:feature:timeline`**
+  - [x] `TimelineViewModel` → `TimelineUiState` (paging flow, granularity, app-wide selection count). Tests per event. _The paging flow is separate from the state, as in the folder grid; no granularity (see 5.2). The state also has today's date, for "Today · …"._
+  - [x] `TimelineScreen`: `LazyVerticalGrid` with full-span `stickyHeader`-style headers (Compose `LazyGrid` header items + overlay sticky header), date rail (D43: track, thumb, current day large in a pill, neighbouring days small; drawn above the sticky headers), multi-select delete/share. Compose UI tests: headers shown, rail shows the day in the middle of the screen and its neighbours. _Month headers stick; day headers scroll (DESIGN.md). The wording of the empty and failed states is new, modelled on the folder screens, because DESIGN.md has none for the timeline._
+  - [x] Open viewer with `MediaSource.Timeline`. Test. _`ViewerRoute(mediaId, bucketId = null)`, and `SelectionOverviewRoute(bucketId = null)` for the overview. Both screens now sit outside the Folders graph, so the bottom navigation is hidden on the overview too._
+- [x] **5.4 Update docs** – ARCHITECTURE.md (timeline date resolution, separators) and README match code.
 
-**Definition of done:** timeline shows correct local dates (EXIF fallback verified), sticky headers, scrollbar shows year/month while dragging, smooth on 10k+ items; tests for every function; CI green.
+**Definition of done:** timeline shows correct local dates (EXIF fallback verified), sticky headers, the date rail shows the current day and its neighbours (D43), smooth on 10k+ items; tests for every function; CI green.
 
 ---
 
@@ -290,31 +290,31 @@ _Depends on: Phases 1 (GPS in index, ACCESS_MEDIA_LOCATION), 3 (viewer)._
 **Goal:** non-destructive edit pipeline with undo/redo, saving a new copy or overwriting with EXIF preserved.
 _Depends on: Phase 3 (viewer entry point, write/delete request helpers)._
 
-- [ ] **7.1 Model (`:core:model`)**
-  - [ ] `EditOperation` sealed interface: `Rotate(quarterTurns)`, `Crop(normalizedRect)`, `Scale(targetWidth, targetHeight)`, `PenStroke(points, colorArgb, widthPx-normalized)`.
-  - [ ] `EditHistory` (immutable list + cursor): `push`, `undo`, `redo`, `canUndo`, `canRedo`, `operations`. Tests per function, push after undo truncates redo.
-  - [ ] `AspectRatio` (`Free`, `Square`, `R4_3`, `R16_9`, `Original`) + `CropMath.constrain(rect, ratio, bounds)`. Tests per ratio.
-  - [ ] `ScaleMath.fromPercent()` / `fromTargetWidth()` / `fromTargetHeight()` keeping aspect. Tests.
-  - [ ] `GeometryMapper`: maps pen/crop coordinates through prior rotate/crop/scale so ops compose. Tests per op order.
-- [ ] **7.2 Rendering**
-  - [ ] `EditGeometry.steps(ops, sourceSize): RenderPlan` in `:core:data` (output size, 3×3 matrices, crop rects, stroke paths in pixels, orientation bake-in). JVM tests: one per op type + combinations.
-  - [ ] `MemoryBudget.check(sourceSize, outputSize, availableBytes): Fits | Refused(requiredBytes, availableBytes)` in `:core:data` (D30). JVM tests: fits, exactly at the limit, too large → refused with both numbers.
-  - [ ] On the Pixel 10a, check that the memory estimate respects Android 17's per-app memory limit, not only `availMem` (D40); adjust `ActivityManagerMemoryInfo` if needed.
-  - [ ] `MemoryInfoSource` port; `ActivityManagerMemoryInfo` in `:core:platform` (`ActivityManager.MemoryInfo.availMem` minus safety margin). Test (Robolectric): value from shadowed `MemoryInfo`, margin subtracted.
-  - [ ] `sampleSizeFor(source, maxSide)` in `:core:data`. JVM tests.
-  - [ ] `ImageRenderer` port; `BitmapImageRenderer` adapter in `:core:media` (`ImageDecoder` decode, apply `RenderPlan` via `Matrix`/`Canvas`/`Path`, return `PreviewImage` handle). Tests (Robolectric, native graphics): applies a matrix, a crop and a stroke on a small bitmap.
-  - [ ] Encoding in `BitmapImageRenderer`: JPEG (quality 95) and PNG, keeping the source format (D29). Tests per format (Robolectric).
-  - [ ] `ExifPolicy.forOutput(sourceTags, newWidth, newHeight)` in `:core:data` (which tags to copy, orientation normal, new dimensions; JVM tests) and `ExifWriter` in `:core:media` applying it (Robolectric fixture test).
-- [ ] **7.3 Saving (`:core:data` + `:core:media`)**
-  - [ ] `CopyNamer.nameFor(displayName, existingNames)` in `:core:data` (e.g. `IMG_1234_edited.jpg`, numbered on collision). JVM tests.
-  - [ ] `MediaWriteSink` port; `MediaStoreWriter` adapter: `insertPending(displayName, relativePath, mime)`, `requestOverwrite(contentUri): PlatformConfirmation` (`createWriteRequest`), `publish()`, `cleanupPending()`. Tests (Robolectric): insert sets `IS_PENDING`, publish clears it; overwrite request built for the URI.
-  - [ ] `EditRepository.save(sourceId, ops, mode = NewCopy|Overwrite): SaveOutcome` → triggers incremental index. Tests per mode/outcome.
-- [ ] **7.4 `:feature:editor`**
-  - [ ] `EditorRoute(mediaId)`; `EditorViewModel` → `EditorUiState(previewBitmap, activeTool, history, cropRect, penColor, penWidth, saving)`; events per tool, `Undo`, `Redo`, `Save(mode)`, `Discard`. A refused scale or save (`InsufficientMemory`) leaves the image unchanged and shows a message with the required and available memory (D30). Tests per event, including both refusal cases; preview re-render runs on `Default` dispatcher.
-  - [ ] `EditorScreen` with tool bar; `RotateTool`, `CropOverlay` (handles + aspect chips), `ScaleDialog` (percent / width / height), `PenCanvas` (pointer input, color & width pickers). Compose UI tests per tool.
-  - [ ] Unsaved-changes dialog on back; save mode dialog (new copy default, overwrite). Compose tests.
-  - [ ] Viewer "Edit" button shown only for editable formats (JPEG, PNG; D29) → `EditorRoute` in `:app`; after save, viewer navigates to the new copy. Test.
-- [ ] **7.5 Update docs** – ARCHITECTURE.md (edit pipeline) and README match code.
+- [x] **7.1 Model (`:core:model`)**
+  - [x] `EditOperation` sealed interface: `Rotate(quarterTurns)`, `Crop(normalizedRect)`, `Scale(targetWidth, targetHeight)`, `PenStroke(points, colorArgb, widthPx-normalized)`. _In the package `core.model.edit`, with `ImageSize`, `NormalizedPoint`, `NormalizedRect`, `Matrix3` and `PreviewImage`._
+  - [x] `EditHistory` (immutable list + cursor): `push`, `undo`, `redo`, `canUndo`, `canRedo`, `operations`. Tests per function, push after undo truncates redo.
+  - [x] `AspectRatio` (`Free`, `Square`, `R4_3`, `R16_9`, `Original`) + `CropMath.constrain(rect, ratio, bounds)`. Tests per ratio. _Also `CropMath.handleAt` and `drag` for the crop frame. 4:3 and 16:9 follow the image, so an upright image gets 3:4 and 9:16._
+  - [x] `ScaleMath.fromPercent()` / `fromTargetWidth()` / `fromTargetHeight()` keeping aspect. Tests.
+  - [x] `GeometryMapper`: maps pen/crop coordinates through prior rotate/crop/scale so ops compose. Tests per op order. _Coordinates of an operation are relative to the image just before it, so a point is mapped through the operations that follow it._
+- [x] **7.2 Rendering**
+  - [x] `EditGeometry.steps(ops, sourceSize): RenderPlan` in `:core:data` (output size, 3×3 matrices, crop rects, stroke paths in pixels, orientation bake-in). JVM tests: one per op type + combinations. _All operations flatten into one matrix from source to output, whose size also does the clipping, so there are no crop rects and only the two bitmaps of D30. `ImageDecoder` delivers upright pixels, so the plan starts from the upright size and the bake-in is done by the decoder (tested in `BitmapImageRendererTest`)._
+  - [x] `MemoryBudget.check(sourceSize, outputSize, availableBytes): Fits | Refused(requiredBytes, availableBytes)` in `:core:data` (D30). JVM tests: fits, exactly at the limit, too large → refused with both numbers.
+  - [x] On the Pixel 10a, check that the memory estimate respects Android 17's per-app memory limit, not only `availMem` (D40); adjust `ActivityManagerMemoryInfo` if needed. _Checked on 2026-11-07: `adb shell am memory-limiter status` reports `disabled` on the Pixel 10a, so `availMem` is the right measure for now. Check again if a later Android update enables the limiter; Android offers no public API for its value._
+  - [x] `MemoryInfoSource` port; `ActivityManagerMemoryInfo` in `:core:platform` (`ActivityManager.MemoryInfo.availMem` minus safety margin). Test (Robolectric): value from shadowed `MemoryInfo`, margin subtracted. _The margin is the system's low-memory threshold plus 200 MB._
+  - [x] `sampleSizeFor(source, maxSide)` in `:core:data`. JVM tests.
+  - [x] `ImageRenderer` port; `BitmapImageRenderer` adapter in `:core:media` (`ImageDecoder` decode, apply `RenderPlan` via `Matrix`/`Canvas`/`Path`, return `PreviewImage` handle). Tests (Robolectric, native graphics): applies a matrix, a crop and a stroke on a small bitmap. _An `OutOfMemoryError` becomes the same refusal as the check before it. A scaled-down save decodes only as many pixels as the output needs._
+  - [x] Encoding in `BitmapImageRenderer`: JPEG (quality 95) and PNG, keeping the source format (D29). Tests per format (Robolectric).
+  - [x] `ExifPolicy.forOutput(sourceTags, newWidth, newHeight)` in `:core:data` (which tags to copy, orientation normal, new dimensions; JVM tests) and `ExifWriter` in `:core:media` applying it (Robolectric fixture test). _`ExifWriter` is the port, `AndroidExifWriter` the adapter. Reading through `setRequireOriginal` keeps the location; on-device check below._
+- [x] **7.3 Saving (`:core:data` + `:core:media`)**
+  - [x] `CopyNamer.nameFor(displayName, existingNames)` in `:core:data` (e.g. `IMG_1234_edited.jpg`, numbered on collision). JVM tests.
+  - [x] `MediaWriteSink` port; `MediaStoreWriter` adapter: `insertPending(displayName, relativePath, mime)`, `requestOverwrite(contentUri): PlatformConfirmation` (`createWriteRequest`), `publish()`, `cleanupPending()`. Tests (Robolectric): insert sets `IS_PENDING`, publish clears it; overwrite request built for the URI. _Robolectric tests run against a stand-in provider; `MediaStoreWriterTest` is the instrumented test against the real one, on entries it inserted itself. `cleanupPending` runs on app start._
+  - [x] `EditRepository.save(sourceId, ops, mode = NewCopy|Overwrite): SaveOutcome` → triggers incremental index. Tests per mode/outcome. _Overwriting continues in `commitOverwrite` after the confirmation. It keeps a temporary backup and puts it back if writing fails. The index syncs inline, so the viewer can open the copy right away._
+- [x] **7.4 `:feature:editor`**
+  - [x] `EditorRoute(mediaId)`; `EditorViewModel` → `EditorUiState(previewBitmap, activeTool, history, cropRect, penColor, penWidth, saving)`; events per tool, `Undo`, `Redo`, `Save(mode)`, `Discard`. A refused scale or save (`InsufficientMemory`) leaves the image unchanged and shows a message with the required and available memory (D30, with the numbers). Tests per event, including both refusal cases; preview re-render runs on `Default` dispatcher. _The dispatcher is in `DefaultEditRepository` and tested there. The design has no apply button for a crop: it is applied on leaving the tool, on another action and on saving._
+  - [x] `EditorScreen` with tool bar; `RotateTool`, `CropOverlay` (handles + aspect chips), `ScaleDialog` (percent / width / height), `PenCanvas` (pointer input, color & width pickers). Compose UI tests per tool.
+  - [x] Unsaved-changes dialog on back; save mode dialog (new copy default, overwrite). Compose tests. _The save mode is the menu of DESIGN.md, not a dialog, with "Save as copy" first._
+  - [x] Viewer "Edit" button shown only for editable formats (JPEG, PNG; D29) → `EditorRoute` in `:app`; after save, viewer navigates to the new copy. Test. _After an overwrite it returns to the same image, with Coil's memory cache cleared._
+- [x] **7.5 Update docs** – ARCHITECTURE.md (edit pipeline) and README match code.
 
 **Definition of done:** all four tools work with undo/redo; saved copies appear in the gallery with correct orientation, dimensions and preserved EXIF; overwrite goes through system confirmation; scales and saves that exceed available memory are refused with an explanatory message (D30), never an OOM; Edit is offered only for JPEG and PNG; tests for every function; CI green.
 
@@ -351,7 +351,8 @@ _Depends on: Phases 3 (viewer), 4 (settings)._
   - [ ] `NextcloudAccountRepository`: `login(serverUrl): Flow<LoginState>` (Started(loginUrl) → Polling → Success/Failed), `logout()` (revoke via `DELETE /ocs/v2.php/core/apppassword` best effort, clear store, remote cache and upload states; D35). Tests per state.
   - [ ] Logged-out guard: every remote call returns `AppError.NotLoggedIn` without network access. Test.
   - [ ] `TrustedCertificateRepository` + `TrustedCertificateStore` port (DataStore): `accept(info)`, `remove(host)`, `observe()`. JVM tests per function.
-  - [ ] `RemoteBrowseRepository.list(path): Flow<RemoteListing>` (in-memory cache per path, filter supported image mimes + folders). Tests.
+  - [ ] `RemoteBrowseRepository.list(path): Flow<RemoteListing>` (Room `remote_cache` per path, so offline browsing shows what was loaded before; filter supported image mimes + folders). Tests.
+  - [ ] `RemoteShareRepository.prepare(items)` (D48): downloads to a temporary cache folder with progress, returns a `ShareSpec`; `FileProvider` limited to that folder; old files removed at the next share and at app start. Tests: progress, failure, offline, cleanup; Robolectric: URIs and read grants.
   - [ ] `RemoteFileOperations` (D46): `move(items, targetFolder, conflictPolicy)` → per-item result (moved, renamed, replaced, skipped, failed), `undoMove`, `delete(items)` / `undoDelete` via the trash bin, `canWrite(folder)` from `oc:permissions`, `nextFreeName("IMG_1.jpg")` → "IMG_1 (2).jpg". Tests per function and per conflict policy.
 - [ ] **8.6 `:feature:remote` and settings**
   - [ ] `NextcloudSettingsViewModel` / `NextcloudSettingsScreen` in `:feature:settings`: server URL input, "Sign in" opens Custom Tab with `loginUrl`, shows polling/progress, account info, logout, remote root folder picker (used in Phase 9). Tests per event; Compose tests per state.
@@ -405,7 +406,7 @@ _Depends on: Phases 4 (settings), 8 (WebDAV client, account)._
 **Goal:** fast, accessible release build for local installation. F-Droid distribution is deferred (D28).
 _Depends on: Phases 1–9._
 
-- [ ] **10.0 Apply design** – replace the placeholder theme tokens with the values in [DESIGN.md](DESIGN.md) (delivered; can be done now): five accents × light/dark, fixed roles, always-dark viewer colours, type scale, shapes and the new dimension tokens. Adjust screens only where DESIGN.md changes the layout (selection ring, badges, Appearance, About with version and source link). Set a `versionName`. Compose tests: theme per accent and mode.
+- [x] **10.0 Apply design** – replace the placeholder theme tokens with the values in [DESIGN.md](DESIGN.md) (delivered; can be done now): five accents × light/dark, fixed roles, always-dark viewer colours, type scale, shapes and the new dimension tokens. Adjust screens only where DESIGN.md changes the layout (selection ring, badges, Appearance, About with version and source link). Set a `versionName`. Compose tests: theme per accent and mode. _Done before Phase 4. Applied to all existing screens, with new wording, states, icons and the Select action. The rest comes with the screens that need it: settings icon, Appearance and About in 4.3, upload action and badges in Phase 9. `versionName` was already set._
 - [ ] **10.1 Performance**
   - [ ] `:benchmark` (`com.android.test`) module with Macrobenchmark: cold start, folder grid scroll, timeline fast-scroll, viewer swipe. Run on the Pixel 10a against the D24 targets.
   - [ ] Baseline Profile generator (`androidx.baselineprofile` plugin) for `:app`; commit `baseline-prof.txt`. Verify startup improvement.

@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Placeholder icon until the design is delivered (D22). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
     <path
-        android:fillColor="#FF000000"
-        android:pathData="M6,19h12a4,4 0,0 0,0 -8a6,6 0,0 0,-11.6 1.5A3.5,3.5 0,0 0,6 19z" />
+        android:pathData="M8,18H7a4,4 0 0 1 -0.6,-7.95a6,6 0 0 1 11.4,-1.05a4.5,4.5 0 0 1 -0.3,9H16 M12,20v-8 M9,15l3,-3l3,3"
+        android:strokeWidth="2"
+        android:strokeColor="#FF000000"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
 </vector>

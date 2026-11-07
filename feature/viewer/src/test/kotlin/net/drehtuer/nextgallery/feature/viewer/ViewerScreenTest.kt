@@ -53,6 +53,29 @@ class ViewerScreenTest {
     }
 
     @Test
+    fun edit_jpeg_sendsEvent() {
+        show()
+
+        composeRule.onNodeWithContentDescription("Edit").performClick()
+
+        assertTrue(ViewerEvent.Edit in events)
+    }
+
+    @Test
+    fun edit_png_isOffered() {
+        show(ViewerUiState(initialIndex = 0, current = mediaItem(1).copy(mimeType = "image/png")))
+
+        composeRule.onNodeWithContentDescription("Edit").assertIsDisplayed()
+    }
+
+    @Test
+    fun edit_otherFormat_isNotOffered() {
+        show(ViewerUiState(initialIndex = 0, current = mediaItem(1).copy(mimeType = "image/heic")))
+
+        composeRule.onNodeWithContentDescription("Edit").assertDoesNotExist()
+    }
+
+    @Test
     fun defaultPage_showsZoomableImage() {
         val finished = LoadState.NotLoading(endOfPaginationReached = true)
         val pages = flowOf(PagingData.from(listOf(mediaItem(1)), LoadStates(finished, finished, finished)))

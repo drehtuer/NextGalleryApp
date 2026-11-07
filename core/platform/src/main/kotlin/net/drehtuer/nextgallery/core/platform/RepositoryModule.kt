@@ -6,6 +6,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import net.drehtuer.nextgallery.core.data.access.DefaultMediaAccessRepository
 import net.drehtuer.nextgallery.core.data.access.MediaAccessRepository
+import net.drehtuer.nextgallery.core.data.edit.DefaultEditRepository
+import net.drehtuer.nextgallery.core.data.edit.EditRepository
 import net.drehtuer.nextgallery.core.data.index.DefaultIndexRepository
 import net.drehtuer.nextgallery.core.data.index.IndexRepository
 import net.drehtuer.nextgallery.core.data.media.DefaultFolderRepository
@@ -14,10 +16,12 @@ import net.drehtuer.nextgallery.core.data.media.DefaultMediaRepository
 import net.drehtuer.nextgallery.core.data.media.FolderRepository
 import net.drehtuer.nextgallery.core.data.media.MediaActionsRepository
 import net.drehtuer.nextgallery.core.data.media.MediaRepository
-import net.drehtuer.nextgallery.core.data.rules.DefaultFolderRulesProvider
-import net.drehtuer.nextgallery.core.data.rules.FolderRulesProvider
 import net.drehtuer.nextgallery.core.data.selection.DefaultSelectionRepository
 import net.drehtuer.nextgallery.core.data.selection.SelectionRepository
+import net.drehtuer.nextgallery.core.data.settings.DefaultSettingsRepository
+import net.drehtuer.nextgallery.core.data.settings.SettingsRepository
+import net.drehtuer.nextgallery.core.data.timeline.DefaultTimelineRepository
+import net.drehtuer.nextgallery.core.data.timeline.TimelineRepository
 import javax.inject.Singleton
 
 /** Binds the `:core:data` interfaces to their default implementations. */
@@ -29,6 +33,9 @@ interface RepositoryModule {
 
     @Binds
     fun bindMediaRepository(repository: DefaultMediaRepository): MediaRepository
+
+    @Binds
+    fun bindTimelineRepository(repository: DefaultTimelineRepository): TimelineRepository
 
     @Binds
     fun bindMediaActionsRepository(repository: DefaultMediaActionsRepository): MediaActionsRepository
@@ -45,5 +52,8 @@ interface RepositoryModule {
     fun bindMediaAccessRepository(repository: DefaultMediaAccessRepository): MediaAccessRepository
 
     @Binds
-    fun bindFolderRulesProvider(provider: DefaultFolderRulesProvider): FolderRulesProvider
+    fun bindSettingsRepository(repository: DefaultSettingsRepository): SettingsRepository
+
+    @Binds
+    fun bindEditRepository(repository: DefaultEditRepository): EditRepository
 }

@@ -24,18 +24,32 @@ class StateViewsTest {
     }
 
     @Test
-    fun emptyState_showsMessage() {
+    fun emptyState_showsTitle() {
         composeRule.setContent { EmptyState("No photos") }
 
         composeRule.onNodeWithText("No photos").assertIsDisplayed()
     }
 
     @Test
-    fun errorState_retryClicked_invokesCallback() {
-        var retries = 0
-        composeRule.setContent { ErrorState("Failed", onRetry = { retries++ }) }
+    fun emptyState_showsDetail() {
+        composeRule.setContent { EmptyState("No photos", detail = "Take one") }
 
-        composeRule.onNodeWithText("Retry").performClick()
+        composeRule.onNodeWithText("Take one").assertIsDisplayed()
+    }
+
+    @Test
+    fun errorState_showsMessage() {
+        composeRule.setContent { ErrorState("Failed", "Restart the phone", onRetry = {}) }
+
+        composeRule.onNodeWithText("Restart the phone").assertIsDisplayed()
+    }
+
+    @Test
+    fun errorState_tryAgainClicked_invokesCallback() {
+        var retries = 0
+        composeRule.setContent { ErrorState("Failed", "Restart the phone", onRetry = { retries++ }) }
+
+        composeRule.onNodeWithText("Try again").performClick()
 
         assertEquals(1, retries)
     }

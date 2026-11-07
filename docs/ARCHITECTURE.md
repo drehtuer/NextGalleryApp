@@ -194,8 +194,8 @@ Package root and application ID: `net.drehtuer.nextgallery` (D26). Class names b
 
 | Class | Responsibility |
 | --- | --- |
-| `NextGalleryApplication` | `@HiltAndroidApp`; implements `Configuration.Provider` (HiltWorkerFactory) and `SingletonImageLoader.Factory` (Coil). Triggers `IndexScheduler.onAppStart()`. |
-| `MainActivity` | Single activity, edge-to-edge, hosts `NextGalleryNavHost`. Handles `ACTION_VIEW`/`ACTION_SEND` intents later. |
+| `NextGalleryApplication` | `@HiltAndroidApp`; implements `Configuration.Provider` (HiltWorkerFactory) and `SingletonImageLoader.Factory` (Coil). Starts `RuleChangeObserver` in a scope not tied to an activity. |
+| `MainActivity` | Single activity, edge-to-edge, hosts `NextGalleryNavHost`, applies the theme mode, accent and grid columns from `MainViewModel` to `NextGalleryTheme` and the system bars. Handles `ACTION_VIEW`/`ACTION_SEND` intents later. |
 | `NextGalleryNavHost` | Navigation Compose graph; maps each feature's navigation callbacks to routes of other features. |
 | `TopLevelDestination` | Enum of bottom-bar destinations (Folders, Timeline, Map, Nextcloud). |
 | `ImageLoaderModule` | Hilt module building the Coil `ImageLoader` (memory + disk cache, MediaStore thumbnail fetcher; the authenticated Nextcloud preview fetcher follows in Phase 8). |
@@ -206,27 +206,30 @@ Package root and application ID: `net.drehtuer.nextgallery` (D26). Class names b
 | --- | --- |
 | `MediaItem` | `id: Long` (MediaStore `_ID`), `contentUri: String`, `relativePath`, `displayName`, `mimeType`, `sizeBytes`, `width`, `height`, `orientation`, `dateTakenMillis` (resolved, see 5.1), `dateModifiedMillis`, `location: GeoPoint?`, `bucketId`. |
 | `Folder` | `bucketId`, `name`, `relativePath`, `itemCount`, `coverItem: MediaItem` (newest image). |
-| `FolderRule` | `relativePath`, `type: RuleType { INCLUDE, EXCLUDE }`. |
+| `FolderRule` | `relativePath`, `type: Type { INCLUDE, EXCLUDE }`. Covers the folder and its subfolders. |
+| `DeviceFolder` | `name`, `relativePath`, `itemCount`: a folder MediaStore has images in, whether indexed or not. |
 | `GeoPoint` | `latitude`, `longitude` (validated ranges). |
 | `RemoteFile` | `path`, `name`, `isDirectory`, `sizeBytes`, `contentType`, `etag`, `fileId`, `lastModifiedMillis`, `checksums: Map<ChecksumType, String>`, `hasPreview`. |
 | `UploadState` | sealed: `Unknown`, `NotUploaded`, `Uploaded(verifiedByChecksum: Boolean)`. |
 | `CertificateInfo` | `host`, `subject`, `issuer`, `notBefore`, `notAfter`, `sha256Fingerprint`, `changedFromPinned: Boolean`. |
-| `MediaSource` | The list a viewer pages through: `Folder(bucketId)`; the timeline and map add theirs in Phases 5 and 6. |
+| `MediaSource` | The list a viewer pages through: `Folder(bucketId)`, `Timeline`; the map adds its own in Phase 6. |
 | `ImageDetails` | What the image info sheet shows: file values plus formatted EXIF values. |
 | `ShareSpec` | Content URIs and MIME type to share; `:core:ui` turns it into an intent. |
 | `TrashEffect` | The next UI step when moving images to the trash: confirmation, message with undo, or failure. |
 | `ViewContext` | `Folder(bucketId)`, `Timeline`, `Map` (Phase 6) – used by the selection overview to decide which selected items the current view can show. |
-| `EditOperation` | sealed: `Rotate(quarterTurns)`, `Crop(rect: NormalizedRect, aspect)`, `Scale(targetWidth, targetHeight)`, `PenStroke(points: List<NormalizedPoint>, colorArgb, widthFraction)`. Coordinates are normalized (0..1) relative to the image *after* previous operations, so they are resolution independent. |
-| `AspectRatio` | `Free`, `Original`, `Square`, `FourThree`, `SixteenNine`. |
+| `EditOperation` | sealed: `Rotate(quarterTurns)`, `Crop(rect: NormalizedRect)`, `Scale(targetWidth, targetHeight)`, `PenStroke(points: List<NormalizedPoint>, colorArgb, widthFraction)`. Coordinates are normalized (0..1) relative to the image *after* previous operations, so they are resolution independent. |
+| `EditHistory`, `CropMath`, `ScaleMath`, `GeometryMapper` | Undo and redo over the operations; the crop frame and its ratios; sizes for the scale tool; normalized coordinates through operations. |
+| `PreviewImage` | Opaque wrapper (`handle: Any`, width, height) around a rendered image. `:core:media` puts a `Bitmap` inside, `:core:ui` draws it. |
+| `AspectRatio` | `FREE`, `ORIGINAL`, `SQUARE`, `R4_3`, `R16_9`. |
 | `NextcloudAccount` | `serverUrl`, `loginName`, `userId` (no secret). |
-| `TimelineSection` | `year`, `month`, `day`, `firstIndex`, `count` (for headers and fast-scroll index). |
+| `DayCount` | `date`, `count`: the number of images of a local date, from which `TimelineIndex` builds the timeline's layout. |
 | `MediaAccess` | `Full`, `Partial`, `Denied`. |
 | `PlatformConfirmation` | Opaque wrapper (`handle: Any`) around a system confirmation request. The `:core:media` adapter puts an `IntentSender` inside; `:core:ui` launches it. Core and ViewModels only pass it through, and tests use any placeholder object. |
-| `SortOrder`, `GridDensity`, `AppSettings` | User preferences. |
+| `UserSettings`, `ThemeMode` | User preferences: `folderRules`, `excludePatterns`, `gridColumns`, `themeMode`, `accentColor`, with their defaults. |
 
 #### `:core:common` (pure Kotlin)
 
-- `AppResult<T>` – `Success(value)` / `Failure(error: AppError)`; `AppError` sealed; implemented so far: `Io(message)`, `PermissionDenied`, `Unknown(cause)`, with `AppError.from(throwable)`. Added with the features that need them: `NotFound`, `Network`, `Auth`, `Server(code)`, `InsufficientMemory(requiredBytes, availableBytes)`, `UntrustedCertificate(info: CertificateInfo)`, `NotLoggedIn`.
+- `AppResult<T>` – `Success(value)` / `Failure(error: AppError)`; `AppError` sealed; implemented so far: `Io(message)`, `PermissionDenied`, `NotFound`, `InsufficientMemory(requiredBytes, availableBytes)`, `Unknown(cause)`, with `AppError.from(throwable)`. Added with the features that need them: `Network`, `Auth`, `Server(code)`, `UntrustedCertificate(info: CertificateInfo)`, `NotLoggedIn`.
 - `DispatcherProvider` interface (`io`, `default`) + `DefaultDispatcherProvider`; the Hilt binding lives in `:core:platform`. ViewModels use `viewModelScope`, so no main dispatcher is injected.
 - `Clock` (`nowMillis()`, `zone()`) + `SystemClock`.
 - Utilities: `RelativePaths` (`normalize`, case-insensitive `isUnder`), `runCatchingCancellable` (never swallows `CancellationException`), `ScrollbarMath` (fast scrollbar position ↔ first visible item; here rather than in `:core:data` because `:core:ui` uses it).
@@ -243,33 +246,33 @@ Ports (implemented by adapters):
 | `MediaChangeSource` | `:core:media` | `Flow<Unit>` of MediaStore change notifications. |
 | `ExifSource` | `:core:media` | Raw EXIF values (date strings, offset, GPS, camera fields) for a content URI. |
 | `MediaContentSource` | `:core:media` | `openInputStream(contentUri)`, size, for checksums. |
-| `MediaWriteSink` | `:core:media` | Insert pending copy / open for overwrite / publish; returns `PlatformConfirmation` when the system must confirm. |
+| `MediaWriteSink` | `:core:media` | Existing names in a folder, insert pending copy, write, publish, discard, overwrite request as `PlatformConfirmation`, temporary backup, cleanup after a crash. |
 | `MediaDeleteSource` | `:core:media` | Trash, restore and permanent delete requests as `PlatformConfirmation`. |
-| `ImageRenderer` | `:core:media` | Decode at a max size, apply a list of `RenderStep`s (matrices, crops, strokes computed by `EditGeometry`), encode. |
+| `ImageRenderer` | `:core:media` | Upright size of a file, decode at a sample size, apply a `RenderPlan` (matrix and strokes computed by `EditGeometry`), encode to a temporary file, release. |
+| `ExifWriter` | `:core:media` | Reads tags of a source image, writes tags to an encoded image. |
 | `MediaPermissionSource` | `:core:media` | Currently granted media permissions as strings. |
 | `MediaIndexStore` | `:core:database` | Index reads/writes, folder list; paged queries returned as `Flow<PagingData<MediaItem>>` (the repository decides the `PagingConfig`; the Room adapter builds the `Pager` and maps entities). |
-| `FolderRuleStore`, `UploadStateStore`, `RemoteCacheStore`, `SyncStateStore` | `:core:database` | Room tables behind model-typed interfaces. |
+| `UploadStateStore`, `RemoteCacheStore`, `SyncStateStore` | `:core:database` | Room tables behind model-typed interfaces. |
 | `WorkScheduler` | `:core:platform` | `enqueueIndex(mode)`, `scheduleUploadStateSync()`, `requestUploadStateSync()`. |
 | `NextcloudAppSource` | `:core:platform` | `isInstalled()` for `com.nextcloud.client`. |
 | `SecretCipher` | `:core:platform` | `encrypt(bytes)` / `decrypt(bytes)` backed by Tink + Android Keystore. |
-| `MemoryInfoSource` | `:core:platform` | `availableBytes()` from `ActivityManager.MemoryInfo`, minus a safety margin. |
+| `MemoryInfoSource` | `:core:platform` | `availableBytes()` from `ActivityManager.MemoryInfo`, minus a safety margin and at most half of the RAM. |
 
 Repositories (interfaces + `Default…` implementations with `@Inject` constructors):
 
 | Repository | Responsibility |
 | --- | --- |
 | `MediaRepository` | Paged lists per `MediaSource` (grid and viewer), position of an image in a list, item lookup, location items for map, image details (EXIF on demand). |
-| `FolderRepository` | Folder list with counts/covers, filtered by folder rules. |
-| `FolderRulesRepository` | Include/exclude rules; changes trigger re-index of the affected scope. |
+| `FolderRepository` | Folder list with counts/covers from the index; `observeAllDeviceFolders()` lists the folders in MediaStore regardless of the rules, for the folder rules screen. |
 | `IndexRepository` | Full scan, incremental sync, deletion detection (`MediaIndexer`); publishes `IndexStatus` flow. |
 | `MediaActionsRepository` | Delete/trash and restore requests, removes rows and deselects after a confirmed result, `ShareSpec` for images. `TrashFlow` (one instance per ViewModel) holds the steps of request, confirmation and undo. |
-| `EditRepository` | Edit pipeline: `EditGeometry` → `ImageRenderer` → `MediaWriteSink`, EXIF policy. |
+| `EditRepository` | Edit pipeline: opening, preview, memory checks, and saving through `EditedImageWriter` (`EditGeometry` → `ImageRenderer` → `MediaWriteSink`, EXIF policy), then the index; cleanup after a crash. |
 | `NextcloudRepository` | Login flow, account state, remote browsing (with `remote_cache`), preview requests. |
 | `UploadStateRepository` | Folder mapping, PROPFIND comparison, checksum confirmation, `upload_state` cache. |
 | `UploadHandoffRepository` | Prepares a hand-off to the Nextcloud app: filters out items already uploaded, returns a `ShareSpec` targeted at `com.nextcloud.client`, and requests an upload-state refresh when the app returns to the foreground. |
 | `SelectionRepository` | App-wide selection (`StateFlow<Set<MediaId>>`): toggle, range, select all, clear, and `observeOverview(context: ViewContext)` marking which selected items the given view can show. In-memory singleton. |
 | `TrustedCertificateRepository` | Pinned certificates per host (`TrustedCertificateStore`, DataStore): accept, remove, list. |
-| `SettingsRepository` | DataStore (Preferences, JVM artifact) for `AppSettings`; the file location is provided by `:core:platform`. |
+| `SettingsRepository` | `observeSettings()` and one setter per setting, on top of `SettingsDataSource` (Preferences DataStore, JVM artifact), which maps `UserSettings` to preference keys; `:core:platform` provides the file location. To add a setting: a field in `UserSettings`, a key in `SettingsDataSource` and a setter here. |
 | `AccountStore` | Account + app password in DataStore, encrypted through `SecretCipher`. |
 
 Pure logic (each class unit-tested on the JVM):
@@ -277,14 +280,16 @@ Pure logic (each class unit-tested on the JVM):
 - `IndexScheduler` – decides full vs incremental, debounces `MediaChangeSource`, calls `WorkScheduler`.
 - `MediaIndexer` – full/incremental sync algorithm, batching, deletion detection.
 - `DateResolver`, `ExifDateParser` – `DATE_TAKEN` → EXIF `DateTimeOriginal` (+ offset) → `DATE_MODIFIED`.
-- `FolderRuleMatcher` – is a relative path indexed given the include/exclude rules? (`.nomedia` folders are already hidden by MediaStore, so there is no own `.nomedia` handling.)
-- `DefaultFolderRulesProvider` – default rules until Phase 4 adds user settings.
+- `FolderRuleMatcher` – is a relative path indexed? The nearest rule decides; without one the folder is indexed unless an exclude pattern matches (D52). (`.nomedia` folders are already hidden by MediaStore, so there is no own `.nomedia` handling.)
+- `ExcludePatterns` – the "Also exclude folders matching" field: text to patterns, pattern to `Regex` (`*` matches any characters, case-insensitive).
+- `RuleChangeObserver` – rules or patterns changed → one debounced full scan, because a change can bring images back.
 - `MediaAccessRepository` – granted permissions → `MediaAccess`, and the permissions to request.
 - `FolderMapping` – local relative path → `<remoteRoot>/<relative path>`.
 - `UploadStateMatcher`, `ChecksumCalculator` (streams SHA-1 / MD5 of an `InputStream`), `ChecksumParser`.
+- `TimelineIndex` – the timeline's rows from the day counts: which row is a month header, a day header or an image, the month of a row, and the rail's dates. Binary searches; loads no image. `TimelineRepository.observeIndex()` provides it.
 - `SelectionRepresentability` – can a view context show an item (Map: has GPS; Folder: same bucket; Timeline: always, since every item has a resolved date).
-- `EditSession` / `EditHistory`, `CropMath`, `ScaleMath`, `EditGeometry` (operations → output size and `RenderStep`s), `MemoryBudget` (fits / refuse with required vs available bytes), `EditableFormats` (JPEG, PNG).
-- `GridClusterer`, `SectionIndexBuilder`.
+- `EditGeometry` (operations → `RenderPlan`), `MemoryBudget` (fits / refuse with required vs available bytes), `ExifPolicy` (tags of an edited image), `CopyNamer` (file name of a copy), `ImageFormat` (JPEG, PNG).
+- `GridClusterer`.
 
 #### `:core:nextcloud` (pure Kotlin/JVM)
 
@@ -303,11 +308,11 @@ Pure logic (each class unit-tested on the JVM):
 #### `:core:database` (Android adapter)
 
 - `GalleryDatabase` (Room, `exportSchema = true`, explicit `Migration`s from v1 on; schemas checked in).
-- Entities: `MediaEntity`, `FolderRuleEntity`, `UploadStateEntity`, `RemoteFileCacheEntity`, `SyncStateEntity`.
+- Entities: `MediaEntity`, `UploadStateEntity`, `RemoteFileCacheEntity`, `SyncStateEntity`.
 - DAOs:
-  - `MediaDao` – `upsertAll`, `deleteByIds`, `deleteNotIn(generation)`, `pagingByBucket(bucketId): PagingSource<Int, MediaEntity>`, `pagingTimeline(): PagingSource`, `observeWithLocation(bounds)`, `getById`, `observeIdsInBucket` (viewer pager), `timelineSections(tzOffset...)`.
+  - `MediaDao` – `upsertAll`, `deleteByIds`, `deleteNotIn(generation)`, `pagingByBucket(bucketId): PagingSource<Int, MediaEntity>`, `observeWithLocation(bounds)`, `getById`, `observeIdsInBucket` (viewer pager).
+  - `TimelineDao` – `paging()`, `ids()`, `indexOf(id)`, `observeDayCounts()`: all images by local date, behind the `TimelineStore` port.
   - `FolderDao` – `observeFolders()`: `FolderRow` (the folder's newest image plus the image count), sorted by name.
-  - `FolderRuleDao` – `observeRules`, `replaceAll`.
   - `UploadStateDao` – `observeForMedia(ids)`, `upsertAll`, `deleteForFolder`.
   - `RemoteFileCacheDao` – `replaceFolder(parentPath, files)`, `observeFolder(parentPath)`.
   - `SyncStateDao` – last generation per volume.
@@ -321,9 +326,10 @@ Pure logic (each class unit-tested on the JVM):
 | `MediaStoreChangeObserver` | `MediaChangeSource` | `ContentObserver` on `MediaStore.Images.Media.EXTERNAL_CONTENT_URI` as `callbackFlow`. |
 | `AndroidExifSource` | `ExifSource` | `androidx.exifinterface` on `MediaStore.setRequireOriginal(uri)` streams; returns raw tag values, parsing happens in `ExifDateParser`. |
 | `ContentResolverContentSource` | `MediaContentSource` | Opens content URIs. |
-| `MediaStoreWriter` | `MediaWriteSink` | Inserts a pending copy (`IS_PENDING`), overwrites via `createWriteRequest`, copies EXIF (`ExifWriter`). |
+| `MediaStoreWriter` | `MediaWriteSink` | Inserts a pending copy (`IS_PENDING`), writes, publishes, builds the `createWriteRequest`, deletes own pending entries and temporary files after a crash. |
+| `AndroidExifWriter` | `ExifWriter` | `androidx.exifinterface`; reads through `setRequireOriginal` when `ACCESS_MEDIA_LOCATION` is granted, so that a copy keeps the location. |
 | `MediaStoreDeleter` | `MediaDeleteSource` | `createTrashRequest` / `createDeleteRequest` wrapped in `PlatformConfirmation`. |
-| `BitmapImageRenderer` | `ImageRenderer` | `ImageDecoder` decode, applies `RenderStep`s with `Matrix`/`Canvas`/`Path`, encodes JPEG/PNG. |
+| `BitmapImageRenderer` | `ImageRenderer` | `ImageDecoder` decode (upright, software), applies a `RenderPlan` with `Matrix`/`Canvas`/`Path`, keeps colour space and bit depth, encodes JPEG/PNG. |
 | `AndroidMediaPermissionSource` | `MediaPermissionSource` | `checkSelfPermission` for the media permissions. |
 
 #### `:core:platform` (Android adapter and wiring)
@@ -337,13 +343,14 @@ Pure logic (each class unit-tested on the JVM):
 
 #### `:core:ui`
 
-- `NextGalleryTheme` (Material 3, light/dark; spacing and sizes through `NextGalleryTheme.dimensions`). Placeholder colours, typography, shapes and dimensions until task 10.0 applies the delivered design in [DESIGN.md](DESIGN.md) (D22). Takes the user's accent colour from `AppSettings` (D34).
-- `MediaGrid` – `LazyVerticalGrid` driven by `LazyPagingItems<MediaItem>`, with selection and stable keys. Headers (timeline) come with Phase 5.
-- `FastScrollbar` – draggable thumb; drag fraction ↔ index math lives in `ScrollbarMath` (`:core:common`); shows an optional bubble label (e.g. "March 2024").
+- `NextGalleryTheme` (Material 3, light/dark; spacing and sizes through `NextGalleryTheme.dimensions`). Colours, typography, shapes and dimensions come from [DESIGN.md](DESIGN.md) (D22). `NextGalleryViewerTheme` is the always-black variant for the viewer and the editor. Takes the theme mode, the accent colour (D34) and the grid columns (D51) from `UserSettings`, through `MainViewModel`; features read the column count from `NextGalleryTheme.dimensions`.
+- `MediaGrid` – `LazyVerticalGrid` with a fixed column count (D51), driven by `LazyPagingItems<MediaItem>`, with selection and stable keys; `MediaGridPlaceholder` shows flat cells while the first page loads. The timeline has its own grid, because its rows include headers.
+- `FastScrollbar` – draggable thumb; drag fraction ↔ index math lives in `ScrollbarMath` (`:core:common`); shows an optional bubble label. The timeline uses its own `DateRail` (D43) with the same math.
 - `SelectionTopBar` – total selection count (across all views), clear, and an actions slot for select all, share, delete, upload (hand-off) and the selection overview.
 - `CertificateWarningDialog` – shows `CertificateInfo` with a warning; Accept / Cancel.
-- `ThumbnailCell` – square cell with Coil `AsyncImage`, paging placeholder, selected and greyed-out states, badge slot. `MediaThumbnail` is its Coil model, with `MediaThumbnailKeyer` and `MediaThumbnailFetcher`.
+- `ThumbnailCell` – square cell with Coil `AsyncImage`, paging placeholder, failed, selected, selecting (empty ring) and greyed-out states, badge slot. `MediaThumbnail` is its Coil model, with `MediaThumbnailKeyer` and `MediaThumbnailFetcher`.
 - `PermissionGate` – requests media permissions, shows rationale, handles partial access ("Manage selected photos").
+- `PreviewImageView` – draws a `PreviewImage`; `clearImageMemoryCache()` – after an overwrite, because the image keeps its URI.
 - `rememberConfirmationLauncher()` – launches a `PlatformConfirmation` (unwraps the `IntentSender`) and reports the result.
 - `ErrorState`, `EmptyState`, `LoadingState` composables; `UiText` (string resource or raw).
 
@@ -354,12 +361,12 @@ Each feature contains: `XxxRoute` (serializable route object/class), `XxxScreen`
 | Module | Screens | Notes |
 | --- | --- | --- |
 | `:feature:folders` | Folder list, folder grid, selection overview | Default start destination. The selection overview (D33) lists all selected images and greys out those the calling view (`ViewContext`) cannot show; other features open it through `:app` navigation. |
-| `:feature:timeline` | Timeline grid | Sticky year/month/day headers; scrollbar label = month/year. |
+| `:feature:timeline` | Timeline grid | Sticky month headers, scrolling day headers ("Today · Friday 6 November"), `DateRail` (D43), selection as in the folder grid; opens the viewer and the selection overview through `:app`. |
 | `:feature:map` | Map | `MapRenderer` interface + `OsmdroidMapRenderer` (AndroidView); clusters come from `GridClusterer` in `:core:data`; tapping a cluster opens a grid of its items. |
 | `:feature:viewer` | Full-screen pager, info sheet | `HorizontalPager` + Telephoto `ZoomableAsyncImage`; also used for remote images through a different source argument. |
-| `:feature:editor` | Editor | Crop overlay, pen canvas, save dialog; `EditSession` from `:core:data`. |
+| `:feature:editor` | Editor | Tools, crop overlay, pen canvas, scale dialog, save menu; `EditHistory` from `:core:model`, in the ViewModel. |
 | `:feature:remote` | Nextcloud login, remote folder browser | Remote grid uses preview API thumbnails. |
-| `:feature:settings` | Settings, folder rules, appearance (accent colour), Nextcloud account, remote root, accepted certificates | |
+| `:feature:settings` | Settings root, folder rules, appearance (theme, grid columns, accent colour), About & licences; later Nextcloud account, remote root, accepted certificates | The screens open from the Folders top bar in a navigation graph of their own, without the bottom navigation. The Nextcloud row is a placeholder until Phase 8. The version comes from `:app`'s `BuildConfig` through `AboutInfo`. |
 
 ## 4. Data model
 
@@ -392,11 +399,6 @@ erDiagram
         double latitude "nullable"
         double longitude "nullable"
         boolean exif_scanned
-    }
-    folder_rule {
-        long id PK
-        string relative_path UK
-        int type "INCLUDE or EXCLUDE"
     }
     upload_state {
         long media_id PK, FK
@@ -439,13 +441,13 @@ Notes:
 - `local_year/month/day` are computed at index time in the device time zone. On time zone change (`ACTION_TIMEZONE_CHANGED`) `IndexWorker` recomputes them (cheap bulk update; no MediaStore access).
 - `sync_state.media_store_version` stores `MediaStore.getVersion(volume)`; if it changes, generation numbers are invalid and a full scan runs.
 - `remote_cache` is keyed by full remote path; `checksums` is the raw `oc:checksums` string (e.g. `SHA1:… MD5:…`).
-- Grids query `media` only. A folder excluded by rules is never inserted; rule changes delete/insert affected rows (index-time filtering). Query-time filtering (`FolderRuleMatcher` translated to SQL `relative_path` prefix conditions) covers the window between a rule change and the re-index finishing.
+- Grids query `media` only. A folder excluded by rules is never inserted, and a rule change runs a full scan that deletes and inserts the affected rows (index-time filtering). There is no query-time filtering: until that scan has finished, views show the previous state.
 
 ### 4.2 DataStore
 
 | Store | Content |
 | --- | --- |
-| `settings.preferences_pb` | Sort order, grid density, start destination, accent colour, remote root, save-copy-vs-overwrite default, pen colour/width. |
+| `settings.preferences_pb` | Folder rules (default: exclude `Android/data` and WhatsApp's `.Statuses`, removable like any rule), exclude patterns, grid columns, theme mode, accent colour; later phases add the tile URL, remote root, save-copy-vs-overwrite default and pen colour/width. A corrupt file is replaced by the defaults. |
 | `trusted_certs.preferences_pb` | Pinned certificates: host → SHA-256 fingerprint and the details shown when it was accepted. |
 | `credentials.pb` | Tink-encrypted blob: server URL, login name, user id, app password. |
 
@@ -470,7 +472,8 @@ sequenceDiagram
     Obs-->>Sched: change event, debounced 2s
     Sched->>W: enqueueUniqueWork APPEND_OR_REPLACE, INCREMENTAL
     W->>Idx: sync()
-    Idx->>DB: read sync_state and folder_rule
+    Idx->>DB: read sync_state
+    Note over Idx: folder rules come from SettingsRepository
     alt no sync_state or MediaStore version changed
         Idx->>Scan: fullScan() in batches of 500
     else incremental
@@ -499,7 +502,8 @@ Details:
 - EXIF reading is the expensive part. GPS is read only for JPEG/HEIF/WebP during the scan, and in a **second pass** (`exif_scanned = false` rows) after the grid-relevant data is committed, so folders appear quickly on first launch. Date fallback order: `DATE_TAKEN` → EXIF `DateTimeOriginal` (with `OffsetTimeOriginal` when present) → `DATE_MODIFIED`.
 - Without `ACCESS_MEDIA_LOCATION`, `setRequireOriginal` throws / GPS is redacted; location is then left null and the map shows a hint.
 - With partial access, the scan only sees user-selected images. The selection cannot be read from the permission state, so the index is rebuilt (full scan) whenever the permission dialog or photo selection closes (`MainEvent.AccessRequestFinished`) and whenever the access level changes.
-- `.nomedia`: MediaStore already excludes folders that contain a `.nomedia` file from the image collection, so the indexer does not check for it (confirmed on the Pixel 10a by the instrumented `MediaStoreScannerTest`). MediaStore applies it when it scans, so the image disappears after the next scan of that folder, not at the moment the `.nomedia` file is created.
+- `.nomedia`: MediaStore already excludes folders that contain a `.nomedia` file from the image collection, so the indexer does not check for it, and the folder rules screen cannot list these folders (D53) (confirmed on the Pixel 10a by the instrumented `MediaStoreScannerTest`). MediaStore applies it when it scans, so the image disappears after the next scan of that folder, not at the moment the `.nomedia` file is created.
+- Rule changes: `RuleChangeObserver` runs from `NextGalleryApplication`, so a change still reaches the index when the user leaves the app right after it. Only killing the process within the 2 s debounce loses the rescan, until the next full scan.
 - Phase 1 status: dates are resolved (incl. the EXIF fallback); GPS and the second EXIF pass come in Phase 6, and `IndexWorker` does not report progress yet.
 - `IndexWorker` is expedited for the first scan, runs as normal work otherwise, and reports progress through `setProgress` for the UI's indexing indicator.
 
@@ -560,9 +564,9 @@ sequenceDiagram
     UI->>VM: Share or Delete
 ```
 
-- The viewer pages through the same paged list as the grid (`MediaSource`), so the pager knows its size from the placeholders, items are loaded per page, and deleted images disappear through Room invalidation. If an image disappears, the next one takes its place; if none are left, the viewer closes. Currently `ViewerRoute(mediaId, bucketId)`; the timeline and map add their sources in Phases 5 and 6, and remote images (Phase 8) get their own screen data.
+- The viewer pages through the same paged list as the grid (`MediaSource`), so the pager knows its size from the placeholders, items are loaded per page, and deleted images disappear through Room invalidation. If an image disappears, the next one takes its place; if none are left, the viewer closes. Currently `ViewerRoute(mediaId, bucketId)`, where a null `bucketId` means the timeline; the map adds its source in Phase 6, and remote images (Phase 8) get their own screen data.
 - The adjacent pages are composed ahead (`beyondViewportPageCount = 1`), so Coil loads them before they are swiped to; full-resolution tiles only for the visible page.
-- The viewer always uses the dark theme, hides the bottom bar, and hides the system bars together with its controls.
+- The viewer always uses `NextGalleryViewerTheme`, hides the bottom bar, and hides the system bars together with its controls.
 - Another app can open an image (`ACTION_VIEW` with an `image/*` content URI). `ExternalImageScreen` then shows just that image with zooming: it need not be in the index, and no media permission is needed.
 - Share uses `Intent.ACTION_SEND`/`ACTION_SEND_MULTIPLE` with MediaStore content URIs and `FLAG_GRANT_READ_URI_PERMISSION`.
 
@@ -573,20 +577,20 @@ sequenceDiagram
     autonumber
     participant UI as EditorScreen
     participant VM as EditorViewModel
-    participant S as EditSession
+    participant S as EditHistory
     participant R as EditRepository
     participant G as EditGeometry
     participant Ren as ImageRenderer port
     participant MW as MediaWriteSink port
 
     UI->>VM: open mediaId
-    VM->>R: loadPreview(mediaId, maxSide 2048)
-    R-->>VM: PreviewImage handle
+    VM->>R: open(mediaId), decodes at most 2048 px
+    R-->>VM: EditSource with PreviewImage handle
     UI->>VM: ApplyOperation Rotate or Crop or Scale or PenStroke
     VM->>S: push(op), clear redo stack
     VM->>R: renderPreview(ops)
     R->>G: steps(ops, source size)
-    G-->>R: RenderSteps and output size
+    G-->>R: RenderPlan
     R->>Ren: render(preview, steps) on Default dispatcher
     Ren-->>VM: PreviewImage handle
     UI->>VM: Undo or Redo
@@ -594,30 +598,35 @@ sequenceDiagram
     UI->>VM: Save mode NewCopy or Overwrite
     VM->>R: save(mediaId, ops, mode) in background coroutine
     R->>G: steps(ops, original size)
-    R->>Ren: renderFull(contentUri, steps)
-    Ren-->>R: rendered image handle
-    alt NewCopy
-        R->>MW: insert pending entry in same RELATIVE_PATH
-        MW-->>R: OutputStream
-    else Overwrite
+    opt Overwrite
         R->>MW: request overwrite (createWriteRequest)
         MW-->>VM: PlatformConfirmation
-        VM-->>UI: UiEffect RequestConfirmation
-        UI->>VM: WriteGranted
-        R->>MW: open original for write
+        VM-->>UI: EditorEffect RequestConfirmation
+        UI->>VM: ConfirmationResult
+        VM->>R: commitOverwrite(mediaId, ops)
     end
-    R->>Ren: encode JPEG q95 or PNG, keeping the source format
-    R->>MW: write, copy EXIF with Orientation normal and new dimensions
-    R->>MW: publish, clears IS_PENDING
-    R-->>VM: AppResult Success new mediaId
-    VM-->>UI: navigate back, snackbar Saved
+    R->>Ren: decode, render at full resolution
+    R->>Ren: encode JPEG q95 or PNG to a temporary file
+    R->>R: EXIF with Orientation normal and new dimensions
+    alt NewCopy
+        R->>MW: insert pending entry in same RELATIVE_PATH, write, publish
+    else Overwrite
+        R->>MW: backup, write; put the backup back if writing fails
+    end
+    R->>R: sync the index
+    R-->>VM: SaveOutcome
+    VM-->>UI: open the copy, or return to the overwritten image
 ```
 
-- `EditSession` is a plain class (`operations`, `undoStack`, `redoStack`, `canUndo`, `canRedo`) — fully unit-testable without Android.
-- `EditGeometry` (pure, `:core:data`) turns operations into `RenderStep`s (3×3 matrices, crop rects, stroke paths in pixels) for a given source size; normalized coordinates make preview and full-resolution rendering identical in output geometry. The `BitmapImageRenderer` adapter only applies the steps with `Matrix`, `Canvas` and `Path`.
+- `EditHistory` is a plain immutable class (`operations`, `push`, `undo`, `redo`, `canUndo`, `canRedo`) — fully unit-testable without Android.
+- `EditGeometry` (pure, `:core:data`) flattens the operations into one `RenderPlan` for a given source size: the output size, one 3×3 matrix from source to output pixels, and the strokes in output pixels. The size of the output does the clipping, because every later crop lies inside the earlier ones. So an edit needs exactly two bitmaps, and scaling down and up again loses nothing. Crops end on whole pixels, so they do not resample. For the preview, `RenderPlan.fittedTo(2048)` shrinks the same plan, which makes preview and full-resolution rendering identical in output geometry. The `BitmapImageRenderer` adapter only applies the plan with `Matrix`, `Canvas` and `Path`.
+- `EditorReducer` holds the state changes of the editor that need nothing but the state; the ViewModel renders when the history changed. Until a crop is applied, the frame lives in `EditorUiState.cropRect`. The design has no apply button: leaving the Crop tool, any other action and saving apply it, and undo first resets the frame.
+- The pen width is in pixels of the preview ("8 px"), stored as a fraction of the longer side, so a stroke looks on the saved image as it did on the screen.
+- Saving never endangers an image. Rendering, encoding and EXIF happen in temporary files in the cache, where a failure or a cancellation does no harm. A new copy stays a pending, hidden entry until it is complete, and is removed if anything fails. An overwrite first copies the original to a temporary backup and puts it back if writing fails; if the backup fails, the original was not touched. One risk remains: if the process dies during the short write of an overwrite, the image can be incomplete, because MediaStore has no atomic replace. Overwriting always needs the system confirmation.
+- After saving, the index syncs inline, so the viewer can open the new copy at once; a queued sync later picks up what the media scanner adds. An overwritten image keeps its URI, so the route clears Coil's memory cache.
 - Rendered images cross the port as an opaque `PreviewImage(handle, width, height)`; `:core:ui` draws it, so `EditorViewModel` never touches `Bitmap`.
-- Original EXIF orientation is applied first (bake-in), which is why the output orientation is reset to normal.
-- Memory guard (D30): `MemoryBudget` (pure, `:core:data`) estimates the bytes a step needs (source + output bitmap, 4 bytes per pixel) and compares them with `MemoryInfoSource.availableBytes()` (`:core:platform`, from `ActivityManager.MemoryInfo` minus a safety margin; bitmap pixels live in native memory, so the Java heap limit is not the right measure). It is checked when a `Scale` is applied and before the full-resolution render on save. If the estimate does not fit, the operation is refused with `AppError.InsufficientMemory(requiredBytes, availableBytes)` and the editor shows why. Nothing is ever saved at a reduced size without the user asking for it.
+- Original EXIF orientation is applied first (bake-in): `ImageDecoder` delivers upright pixels, and all sizes in the plan are upright sizes. That is why the output orientation is reset to normal. A wide-gamut colour space is kept; an Ultra HDR gain map is not.
+- Memory guard (D30): `MemoryBudget` (pure, `:core:data`) estimates the bytes a step needs (source + output bitmap, 4 bytes per pixel) and compares them with `MemoryInfoSource.availableBytes()` (`:core:platform`, from `ActivityManager.MemoryInfo` minus the low-memory threshold and a safety margin, and at most half of the RAM, because Android 17 limits each app but has no API to read the limit (D40); bitmap pixels live in native memory, so the Java heap limit is not the right measure). An `OutOfMemoryError` during rendering becomes the same refusal. It is checked when a `Scale` is applied and before the full-resolution render on save. If the estimate does not fit, the operation is refused with `AppError.InsufficientMemory(requiredBytes, availableBytes)` and the editor shows why. Nothing is ever saved at a reduced size without the user asking for it.
 - Only JPEG and PNG sources can be edited, and the output keeps the source format (D29). The viewer hides the Edit action for other formats.
 
 ### 5.5 Delete with trash
@@ -779,7 +788,7 @@ flowchart LR
     end
 
     Folders --> FolderGrid["FolderGridRoute bucketId"]
-    FolderGrid --> Viewer["ViewerRoute mediaId, source"]
+    FolderGrid --> Viewer["ViewerRoute mediaId, bucketId or null"]
     Timeline --> Viewer
     Map --> ClusterGrid["MapClusterGridRoute ids"]
     ClusterGrid --> Viewer
@@ -794,18 +803,21 @@ flowchart LR
     RemoteBrowser --> RemoteViewer["ViewerRoute remote path"]
 
     Folders --> Settings["SettingsRoute"]
-    Timeline --> Settings
     Settings --> FolderRules["FolderRulesRoute"]
+    Settings --> Appearance["AppearanceRoute"]
+    Settings --> About["AboutRoute"]
+    About --> Licences["LicencesRoute"]
     Settings --> Account["NextcloudAccountRoute"]
     Account --> Login
     Settings --> Certs["TrustedCertificatesRoute"]
-    FolderGrid --> SelOverview["SelectionOverviewRoute context"]
+    FolderGrid --> SelOverview["SelectionOverviewRoute bucketId or null"]
     Timeline --> SelOverview
     Map --> SelOverview
 ```
 
 Rules:
 
+- The viewer and the selection overview are opened from several tabs, so they sit directly in the root graph (`sharedScreens` in `:app`) and hide the bottom navigation.
 - Route arguments carry only IDs/paths, never full objects. Large ID lists (map clusters) are passed via a short-lived `SavedStateHandle`-backed holder in the repository keyed by a token, not through the route.
 - Feature screens receive navigation lambdas (`onOpenItem: (Long, ViewerSource) -> Unit`) instead of a `NavController`.
 - `ACTION_VIEW` of an image opens `ExternalImageScreen` instead of the navigation graph (see 5.3).
@@ -818,12 +830,14 @@ Pattern per screen:
 data class FolderGridUiState(
     val title: String = "",
     val selectedIds: Set<MediaId> = emptySet(), // app-wide, from SelectionRepository
+    val selecting: Boolean = selectedIds.isNotEmpty(), // also true after the Select action, before anything is selected
     val uploadBadgesEnabled: Boolean = false, // Phase 9: logged in and Nextcloud app installed
 )
 
 sealed interface FolderGridEvent {
     data class ItemClicked(val id: MediaId) : FolderGridEvent
     data class ItemLongPressed(val id: MediaId) : FolderGridEvent
+    data object StartSelecting : FolderGridEvent
     data object SelectAll : FolderGridEvent
     data object ClearSelection : FolderGridEvent
     data object DeleteSelected : FolderGridEvent
@@ -864,13 +878,14 @@ Other screens (abbreviated):
 | Screen | UiState fields |
 | --- | --- |
 | Folders | `folders: List<Folder>`, `access: MediaAccess`, `isIndexing`, `indexProgress` |
-| Timeline | `sectionIndex` (year/month labels), `selectionCount`, `isIndexing` (+ separate paging flow with `GridItem.Header`) |
+| Timeline | `index: TimelineIndex?`, `today`, `selectedIds`, `selecting` (+ separate paging flow of the images) |
 | Map | `clusters: List<MapCluster>` for current viewport + zoom, `itemsWithoutLocation: Int`, `locationPermissionMissing: Boolean` |
 | Viewer | `ids: List<Long>`, `currentIndex`, `current: MediaItem?`, `details: ImageDetails?`, `chromeVisible`, `infoSheetVisible` |
 | Editor | `preview: PreviewImage?`, `tool: EditTool`, `cropRect`, `aspect`, `penColor`, `penWidth`, `canUndo`, `canRedo`, `isSaving`, `saveMode` |
 | Remote browser | `path`, `entries: List<RemoteFile>`, `isRefreshing`, `isOffline` (shows cached `remote_cache` data), `error` |
 | Login | `serverUrl`, `step: Idle / WaitingForBrowser / Verifying / Done`, `error` |
-| Settings | `settings: AppSettings`, `rules: List<FolderRule>`, `account: NextcloudAccount?`, `queueCount` |
+| Folder rules | `rows: List<FolderRuleRow>` (device folders plus folders that only have a rule, each Include / Default / Exclude), `patterns` |
+| Appearance | `themeMode`, `gridColumns`, `accentColor` |
 
 Process death: the route is restored by Navigation and passed in again through the assisted factory (`hiltViewModel<FolderGridViewModel, FolderGridViewModel.Factory> { it.create(route.bucketId) }`); transient UI (selection, editor operations) is saved via `SavedStateHandle` where cheap (selection as `LongArray`, editor operations serialized with kotlinx.serialization).
 
@@ -914,7 +929,7 @@ Rules:
 
 - The Room index is the cache of MediaStore; it is reconciled incrementally, so app start shows data immediately and syncs in background.
 - `upload_state` caches server comparison results; badges never wait on the network.
-- Section indexes (timeline headers / fast scroll labels) are computed via `GROUP BY` queries on precomputed `local_year/month/day` columns and cached in the ViewModel until Room invalidates.
+- The timeline's layout (`TimelineIndex`: headers, rail dates) is computed from a `GROUP BY` query on the precomputed `local_year/month/day` columns (D7), and only rebuilt when the number of images of a day changes.
 
 ## 10. Error handling
 
@@ -939,8 +954,8 @@ Rules:
 - **TLS**: platform defaults via OkHttp; `network_security_config.xml` disallows cleartext traffic, so v1 accepts `https://` servers only (cleartext for debug builds only, via a debug-only config). User-installed CAs (`<certificates src="user"/>`) are trusted in addition to system CAs. Any other certificate is only trusted after the user accepts it in a warning dialog; it is then pinned per host by SHA-256 fingerprint (`PinningTrustManager`, D32). A changed certificate triggers the warning again. The same OkHttp client is used for WebDAV, the preview API and Coil, so all remote traffic follows the same rule.
 - Authorization header added only for requests to the configured server host (interceptor checks host), so redirects to other hosts never leak credentials.
 - **No tracking**: no analytics, no crash reporting SDKs, no Google Play Services. osmdroid tile requests go to OSM tile servers with a proper user agent (required by OSM tile usage policy); this is the only third-party network traffic and is triggered only by opening the map.
-- **Least privilege**: only `READ_MEDIA_IMAGES`, `READ_MEDIA_VISUAL_USER_SELECTED`, `ACCESS_MEDIA_LOCATION`, `INTERNET`, `ACCESS_NETWORK_STATE`, plus a `<queries>` entry for `com.nextcloud.client`. No foreground service or notification permission (uploads are done by the Nextcloud app). Destructive actions go through system dialogs.
-- Shared URIs are MediaStore content URIs with temporary read grants; no `FileProvider` exposing app storage.
+- **Least privilege**: only `READ_MEDIA_IMAGES`, `READ_MEDIA_VISUAL_USER_SELECTED`, `ACCESS_MEDIA_LOCATION`, `ACCESS_COARSE_LOCATION` (optional, D44), `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_LOCAL_NETWORK` (D39), plus a `<queries>` entry for `com.nextcloud.client`. No foreground service or notification permission (uploads are done by the Nextcloud app). Destructive actions go through system dialogs.
+- Shared local images use MediaStore content URIs with temporary read grants. Server images are downloaded first and shared through a `FileProvider` limited to one temporary cache folder (D48); the rest of the app's storage stays private.
 
 ## 12. Performance
 
@@ -948,8 +963,8 @@ Targets (measured on the reference Pixel 10a, Android 17): warm start to first f
 
 - **Query only Room** for grids; MediaStore is touched only by the indexer.
 - **Paging 3 with placeholders** gives a stable item count, so `LazyVerticalGrid` can jump anywhere; Room's `PagingSource` uses `LIMIT/OFFSET` on indexed columns. For very deep jumps, the grid requests the page around the target via `scrollToItem` and placeholders render until loaded.
-- **Fast-scroll section index** (timeline; the folder grid maps the thumb directly to positions): computed once per data version via aggregated SQL (`SELECT local_year, local_month, COUNT(*) … GROUP BY …`), turned into cumulative `firstIndex` offsets. Dragging the thumb is O(log n) (binary search in sections) and does not load items until the drag settles (throttled `scrollToItem`, e.g. every 32 ms).
-- **Timeline headers**: header items are inserted with `PagingData.insertSeparators` (day changes); sticky header text is derived from the first visible item's date, not from a separate list.
+- **Timeline index** (the folder grid maps the thumb directly to positions): computed once per data version via aggregated SQL (`SELECT local_year, local_month, local_day, COUNT(*) … GROUP BY …`), turned into cumulative row offsets. A lookup is O(log n) (binary search in days), so the rail's dates do not depend on loaded images, and the thumb jumps with `scrollToItem`, dropping positions the grid has not reached yet.
+- **Timeline headers**: the grid's rows come from `TimelineIndex`, which also maps a row to its position in the paged image list; the images load through Paging as in the other grids. `PagingData.insertSeparators` is not used, because it only sees loaded pages: the row count and the headers' positions would change while scrolling, and the rail could not jump. The images are ordered by local date first, so each day's images are contiguous and match the day counts. The sticky month is the month of the first visible row, and the rail's current day is the row in the vertical middle.
 - **Stable keys and content types** in lazy grids (`key = id`, `contentType = header/item`) to avoid recomposition and enable reuse.
 - **Thumbnails**: system `loadThumbnail` + size buckets + memory cache; no crossfade during fast scroll; requests cancelled when cells leave the screen (Coil does this per composable).
 - **Indexing**: projection limited to needed columns; batched transactions; EXIF read deferred to a second pass; ContentObserver debounced; incremental sync via generation numbers touches only changed rows.
@@ -965,11 +980,11 @@ Principles: every function gets a unit test; tests are small, independent and no
 | Layer / module | What is tested | How | Runs on CI |
 | --- | --- | --- | --- |
 | `:core:model`, `:core:common` | Model validation (`GeoPoint` ranges, `NormalizedRect`), `AppResult` helpers, `RelativePaths`, `runCatchingCancellable`, `ScrollbarMath` | Plain JVM JUnit | Yes |
-| `:core:data` | All domain logic: `MediaIndexer` (full vs incremental vs version change), `IndexScheduler`, `DateResolver`/`ExifDateParser`, `FolderRuleMatcher`, `MediaAccessRepository`, `FolderMapping`, `UploadStateMatcher`, `UploadHandoffRepository`, `SelectionRepository` and `SelectionRepresentability`, checksums, `EditSession`/`EditGeometry`, `GridClusterer`, `SectionIndexBuilder`, repositories, `AccountStore` (fake `SecretCipher`) | Plain JVM JUnit + hand-written fake ports, MockK, Turbine | Yes |
+| `:core:data` | All domain logic: `MediaIndexer` (full vs incremental vs version change), `IndexScheduler`, `DateResolver`/`ExifDateParser`, `FolderRuleMatcher`, `MediaAccessRepository`, `FolderMapping`, `UploadStateMatcher`, `UploadHandoffRepository`, `SelectionRepository` and `SelectionRepresentability`, checksums, `EditGeometry`/`MemoryBudget`/`DefaultEditRepository`, `GridClusterer`, `SectionIndexBuilder`, repositories, `AccountStore` (fake `SecretCipher`) | Plain JVM JUnit + hand-written fake ports, MockK, Turbine | Yes |
 | `:core:nextcloud` | PROPFIND parsing, request building (headers, depth, body), Login Flow v2 polling states, error mapping, auth interceptor host check, URL normalisation, `PinningTrustManager` (CA-signed, pinned, unknown, changed certificate) | Plain JVM JUnit, `MockWebServer` (with `okhttp-tls` self-signed `HeldCertificate`s), kxml2 parser | Yes |
 | ViewModels (feature modules) | Event → state transitions, effects emitted, paging flow wiring | Local unit tests without Robolectric: `runTest` + Turbine, fake repositories, route passed to the constructor | Yes |
 | `:core:database` | Each DAO query (paging order, rule filtering, section aggregation, cascade deletes), migrations, entity ↔ model mapping | Robolectric + in-memory Room; `MigrationTestHelper` with exported schemas | Yes |
-| `:core:media` | Cursor → `ScannedImage` mapping (`MatrixCursor`), EXIF tag extraction from fixture files, request construction | Robolectric, fixtures in `src/test/resources` | Yes |
+| `:core:media` | Cursor → `ScannedImage` mapping (`MatrixCursor`), EXIF tag extraction from fixture files, request construction, rendering and encoding on real pixels (native graphics), writes against a stand-in provider | Robolectric, fixtures in `src/test/resources` | Yes |
 | `:core:platform` | Workers map `AppResult` to `Result` (success / retry / failure), `WorkManagerScheduler` enqueues the right unique work | Robolectric, `TestListenableWorkerBuilder`, `WorkManagerTestInitHelper` | Yes |
 | UI | Key screens: folder grid (selection, fast-scroll label), viewer (paging, info sheet), editor (undo/redo buttons enabled state), login steps, permission gate | Compose UI tests (`createComposeRule`) on Robolectric | Yes |
 | Platform behaviour | See 13.1 | Instrumented tests (`src/androidTest`) | No – local emulator / Pixel 10a |
@@ -993,6 +1008,7 @@ Robolectric's shadows do not reproduce some platform behaviour. These parts are 
 | Android Keystore (`KeystoreSecretCipher`) | Robolectric has no `AndroidKeyStore` provider. | Encrypt/decrypt round trip with a Keystore-wrapped keyset. |
 | HEIC display (viewer, thumbnails) | Native graphics in Robolectric may not include the platform HEIF codec. | A HEIC fixture decodes and displays. |
 | Trash, delete and write requests | The system confirmation dialogs only exist on a device. | Intent sender launches; confirmation itself is a manual check. |
+| Saving to MediaStore (`MediaStoreWriter`) | The real provider decides on pending entries, folders and permissions. Robolectric tests use a stand-in provider for what the writer asks. | `MediaStoreWriterTest` (`:core:media`): pending, publish, write, cleanup on entries it inserted itself, deleted afterwards. |
 | osmdroid map | `MapView` rendering and tile loading need a real view hierarchy and network. | Map screen shows clusters for geotagged fixtures (emulator: needs network). |
 
 A behaviour tested on the device is not tested again in Robolectric (no overlap); the JVM tests cover the logic around it with fakes.

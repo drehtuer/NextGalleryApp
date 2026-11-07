@@ -2,14 +2,14 @@
 
 A simple, fast Android gallery app with basic editing, multiple ways to browse your photos, and built-in Nextcloud integration.
 
-> Status: early development. Photo access, background indexing and the folder view work; the full-screen viewer is next. See [STATUS.md](docs/STATUS.md). This README describes the intended scope.
+> Status: early development. Photo access, background indexing, the folder view, the timeline, the full-screen viewer and settings work; the map is next. See [STATUS.md](docs/STATUS.md). This README describes the intended scope.
 
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) – modules, layers, data model and key flows (Mermaid diagrams).
 - [Design decisions & open questions](docs/DESIGN_DECISIONS.md) – what has been decided and what is still open.
 - [Implementation TODO](docs/TODO.md) – ordered, step-by-step implementation plan.
-- [Design handover](docs/DESIGN_HANDOVER.md) – brief for the visual design.
+- [Original design brief](docs/DESIGN_HANDOVER.md) – what Claude Design was asked for (historical).
 - [Status](docs/STATUS.md) – what is implemented, what is next, and what still needs checking on the device.
 - [Design](docs/DESIGN.md) – the visual design: colours, type, dimensions, wording and states of every screen.
 
@@ -27,11 +27,12 @@ A simple, fast Android gallery app with basic editing, multiple ways to browse y
 | View | Description |
 |---|---|
 | **Folders** (default) | Images grouped by folder, shown as a thumbnail grid. |
-| **Timeline** | Images grouped by year → month → day, with sticky date headers. |
+| **Timeline** | Images grouped by month and day, newest first, with sticky month headers. |
 | **Map** | Images with GPS location (EXIF) shown as clustered markers on a map, from the whole globe down to street level. It opens at your current location. Clusters are named after the nearest town ("near Bolzano"), looked up offline. Images without location data are skipped. |
 | **Nextcloud** | Browse and view images stored on a Nextcloud server, without downloading them first. |
 
-- **Configurable sources** – choose which folders are scanned (include list), with optional exclusions (e.g. `WhatsApp/.Statuses`, app caches).
+- **Configurable sources** – every folder with images is shown by default; include or exclude single folders, or exclude by pattern (e.g. `WhatsApp/.Statuses`, app caches).
+- **Appearance** – light or dark theme, or follow the system; 3, 4 or 5 grid columns; five accent colours.
 - **Selection** – one selection across all views; a selection overview lists everything selected and greys out images the current view cannot show.
 - **Fast scroll** – draggable scrollbar on every grid; in the timeline it shows the date in the middle of the screen, with the dates before and after.
 - **Thumbnails** – generated and cached on device; grids load lazily.
@@ -45,7 +46,7 @@ A simple, fast Android gallery app with basic editing, multiple ways to browse y
 - **Pen** – freehand drawing with selectable colour and stroke width, with undo/redo.
 - Editing is available for JPEG and PNG images; edits are saved in the same format.
 - Images too large to edit within the available memory are refused with an explanation instead of risking a crash or silently lowering quality.
-- Edits are saved as a **new copy** by default, with an option to overwrite the original. EXIF data is preserved where possible.
+- Edits are saved as a **new copy** by default, with an option to overwrite the original after the system's confirmation. EXIF data is preserved where possible, with the orientation reset and the new dimensions.
 
 ### File actions
 

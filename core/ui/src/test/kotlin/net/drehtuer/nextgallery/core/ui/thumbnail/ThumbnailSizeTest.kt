@@ -6,16 +6,16 @@ import org.junit.Test
 class ThumbnailSizeTest {
     @Test
     fun thumbnailSizePx_smallCells_usesSmallSize() {
-        assertEquals(256, thumbnailSizePx(gridWidthPx = 1000, minCellPx = 200))
+        assertEquals(256, thumbnailSizePx(gridWidthPx = 1000, columns = 5))
     }
 
     @Test
     fun thumbnailSizePx_largeCells_usesLargeSize() {
-        assertEquals(512, thumbnailSizePx(gridWidthPx = 1000, minCellPx = 400))
+        assertEquals(512, thumbnailSizePx(gridWidthPx = 1080, columns = 3))
     }
 
     @Test
-    fun thumbnailSizePx_gridNarrowerThanCell_usesOneColumn() {
-        assertEquals(256, thumbnailSizePx(gridWidthPx = 100, minCellPx = 400))
+    fun thumbnailSizePx_noColumns_countsAsOneColumn() {
+        assertEquals(512, thumbnailSizePx(gridWidthPx = 1000, columns = 0))
     }
 }

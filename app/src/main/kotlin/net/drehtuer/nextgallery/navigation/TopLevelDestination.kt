@@ -3,6 +3,7 @@ package net.drehtuer.nextgallery.navigation
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import net.drehtuer.nextgallery.R
+import net.drehtuer.nextgallery.feature.timeline.TimelineRoute
 
 /** Destinations of the bottom navigation bar. */
 enum class TopLevelDestination(val route: Any, @param:StringRes val label: Int, @param:DrawableRes val icon: Int) {

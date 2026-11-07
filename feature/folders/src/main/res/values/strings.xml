@@ -1,14 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="feature_folders_title">Folders</string>
-    <string name="feature_folders_empty">No photos found</string>
+    <string name="feature_folders_empty">No photos yet</string>
+    <string name="feature_folders_empty_detail">Photos you take or download appear here, sorted by folder.</string>
     <string name="feature_folders_folder_empty">This folder is empty</string>
-    <string name="feature_folders_load_failed">The photos could not be loaded</string>
-    <string name="feature_folders_select_all">Select all</string>
+    <string name="feature_folders_folder_empty_detail">Its images were moved or deleted.</string>
+    <string name="feature_folders_load_failed">Couldn\'t load this folder</string>
+    <string name="feature_folders_load_failed_detail">Android didn\'t return its images. Try again; if it keeps failing, restart the phone.</string>
     <string name="feature_folders_selection_overview">Selection</string>
+    <plurals name="feature_folders_selection_note">
+        <item quantity="one">%1$d selected in all folders.</item>
+        <item quantity="other">%1$d selected in all folders.</item>
+    </plurals>
+    <plurals name="feature_folders_selection_note_greyed">
+        <item quantity="one">%1$d selected in all folders. Greyed out: %2$d in other folders, which this view can\'t open.</item>
+        <item quantity="other">%1$d selected in all folders. Greyed out: %2$d in other folders, which this view can\'t open.</item>
+    </plurals>
     <string name="feature_folders_selection_empty">Nothing selected</string>
+    <string name="feature_folders_selection_empty_detail">Long-press a photo in any folder to start selecting.</string>
     <plurals name="feature_folders_item_count">
-        <item quantity="one">%d image</item>
-        <item quantity="other">%d images</item>
+        <item quantity="one">%1$,d image</item>
+        <item quantity="other">%1$,d images</item>
     </plurals>
 </resources>

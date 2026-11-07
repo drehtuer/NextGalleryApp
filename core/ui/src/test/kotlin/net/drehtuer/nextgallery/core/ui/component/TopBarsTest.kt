@@ -38,6 +38,36 @@ class TopBarsTest {
     }
 
     @Test
+    fun selectAction_clicked_invokesCallback() {
+        var clicks = 0
+        composeRule.setContent { SelectAction(onClick = { clicks++ }) }
+
+        composeRule.onNodeWithContentDescription("Select").performClick()
+
+        assertEquals(1, clicks)
+    }
+
+    @Test
+    fun selectAllAction_clicked_invokesCallback() {
+        var clicks = 0
+        composeRule.setContent { SelectAllAction(onClick = { clicks++ }) }
+
+        composeRule.onNodeWithContentDescription("Select all").performClick()
+
+        assertEquals(1, clicks)
+    }
+
+    @Test
+    fun settingsAction_clicked_invokesCallback() {
+        var clicks = 0
+        composeRule.setContent { SettingsAction(onClick = { clicks++ }) }
+
+        composeRule.onNodeWithContentDescription("Settings").performClick()
+
+        assertEquals(1, clicks)
+    }
+
+    @Test
     fun deleteAction_clicked_invokesCallback() {
         var clicks = 0
         composeRule.setContent { DeleteAction(onClick = { clicks++ }) }

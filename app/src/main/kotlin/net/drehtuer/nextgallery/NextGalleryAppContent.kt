@@ -4,11 +4,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -22,12 +25,19 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import net.drehtuer.nextgallery.core.model.MediaAccess
 import net.drehtuer.nextgallery.core.ui.component.LoadingIndicator
+import net.drehtuer.nextgallery.core.ui.component.LocalScreenBanner
 import net.drehtuer.nextgallery.core.ui.permission.LimitedAccessBanner
 import net.drehtuer.nextgallery.core.ui.permission.MediaAccessRequest
+import net.drehtuer.nextgallery.feature.editor.EditorRoute
+import net.drehtuer.nextgallery.feature.folders.SelectionOverviewRoute
 import net.drehtuer.nextgallery.feature.viewer.ViewerRoute
 import net.drehtuer.nextgallery.navigation.NextGalleryNavHost
+import net.drehtuer.nextgallery.navigation.SettingsGraphRoute
 import net.drehtuer.nextgallery.navigation.TopLevelDestination
 import net.drehtuer.nextgallery.navigation.foldersGraph
+import net.drehtuer.nextgallery.navigation.settingsGraph
+import net.drehtuer.nextgallery.navigation.sharedScreens
+import net.drehtuer.nextgallery.navigation.timelineGraph
 
 @Composable
 fun NextGalleryAppContent(
@@ -36,6 +46,9 @@ fun NextGalleryAppContent(
     onOpenSettings: () -> Unit,
     navController: NavHostController = rememberNavController(),
     folders: NavGraphBuilder.(NavHostController) -> Unit = { foldersGraph(it) },
+    timeline: NavGraphBuilder.(NavHostController) -> Unit = { timelineGraph(it) },
+    settings: NavGraphBuilder.(NavHostController) -> Unit = { settingsGraph(it) },
+    shared: NavGraphBuilder.(NavHostController) -> Unit = { sharedScreens(it) },
 ) {
     when (state.access) {
         null -> LoadingIndicator()
@@ -44,13 +57,20 @@ fun NextGalleryAppContent(
 
         MediaAccess.FULL, MediaAccess.PARTIAL -> {
             val currentEntry by navController.currentBackStackEntryAsState()
-            val fullScreen = currentEntry?.destination?.hasRoute(ViewerRoute::class) == true
+            val fullScreen = currentEntry?.destination?.let { destination ->
+                destination.hasRoute(ViewerRoute::class) ||
+                    destination.hasRoute(SelectionOverviewRoute::class) ||
+                    destination.hasRoute(EditorRoute::class) ||
+                    destination.hierarchy.any { it.hasRoute(SettingsGraphRoute::class) }
+            } == true
             Scaffold(bottomBar = { if (!fullScreen) BottomBar(navController) }) { padding ->
+                val banner: @Composable () -> Unit = {
+                    if (state.access == MediaAccess.PARTIAL) LimitedAccessBanner(onSelectMore = onRequestAccess)
+                }
                 Column(if (fullScreen) Modifier else Modifier.padding(padding).consumeWindowInsets(padding)) {
-                    if (state.access == MediaAccess.PARTIAL && !fullScreen) {
-                        LimitedAccessBanner(onSelectMore = onRequestAccess)
+                    CompositionLocalProvider(LocalScreenBanner provides banner) {
+                        NextGalleryNavHost(navController, folders, timeline, settings, shared)
                     }
-                    NextGalleryNavHost(navController, folders)
                 }
             }
         }
@@ -73,6 +93,10 @@ private fun BottomBar(navController: NavHostController) {
                 },
                 icon = { Icon(painterResource(destination.icon), contentDescription = null) },
                 label = { Text(stringResource(destination.label)) },
+                colors = NavigationBarItemDefaults.colors(
+                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
             )
         }
     }
