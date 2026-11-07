@@ -13,12 +13,14 @@ Where the implementation stands against the plan in [TODO.md](TODO.md). TODO.md 
 | 2 | Folder view with thumbnail grid and fast scroll | Done in code (PR #6), CI green. Open: checks on the device and the performance check (2.6). |
 | 3 | Full-screen viewer, delete, share | Done in code (PR #9, #10), CI green. Open: checks on the device. |
 | – | Visual design from Claude Design (task 10.0) | Applied to the existing screens. Open: checks on the device. |
-| 4 | Settings: folder include/exclude list | Done in code; the CI checks pass locally in the devcontainer. Open: checks on the device. |
-| 5 | Timeline view | Done in code; the CI checks pass locally in the devcontainer. Open: checks on the device. |
-| 6 | Map view | Done in code; the CI checks pass locally in the devcontainer. Open: checks on the device. |
-| 7 | Editor | Done in code; the CI checks pass locally in the devcontainer. Open: checks on the device. |
-| 8 | Nextcloud login and remote viewer | Done in code; the CI checks pass locally in the devcontainer. Open: checks on the device with a real server. |
-| 9 | Upload status and hand-off to the Nextcloud app | Done in code; the CI checks pass locally in the devcontainer. Open: checks on the device with a real server and the Nextcloud app. |
+| 4 | Settings (folder rules, replaced by D55) | Done in code (PR #15), CI green. Open: checks on the device. |
+| 5 | Timeline view | Done in code (PR #16), CI green. Open: checks on the device. |
+| 6 | Map view | Done in code (PR #19), CI green. Open: checks on the device. |
+| 7 | Editor | Done in code (PR #17), CI green. Open: checks on the device. |
+| 8 | Nextcloud login and remote viewer | Done in code (PR #18), CI green. Open: checks on the device with a real server. |
+| 9 | Upload status and hand-off to the Nextcloud app | Done in code (PR #20), CI green. Open: checks on the device with a real server and the Nextcloud app. |
+| – | Login in the default browser (D54) | Done in code (PR #23), CI green. Open: checks on the device with a real server. |
+| – | Added folders and virtual folders (D55) | Done in code (PR #24), CI green. Open: checks on the device. |
 | 10 | Hardening and release | What could be done without a person is done. Open: benchmarks, profile, accessibility on the device, a signed build and the full manual pass. |
 
 ## What works now
@@ -45,7 +47,7 @@ Where the implementation stands against the plan in [TODO.md](TODO.md). TODO.md 
 - The viewer offers Edit for JPEG and PNG. The black editor has Rotate, Crop (Free, Original, 1:1, 4:3, 16:9), Scale (percent, width, height) and Draw (six colours), with undo and redo.
 - "Save as copy" creates `IMG_x_edited.jpg` in the same folder and opens it. "Overwrite original" asks the system first. Saves keep the source format and EXIF, with the orientation reset and new dimensions.
 - Scales and saves that do not fit in memory are refused with the required and available memory. Closing with changes asks first.
-- The Folders top bar opens Settings: Folders, Appearance, Nextcloud ("Not connected") and About & licences.
+- The Folders top bar opens Settings: Folders, Appearance, Map, Nextcloud ("Not connected") and About & licences.
 - Settings > Folders adds folders with the system picker and removes them; a change re-indexes after about 2 s. It also creates, edits and deletes virtual folders, which show the images of several folders together. After updating from an earlier build the app starts with no folders.
 - Appearance sets the theme mode, 3, 4 or 5 grid columns and the accent colour, applied live and kept across restarts.
 - 2318 tests run with the CI command (plain JVM, Robolectric, Compose UI).
@@ -104,17 +106,16 @@ These need the Pixel 10a or an API 37 emulator (`./gradlew connectedDebugAndroid
 ## Known workarounds and technical debt
 
 - The benchmark journeys (`Journeys.kt`) assume a populated folder list, but cannot drive the system folder picker. Add a folder with photos by hand before running them, and keep app data between runs; a build step that clears app data makes them fail with "Is a folder with photos added in Settings?". Not run since this change (D55).
-
 - Overwriting an image is not atomic, because MediaStore has no atomic replace: if the process dies during the short write, the image can be incomplete. Failures inside the process restore the original from a backup.
 - If photo location access is denied, GPS is lost from a saved image.
 - The editor's history does not survive process death.
 - Previews being downloaded during logout can still reach the image cache afterwards; a running move batch is not tied to one account; if the process dies right after logout, the password is not revoked on the server.
-- Map markers are not reachable with TalkBack, because osmdroid overlays are not exposed to it.
 - An upload still running when you return from the Nextcloud app only shows at the next periodic check, up to 6 hours later.
-- Map markers, crop handles and the pen canvas cannot be used with TalkBack.
+- Map markers, crop handles and the pen canvas cannot be used with TalkBack (osmdroid overlays are not exposed to it).
 - SonarCloud coverage only counts the tests CI runs, so adapters covered only by instrumented tests show as uncovered (D41).
+- The Android Gradle plugin and its lint tool bring libraries with known advisories (Bouncy Castle 1.80.2, Guava 33.4.0, jose4j 0.9.5, jdom2 2.0.6, commons-lang3 3.16.0, wire-runtime 6.4.0, logback-core 1.3.16). They run only at build time and are not in the APK; AGP 9.5.1 still has them. Dependabot lists them as development dependencies (D60); check again with each AGP update.
 - detekt 2.0 is an alpha release, because detekt 1.23 does not work with AGP 9 (D18).
 - Espresso is pinned to 3.7.0 for tests; the version pulled in by Compose UI test calls an API removed in SDK 37.
-- `failOnNoDiscoveredTests` is disabled, so modules without tests yet (features) pass.
+- `failOnNoDiscoveredTests` is disabled, because Hilt generates test sources even in test tasks that have no tests.
 - CI builds the devcontainer image on every run (about 6 minutes); caching the image would speed it up.
-- `IndexWorker` does not report progress yet; there is no indexing indicator in the UI, so the folder list briefly says "No photos found" during the first scan.
+- `IndexWorker` does not report progress yet; there is no indexing indicator in the UI, so the folder list briefly says "No photos in your folders" during the first scan.

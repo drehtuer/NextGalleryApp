@@ -18,6 +18,7 @@ No version is tagged yet. Builds call themselves 0.1.0.
   without dragging.
 - A release build: minified, signed with a local keystore if there is one, with the version from a Git tag.
 - Virtual folders: show the photos of several folders together, for example Camera, WhatsApp and Signal.
+- The documentation is published as a website on GitHub Pages with each release.
 
 ### Changed
 

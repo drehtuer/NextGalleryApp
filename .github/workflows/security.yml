@@ -1,0 +1,113 @@
+name: Security
+
+# Code scanning and dependency checks (D60). SonarCloud's code analysis runs in ci.yml (D41).
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Weekly, so new CodeQL queries and new advisories are found even without a push.
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: security-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+          - language: java-kotlin
+            build-mode: manual
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          queries: security-and-quality
+
+      # CodeQL has to watch the Kotlin compiler, so this build runs on the runner, not in the devcontainer, and with
+      # the build cache, configuration cache and Kotlin daemon off: every source file must really be compiled.
+      - if: matrix.build-mode == 'manual'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - if: matrix.build-mode == 'manual'
+        name: Install Android SDK platform 37
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
+
+      - if: matrix.build-mode == 'manual'
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        with:
+          cache-read-only: true
+
+      - if: matrix.build-mode == 'manual'
+        name: Build for CodeQL
+        run: >-
+          ./gradlew --no-daemon --no-build-cache --no-configuration-cache
+          -Pkotlin.compiler.execution.strategy=in-process
+          assembleDebug
+
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:${{ matrix.language }}
+
+  # Sends the resolved Gradle dependencies to GitHub's dependency graph, so Dependabot alerts and the dependency
+  # review cover the version catalog and all transitive dependencies.
+  dependency-submission:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'schedule' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install Android SDK platform 37
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" > /dev/null
+
+      # Only what ships in the app is scoped 'runtime': the release runtime classpath of the Android modules and the
+      # runtime classpath of the JVM modules, outside :benchmark and build-logic. Everything else (AGP, lint, detekt,
+      # test libraries) is 'development': Dependabot still reports it, but the dependency review below only fails
+      # on runtime dependencies (D60).
+      - uses: gradle/actions/dependency-submission@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        env:
+          DEPENDENCY_GRAPH_RUNTIME_INCLUDE_CONFIGURATIONS: "releaseRuntimeClasspath|runtimeClasspath"
+          DEPENDENCY_GRAPH_RUNTIME_EXCLUDE_PROJECTS: ":benchmark|:build-logic.*"
+
+  # On pull requests: fails if a change adds a dependency with a known vulnerability or a licence that GPL-3.0 cannot
+  # take (D27). The Gradle dependencies come from the submission above.
+  dependency-review:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: dependency-submission
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: moderate
+          fail-on-scopes: runtime
+          deny-licenses: GPL-2.0-only, AGPL-1.0-only, SSPL-1.0, BUSL-1.1
+          comment-summary-in-pr: on-failure
+          retry-on-snapshot-warnings: true

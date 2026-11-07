@@ -1,0 +1,59 @@
+name: Documentation
+
+# Publishes README.md and docs/ as the GitHub Pages site when a release is published, so the site always matches the
+# latest release. It can also be started by hand from the Actions tab (it then builds the chosen branch or tag).
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+# Only one deployment at a time; a running deployment is finished rather than cancelled.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Jekyll gets only the documentation: README.md as the start page, docs/ and the site config.
+      # Links to other repository files (LICENSE, .devcontainer/) point to GitHub at the released commit.
+      - name: Collect documentation
+        run: |
+          mkdir -p site
+          cp -r .github/pages/. site/
+          cp -r docs site/docs
+          cp README.md site/README.md
+          base="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/blob/${GITHUB_SHA}"
+          perl -pi -e 's{\]\((?!https?:|mailto:|#|docs/)([^)\s]+)\)}{]('"$base"'/$1)}g' site/README.md
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build with Jekyll
+        uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./site
+          destination: ./_site
+
+      - name: Upload site
+        uses: actions/upload-pages-artifact@v4
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
