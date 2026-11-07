@@ -56,12 +56,13 @@ Where the implementation stands against the plan in [TODO.md](TODO.md). TODO.md 
 
 These need the Pixel 10a or an API 37 emulator (`./gradlew connectedDebugAndroidTest`, see [README](../README.md#building)):
 
-- [ ] Install the debug build; grant full access → "No folders added"; add a folder with the system picker → it and its subfolders appear with the right image counts.
+- [x] Install the debug build; grant full access → "No folders added"; add a folder with the system picker → it and its subfolders appear with the right image counts.
 - [ ] Folder picker: check which folders Android really refuses (volume roots, the Download folder itself, `Android/data`, `Android/obb`; D55 says this from memory). An SD card folder and a subfolder of Download can be added and show images.
-- [ ] Paths in the query work on the real MediaStore, including a folder name with `_` or `%` (`MediaStoreScannerTest` covers plain paths): `connectedDebugAndroidTest`.
+- [ ] Paths in the query work on the real MediaStore with a folder name containing `_` or `%`. Plain paths pass in `MediaStoreScannerTest` on the phone.
 - [ ] Removing a folder takes its images out of all tabs and touches no file; adding it again brings them back, and it comes back in the virtual folders it was in.
 - [ ] Updating over an earlier build: the app starts with no folders and an empty timeline and map.
-- [ ] Virtual folder: create one from Camera and another folder; images are in date order across both; the viewer swipes through all of them; Select All selects all of them; the overview greys out images of other folders. Deleting all members' images hides it in the list but not in Settings. The stacked-folder icon looks right.
+- [x] Virtual folder: creating one and showing its images works.
+- [ ] Virtual folder details: images are in date order across both; the viewer swipes through all of them; Select All selects all of them; the overview greys out images of other folders. Deleting all members' images hides it in the list but not in Settings. The stacked-folder icon looks right.
 - [ ] Take or delete a photo → the folder's count changes within a few seconds.
 - [ ] Grant "select photos" → only the selected photos are counted; "Select more" updates the count.
 - [ ] Open a folder: thumbnails load, the orientation is correct, and an open grid updates after a change.
@@ -86,7 +87,8 @@ These need the Pixel 10a or an API 37 emulator (`./gradlew connectedDebugAndroid
 - [ ] Editor: a saved copy appears at once with correct orientation, dimensions and EXIF, including GPS. Overwrite: confirm and check that the viewer and thumbnail show the new image; decline and check that nothing changes.
 - [ ] Editor: a photo rotated by EXIF comes out upright; a Display P3 photo keeps its colours; check how Ultra HDR photos look after saving, since their gain map is dropped.
 - [ ] Editor: a very large scale shows the refusal message, with no crash; crop and draw gestures work, also in landscape.
-- [ ] Nextcloud, needs a real server: login in the default browser, including a return to the app after it was killed meanwhile (D54), also behind a reverse proxy or on a custom port (a server reporting another address is refused); LAN IP, `.local` and VPN/Tailscale addresses, and how a blocked connection fails without `ACCESS_LOCAL_NETWORK` (D39).
+- [x] Nextcloud: login in the default browser, on the owner's server.
+- [ ] Nextcloud, needs a real server: login with a return to the app after it was killed meanwhile (D54), behind a reverse proxy or on a custom port (a server reporting another address is refused); LAN IP, `.local` and VPN/Tailscale addresses, and how a blocked connection fails without `ACCESS_LOCAL_NETWORK` (D39).
 - [ ] Nextcloud, needs a real server: an accepted self-signed certificate with Certificate Transparency on (D40); move, conflict, replace and undo, including whether a replaced file lands in the trash bin; trash-bin restore; read-only shares disabled through real `oc:permissions`; logout removes the password from the server's security settings.
 - [ ] Nextcloud: the share sheet works with the temporary files; Telephoto zoom on originals with the progress bar; landscape.
 - [ ] Map: tiles load; pinch, two-finger drag and the world repetition work; the attribution is visible; markers show cover, border and count pill at the right size; the location dot looks right, in both themes.

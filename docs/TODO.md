@@ -447,7 +447,7 @@ _Depends on: Phases 1–9._
 - [x] Persistence with `AddedFolderCodec` and `VirtualFolderCodec`; `FolderSettingsRepository` to add, remove, create, update and delete.
 - [x] `TreeDocumentIds` parser; `rememberFolderPicker` with `OpenDocumentTree`, without a persistable URI permission.
 - [x] `AddedFolderMatcher` replaces `FolderRuleMatcher` and `ExcludePatterns`; dot folders below an added folder are left out.
-- [x] `MediaStoreQuery` puts the paths in the selection for full scans, changes and IDs; `MediaIndexer` makes no query for a volume without an added folder and deletes its rows. _The real MediaStore is only covered by `MediaStoreScannerTest`, which needs a device._
+- [x] `MediaStoreQuery` puts the paths in the selection for full scans, changes and IDs; `MediaIndexer` makes no query for a volume without an added folder and deletes its rows. _`MediaStoreScannerTest` passes on the phone with plain paths._
 - [x] `AddedFolderObserver` replaces `RuleChangeObserver`; `DeviceFolder` and `observeAllDeviceFolders` are gone.
 - [x] `MediaSource.VirtualFolder`, `ViewContext.VirtualFolder`, DAO and store queries over `bucket_id IN (...)`, which also replace the single-folder ones, optional route arguments, `FolderGridViewModel` for both kinds of folder.
 - [x] `FolderRepository.observeVirtualFolders()` with live cover and count.
