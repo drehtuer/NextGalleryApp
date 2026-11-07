@@ -13,6 +13,7 @@ import androidx.core.net.toUri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.withContext
 import net.drehtuer.nextgallery.core.common.DispatcherProvider
+import net.drehtuer.nextgallery.core.common.deleteIfPossible
 import net.drehtuer.nextgallery.core.data.edit.EncodedImage
 import net.drehtuer.nextgallery.core.data.edit.ImageFormat
 import net.drehtuer.nextgallery.core.data.edit.ImageRenderer
@@ -90,11 +91,11 @@ class BitmapImageRenderer @Inject constructor(
                 }
             }
         } catch (e: IOException) {
-            file.delete()
+            file.deleteIfPossible()
             throw e
         }
         if (!written) {
-            file.delete()
+            file.deleteIfPossible()
             throw IOException("Cannot encode the image")
         }
         EncodedImage(file)
