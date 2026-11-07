@@ -65,6 +65,25 @@ class OcsClientTest {
     }
 
     @Test
+    fun userId_bodyAtTheLimit_works() = runBlocking<Unit> {
+        val start = """{"ocs":{"data":{"id":"anna-id"}},"pad":""""
+        val end = """"}"""
+        val padding = "x".repeat(MAX_JSON_BYTES.toInt() - start.length - end.length)
+        server.enqueue(MockResponse().setBody(start + padding + end))
+
+        assertEquals("anna-id", client.userId(serverUrl, "anna", "pw"))
+    }
+
+    @Test
+    fun userId_bodyOverTheLimit_failsInsteadOfReadingIt() {
+        server.enqueue(MockResponse().setBody("x".repeat(MAX_JSON_BYTES.toInt() + 1)))
+
+        assertThrows(ResponseTooLargeException::class.java) {
+            runBlocking { client.userId(serverUrl, "anna", "pw") }
+        }
+    }
+
+    @Test
     fun revokeAppPassword_sendsDelete() = runBlocking<Unit> {
         server.enqueue(MockResponse())
 

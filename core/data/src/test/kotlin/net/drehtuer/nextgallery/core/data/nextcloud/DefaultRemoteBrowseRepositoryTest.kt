@@ -18,7 +18,7 @@ class DefaultRemoteBrowseRepositoryTest {
     private val webDav = mockk<WebDavClient>()
     private val cache = mockk<RemoteCacheStore>(relaxed = true)
     private val store = FakeAccountStore()
-    private val repository = DefaultRemoteBrowseRepository(store, testRunner(store), webDav, cache)
+    private val repository = DefaultRemoteBrowseRepository(testRunner(store), webDav, cache, testSession(store))
 
     private val image = RemoteItem("/P/a.jpg", "a.jpg", false, mime = "image/jpeg", lastModifiedMillis = 1)
     private val newerImage = RemoteItem("/P/b.png", "b.png", false, mime = "image/png", lastModifiedMillis = 2)
@@ -112,5 +112,57 @@ class DefaultRemoteBrowseRepositoryTest {
         serverReturns()
 
         assertTrue(repository.list("P/").toList().all { it.path == "/P" })
+    }
+
+    @Test
+    fun list_loggedOutDuringTheCall_storesNothing() = runTest {
+        coEvery { cache.get("/P") } returns emptyList()
+        coEvery { webDav.list(TEST_ACCOUNT, "/P") } coAnswers {
+            store.account.value = null
+            RemoteFolder(null, listOf(image))
+        }
+
+        repository.list("/P").toList()
+
+        coVerify(exactly = 0) { cache.replaceFolder(any(), any()) }
+    }
+
+    @Test
+    fun list_loggedOutDuringTheCall_endsWithNotLoggedIn() = runTest {
+        coEvery { cache.get("/P") } returns listOf(image)
+        coEvery { webDav.list(TEST_ACCOUNT, "/P") } coAnswers {
+            store.account.value = null
+            RemoteFolder(null, listOf(image))
+        }
+
+        val last = repository.list("/P").toList().last()
+
+        assertEquals(RemoteListing("/P", emptyList(), error = AppError.NotLoggedIn), last)
+    }
+
+    @Test
+    fun list_anotherAccountDuringTheCall_storesNothing() = runTest {
+        coEvery { cache.get("/P") } returns emptyList()
+        coEvery { webDav.list(TEST_ACCOUNT, "/P") } coAnswers {
+            store.account.value = TEST_ACCOUNT.copy(userId = "someone-else")
+            RemoteFolder(null, listOf(image))
+        }
+
+        repository.list("/P").toList()
+
+        coVerify(exactly = 0) { cache.replaceFolder(any(), any()) }
+    }
+
+    @Test
+    fun list_failsAfterTheAccountLeft_doesNotShowItsCachedItems() = runTest {
+        coEvery { cache.get("/P") } returns listOf(image)
+        coEvery { webDav.list(TEST_ACCOUNT, "/P") } coAnswers {
+            store.account.value = null
+            throw IOException("cancelled")
+        }
+
+        val last = repository.list("/P").toList().last()
+
+        assertEquals(RemoteListing("/P", emptyList(), error = AppError.NotLoggedIn), last)
     }
 }

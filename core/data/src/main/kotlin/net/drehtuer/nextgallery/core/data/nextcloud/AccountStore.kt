@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
@@ -27,7 +26,6 @@ import net.drehtuer.nextgallery.core.model.NextcloudAccount
 import net.drehtuer.nextgallery.core.nextcloud.CredentialsProvider
 import java.io.File
 import java.io.IOException
-import java.security.GeneralSecurityException
 import java.util.Base64
 import javax.inject.Inject
 
@@ -70,7 +68,10 @@ class DefaultAccountStore(
         return Base64.getEncoder().encodeToString(cipher.encrypt(json.toByteArray()))
     }
 
-    /** Data that can't be decrypted, e.g. after the Keystore key was lost, reads as "not signed in". */
+    /**
+     * Data that can't be decrypted or parsed reads as "not signed in", whatever the reason: besides the lost key and
+     * bad data, the Keystore and its providers also fail with unchecked exceptions, and this must not crash the app.
+     */
     private fun decode(stored: String): NextcloudAccount? = try {
         val json = Json.parseToJsonElement(String(cipher.decrypt(Base64.getDecoder().decode(stored)))).jsonObject
         NextcloudAccount(
@@ -79,13 +80,9 @@ class DefaultAccountStore(
             userId = json.getValue(USER_ID).jsonPrimitive.content,
             appPassword = json.getValue(APP_PASSWORD).jsonPrimitive.content,
         )
-    } catch (_: GeneralSecurityException) {
-        null
-    } catch (_: SerializationException) {
-        null
-    } catch (_: IllegalArgumentException) {
-        null
-    } catch (_: NoSuchElementException) {
+    } catch (
+        @Suppress("TooGenericExceptionCaught") _: Exception,
+    ) {
         null
     }
 

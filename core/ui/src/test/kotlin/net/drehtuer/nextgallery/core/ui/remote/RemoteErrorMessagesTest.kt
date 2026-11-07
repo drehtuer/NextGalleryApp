@@ -73,4 +73,9 @@ class RemoteErrorMessagesTest {
     fun remoteMessage_server() {
         assertEquals(R.string.core_ui_remote_error_server, AppError.Server(500).remoteMessage())
     }
+
+    @Test
+    fun remoteMessage_serverMismatch_saysSo() {
+        assertEquals(R.string.core_ui_remote_error_server_mismatch, AppError.ServerMismatch.remoteMessage())
+    }
 }

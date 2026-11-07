@@ -2,6 +2,7 @@ package net.drehtuer.nextgallery.core.data.nextcloud
 
 import io.mockk.coEvery
 import io.mockk.coVerify
+import io.mockk.coVerifyOrder
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import net.drehtuer.nextgallery.core.common.AppError
@@ -262,6 +263,21 @@ class DefaultRemoteFileOperationsTest {
     }
 
     @Test
+    fun undoMove_goesBackwards() = runTest {
+        val first = RemoteItem("/A/x.jpg", "x.jpg", false)
+        val second = RemoteItem("/B/x.jpg", "x.jpg", false)
+
+        operations.undoMove(
+            listOf(RemoteMoveResult.Moved(first, "/C/x.jpg"), RemoteMoveResult.Replaced(second, "/C/x.jpg")),
+        )
+
+        coVerifyOrder {
+            webDav.move(TEST_ACCOUNT, "/C/x.jpg", "/B/x.jpg", false)
+            webDav.move(TEST_ACCOUNT, "/C/x.jpg", "/A/x.jpg", false)
+        }
+    }
+
+    @Test
     fun delete_sendsDeleteForEachItem() = runTest {
         val result = operations.delete(listOf(item))
 
@@ -319,6 +335,38 @@ class DefaultRemoteFileOperationsTest {
         val same = trashEntry("IMG_1.jpg.d5", 5, fileId = 42)
         val newer = trashEntry("IMG_1.jpg.d6", 6, fileId = 7)
         coEvery { webDav.listTrash(TEST_ACCOUNT) } returns listOf(same, newer)
+
+        operations.undoDelete(listOf(item))
+
+        coVerify { webDav.restore(TEST_ACCOUNT, same) }
+    }
+
+    @Test
+    fun undoDelete_samePathButAnotherFileId_reportsNotFoundAndRestoresNothing() = runTest {
+        coEvery { webDav.listTrash(TEST_ACCOUNT) } returns listOf(trashEntry("IMG_1.jpg.d6", 6, fileId = 7))
+
+        val result = operations.undoDelete(listOf(item))
+
+        assertEquals(listOf(item to AppError.NotFound), result.failures)
+        coVerify(exactly = 0) { webDav.restore(any(), any()) }
+    }
+
+    @Test
+    fun undoDelete_itemWithoutFileId_usesTheNewestEntryOfThatPath() = runTest {
+        val older = trashEntry("IMG_1.jpg.d5", 5, fileId = 7)
+        val newer = trashEntry("IMG_1.jpg.d6", 6, fileId = 8)
+        coEvery { webDav.listTrash(TEST_ACCOUNT) } returns listOf(older, newer)
+
+        operations.undoDelete(listOf(item.copy(fileId = null)))
+
+        coVerify { webDav.restore(TEST_ACCOUNT, newer) }
+    }
+
+    @Test
+    fun undoDelete_entryWithoutFileId_isPreferredToNothingButNotToTheSameFile() = runTest {
+        val unknown = trashEntry("IMG_1.jpg.d6", 6)
+        val same = trashEntry("IMG_1.jpg.d5", 5, fileId = 42)
+        coEvery { webDav.listTrash(TEST_ACCOUNT) } returns listOf(unknown, same)
 
         operations.undoDelete(listOf(item))
 

@@ -77,4 +77,14 @@ class NextcloudErrorMapperTest {
 
         assertEquals(AppError.Unknown(error), NextcloudErrorMapper.map(error))
     }
+
+    @Test
+    fun map_serverMismatch_isItsOwnError() {
+        assertEquals(AppError.ServerMismatch, NextcloudErrorMapper.map(ServerMismatchException()))
+    }
+
+    @Test
+    fun map_responseTooLarge_isAServerProblem() {
+        assertEquals(AppError.Server(413), NextcloudErrorMapper.map(ResponseTooLargeException()))
+    }
 }

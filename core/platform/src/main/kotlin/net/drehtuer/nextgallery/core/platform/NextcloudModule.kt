@@ -7,7 +7,11 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import net.drehtuer.nextgallery.core.data.nextcloud.AccountStore
+import net.drehtuer.nextgallery.core.data.nextcloud.AppPasswordRevoker
 import net.drehtuer.nextgallery.core.data.nextcloud.ConnectivitySource
 import net.drehtuer.nextgallery.core.data.nextcloud.DataStoreTrustedCertificateStore
 import net.drehtuer.nextgallery.core.data.nextcloud.DefaultAccountStore
@@ -104,6 +108,11 @@ abstract class NextcloudModule {
 
         @Provides
         fun provideOcsClient(module: NextcloudHttpModule) = OcsClient(module.unauthenticatedNoRedirects)
+
+        /** Its own scope: a revoke goes on after the screen that asked for it has closed. */
+        @Provides
+        @Singleton
+        fun provideRevoker(ocs: OcsClient) = AppPasswordRevoker(ocs, CoroutineScope(SupervisorJob() + Dispatchers.IO))
 
         @Provides
         fun provideNormalizer(config: NextcloudHttpConfig) = ServerUrlNormalizer(config.allowCleartext)

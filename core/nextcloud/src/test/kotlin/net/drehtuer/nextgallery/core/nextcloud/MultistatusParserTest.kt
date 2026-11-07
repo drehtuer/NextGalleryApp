@@ -8,6 +8,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
+import java.io.InputStream
 
 class MultistatusParserTest {
     private val parser = MultistatusParser()
@@ -201,4 +202,86 @@ class MultistatusParserTest {
 
         assertTrue(parser.parseTrash(xml.byteInputStream(), trashRoot).isEmpty())
     }
+
+    @Test
+    fun parseFiles_doctype_failsTheParse() {
+        val xml = """<?xml version="1.0"?><!DOCTYPE d:multistatus [<!ENTITY a "aaaa">]>""" +
+            """<d:multistatus xmlns:d="DAV:"></d:multistatus>"""
+
+        assertThrows(IOException::class.java) { parse(xml) }
+    }
+
+    @Test
+    fun parseFiles_doctypeAfterAComment_failsTheParse() {
+        val xml = """<!-- c --><!DOCTYPE foo><d:multistatus xmlns:d="DAV:"></d:multistatus>"""
+
+        assertThrows(IOException::class.java) { parse(xml) }
+    }
+
+    @Test
+    fun parseFiles_commentBeforeTheRoot_isFine() {
+        val xml =
+            """<?xml version="1.0"?><!-- c -->""" +
+                multistatus(response(filePath, "<d:resourcetype/>")).substringAfter("?>")
+
+        assertEquals("/Photos/IMG_1.jpg", parse(xml).single().path)
+    }
+
+    @Test
+    fun parseFiles_aFolderOfManyThousands_fitsTheLimits() {
+        val xml = multistatus(*Array(50_000) { realisticEntry(it) })
+
+        assertEquals(50_000, parse(xml).size)
+    }
+
+    @Test
+    fun parseFiles_moreBytesThanTheLimit_failsWithANormalError() {
+        val limited = MultistatusParser(MultistatusReader(maxBytes = 1_000))
+        val xml = multistatus(*Array(100) { realisticEntry(it) })
+
+        assertThrows(ResponseTooLargeException::class.java) { limited.parseFiles(xml.byteInputStream(), root) }
+    }
+
+    @Test
+    fun parseFiles_moreResponsesThanTheLimit_failsWithANormalError() {
+        val limited = MultistatusParser(MultistatusReader(maxResponses = 2))
+        val xml = multistatus(*Array(3) { realisticEntry(it) })
+
+        assertThrows(ResponseTooLargeException::class.java) { limited.parseFiles(xml.byteInputStream(), root) }
+    }
+
+    @Test
+    fun parseFiles_exactlyTheLimitOfResponses_works() {
+        val limited = MultistatusParser(MultistatusReader(maxResponses = 2))
+        val xml = multistatus(*Array(2) { realisticEntry(it) })
+
+        assertEquals(2, limited.parseFiles(xml.byteInputStream(), root).size)
+    }
+
+    @Test
+    fun parseFiles_outOfMemory_failsWithANormalError() {
+        val stream = object : InputStream() {
+            override fun read(): Int = throw OutOfMemoryError()
+        }
+
+        assertThrows(ResponseTooLargeException::class.java) { parser.parseFiles(stream, root) }
+    }
+
+    @Test
+    fun read_unknownProperties_areNotKept() {
+        val xml = multistatus(response(filePath, "<x:one xmlns:x=\"x\">a</x:one><oc:fileid>42</oc:fileid>"))
+
+        assertEquals(mapOf("fileid" to "42"), MultistatusReader().read(xml.byteInputStream()).single().properties)
+    }
+
+    /** What a real server sends per file. */
+    private fun realisticEntry(index: Int) = response(
+        "/remote.php/dav/files/anna/Photos/2024/IMG_20240101_$index.jpg",
+        """<d:resourcetype/><d:getcontentlength>1234567</d:getcontentlength>
+        <d:getcontenttype>image/jpeg</d:getcontenttype><d:getetag>"0123456789abcdef"</d:getetag>
+        <d:getlastmodified>Wed, 21 Oct 2026 07:28:00 GMT</d:getlastmodified><oc:fileid>$index</oc:fileid>
+        <oc:checksums><oc:checksum>SHA1:0123456789abcdef0123456789abcdef01234567</oc:checksum></oc:checksums>
+        <oc:permissions>RGDNVW</oc:permissions><nc:has-preview>true</nc:has-preview>""",
+        "<nc:contained-file-count/>",
+    )
 }

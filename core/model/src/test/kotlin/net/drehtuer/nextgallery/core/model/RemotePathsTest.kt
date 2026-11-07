@@ -70,4 +70,14 @@ class RemotePathsTest {
     fun isValidName_withBackslash_isFalse() {
         assertFalse(RemotePaths.isValidName("a\\b"))
     }
+
+    @Test
+    fun isValidName_withControlCharacter_isFalse() {
+        assertFalse(RemotePaths.isValidName("a\u0000b"))
+    }
+
+    @Test
+    fun isValidName_withLineBreak_isFalse() {
+        assertFalse(RemotePaths.isValidName("a\nb"))
+    }
 }

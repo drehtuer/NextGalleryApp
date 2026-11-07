@@ -1,7 +1,9 @@
 package net.drehtuer.nextgallery.core.nextcloud
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ServerUrlNormalizerTest {
@@ -82,5 +84,30 @@ class ServerUrlNormalizerTest {
     @Test
     fun normalize_embeddedCredentials_areRejected() {
         assertThrows(InvalidServerUrlException::class.java) { normalizer.normalize("https://a:b@cloud.example.com") }
+    }
+
+    @Test
+    fun isSameOrigin_sameSchemeHostAndPort_isTrue() {
+        assertTrue(isSameOrigin("https://CLOUD.example.com:443/a", "https://cloud.example.com/b"))
+    }
+
+    @Test
+    fun isSameOrigin_anotherHost_isFalse() {
+        assertFalse(isSameOrigin("https://a.example.com", "https://b.example.com"))
+    }
+
+    @Test
+    fun isSameOrigin_anotherPort_isFalse() {
+        assertFalse(isSameOrigin("https://a.example.com", "https://a.example.com:8443"))
+    }
+
+    @Test
+    fun isSameOrigin_anotherScheme_isFalse() {
+        assertFalse(isSameOrigin("https://a.example.com", "http://a.example.com"))
+    }
+
+    @Test
+    fun isSameOrigin_notAUrl_isFalse() {
+        assertFalse(isSameOrigin("https://a.example.com", "nonsense"))
     }
 }

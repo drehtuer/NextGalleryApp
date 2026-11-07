@@ -27,3 +27,13 @@ internal suspend fun Call.await(): Response = suspendCancellableCoroutine { cont
 internal fun Response.requireSuccess() {
     if (!isSuccessful) throw NextcloudHttpException(code)
 }
+
+/** A login or OCS response has a few short fields; this is far more than any of them needs. */
+internal const val MAX_JSON_BYTES = 1024L * 1024L
+
+/** The body as text. Reads no more than [maxBytes] (after decompression), and fails if there is more. */
+internal fun Response.bodyAsLimitedString(maxBytes: Long = MAX_JSON_BYTES): String {
+    val limited = peekBody(maxBytes + 1)
+    if (limited.contentLength() > maxBytes) throw ResponseTooLargeException()
+    return limited.string()
+}

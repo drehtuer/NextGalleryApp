@@ -3,11 +3,15 @@ package net.drehtuer.nextgallery.core.data.nextcloud
 import app.cash.turbine.test
 import io.mockk.coEvery
 import io.mockk.coVerify
-import io.mockk.coVerifyOrder
 import io.mockk.mockk
-import io.mockk.verify
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import net.drehtuer.nextgallery.core.common.AppError
 import net.drehtuer.nextgallery.core.model.RemoteItem
@@ -26,6 +30,7 @@ import org.junit.Test
 import java.io.IOException
 import java.net.InetAddress
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class DefaultNextcloudAccountRepositoryTest {
     private val loginFlow = mockk<LoginFlowV2Client>()
     private val ocs = mockk<OcsClient>(relaxed = true)
@@ -44,7 +49,11 @@ class DefaultNextcloudAccountRepositoryTest {
         loginFlow = loginFlow,
         ocs = ocs,
         accounts = store,
-        wiper = RemoteDataWiper(cache, images, shares, connections),
+        session = AccountSession(
+            store,
+            RemoteDataWiper(cache, images, shares, connections),
+            AppPasswordRevoker(ocs, CoroutineScope(Dispatchers.Unconfined)),
+        ),
         localNetwork = networkPolicy,
     )
 
@@ -132,23 +141,94 @@ class DefaultNextcloudAccountRepositoryTest {
     }
 
     @Test
-    fun login_sameAccountAgain_keepsTheCache() = runTest {
-        store.account.value = TEST_ACCOUNT.copy(appPassword = "old")
+    fun login_success_doesNotRevokeTheNewPassword() = runTest {
         loginSucceeds()
 
         repository().login("cloud.example.com").toList()
 
-        coVerify(exactly = 0) { cache.clear() }
+        coVerify(exactly = 0) { ocs.revokeAppPassword(any(), any(), "app-password") }
     }
 
     @Test
-    fun login_anotherAccount_wipesTheCache() = runTest {
-        store.account.value = TEST_ACCOUNT.copy(userId = "someone-else")
-        loginSucceeds()
+    fun login_userIdFails_revokesTheUnusedPassword() = runTest {
+        coEvery { loginFlow.start(any()) } returns session
+        coEvery { loginFlow.poll(session) } returns flowResult
+        coEvery { ocs.userId(any(), any(), any()) } throws IOException("gone")
 
         repository().login("cloud.example.com").toList()
 
-        coVerify { cache.clear() }
+        coVerify { ocs.revokeAppPassword("https://cloud.example.com", "anna", "app-password") }
+    }
+
+    @Test
+    fun login_cancelledWhileFetchingTheUserId_revokesTheUnusedPassword() = runTest {
+        coEvery { loginFlow.start(any()) } returns session
+        coEvery { loginFlow.poll(session) } returns flowResult
+        coEvery { ocs.userId(any(), any(), any()) } coAnswers { awaitCancellation() }
+        val login =
+            launch(UnconfinedTestDispatcher(testScheduler)) { repository().login("cloud.example.com").collect {} }
+
+        login.cancel()
+        login.join()
+
+        coVerify { ocs.revokeAppPassword("https://cloud.example.com", "anna", "app-password") }
+    }
+
+    @Test
+    fun login_userIdFailsAndThePasswordIsAlreadyInUse_doesNotRevokeIt() = runTest {
+        store.account.value = TEST_ACCOUNT
+        coEvery { loginFlow.start(any()) } returns session
+        coEvery { loginFlow.poll(session) } returns flowResult
+        coEvery { ocs.userId(any(), any(), any()) } throws IOException("gone")
+
+        repository().login("cloud.example.com").toList()
+
+        coVerify(exactly = 0) { ocs.revokeAppPassword(any(), any(), any()) }
+    }
+
+    @Test
+    fun login_expired_hasNothingToRevoke() = runTest {
+        coEvery { loginFlow.start(any()) } returns session
+        coEvery { loginFlow.poll(session) } throws LoginExpiredException()
+
+        repository().login("cloud.example.com").toList()
+
+        coVerify(exactly = 0) { ocs.revokeAppPassword(any(), any(), any()) }
+    }
+
+    @Test
+    fun login_responseNamesAnotherHost_failsWithAClearErrorAndStoresNothing() = runTest {
+        coEvery { loginFlow.start(any()) } returns session
+        coEvery { loginFlow.poll(session) } returns flowResult.copy(serverUrl = "https://elsewhere.example.com")
+
+        val last = repository().login("cloud.example.com").toList().last()
+
+        assertEquals(LoginState.Failed(AppError.ServerMismatch), last)
+        assertNull(store.account.value)
+    }
+
+    @Test
+    fun login_responseNamesAnotherHost_neverSendsThePasswordThere() = runTest {
+        coEvery { loginFlow.start(any()) } returns session
+        coEvery { loginFlow.poll(session) } returns flowResult.copy(serverUrl = "https://elsewhere.example.com")
+
+        repository().login("cloud.example.com").toList()
+
+        coVerify(exactly = 0) { ocs.userId("https://elsewhere.example.com", any(), any()) }
+        coVerify(exactly = 0) { ocs.revokeAppPassword("https://elsewhere.example.com", any(), any()) }
+        coVerify { ocs.revokeAppPassword("https://cloud.example.com", "anna", "app-password") }
+    }
+
+    @Test
+    fun login_responseOnTheSameHostWithAPath_isAccepted() = runTest {
+        val withPath = flowResult.copy(serverUrl = "https://cloud.example.com/nextcloud")
+        coEvery { loginFlow.start(any()) } returns session
+        coEvery { loginFlow.poll(session) } returns withPath
+        coEvery { ocs.userId("https://cloud.example.com/nextcloud", "anna", "app-password") } returns "anna-id"
+
+        repository().login("cloud.example.com").toList()
+
+        assertEquals("https://cloud.example.com/nextcloud", store.account.value?.serverUrl)
     }
 
     @Test
@@ -166,82 +246,12 @@ class DefaultNextcloudAccountRepositoryTest {
     }
 
     @Test
-    fun logout_revokesTheAppPassword() = runTest {
-        store.account.value = TEST_ACCOUNT
-
-        repository().logout()
-
-        coVerify { ocs.revokeAppPassword("https://cloud.example.com", "anna", "app-password") }
-    }
-
-    @Test
-    fun logout_revokesBeforeClearing() = runTest {
-        val spyStore = mockk<AccountStore>(relaxed = true)
-        io.mockk.every { spyStore.observeAccount() } returns kotlinx.coroutines.flow.flowOf(TEST_ACCOUNT)
-        val repository = DefaultNextcloudAccountRepository(
-            ServerUrlNormalizer(false),
-            loginFlow,
-            ocs,
-            spyStore,
-            RemoteDataWiper(cache, images, shares, connections),
-            policy,
-        )
-
-        repository.logout()
-
-        coVerifyOrder {
-            ocs.revokeAppPassword(any(), any(), any())
-            spyStore.clear()
-        }
-    }
-
-    @Test
-    fun logout_clearsTheAccount() = runTest {
+    fun logout_endsLoggedOut() = runTest {
         store.account.value = TEST_ACCOUNT
 
         repository().logout()
 
         assertNull(store.account.value)
-    }
-
-    @Test
-    fun logout_clearsCachesAndConnections() = runTest {
-        store.account.value = TEST_ACCOUNT
-
-        repository().logout()
-
-        coVerify { cache.clear() }
-        coVerify { images.clear() }
-        verify { shares.clear() }
-        verify { connections.evictConnections() }
-    }
-
-    @Test
-    fun logout_serverUnreachable_stillClearsEverything() = runTest {
-        store.account.value = TEST_ACCOUNT
-        coEvery { ocs.revokeAppPassword(any(), any(), any()) } throws IOException("offline")
-
-        repository().logout()
-
-        assertNull(store.account.value)
-        coVerify { cache.clear() }
-    }
-
-    @Test
-    fun logout_oneCacheFails_stillClearsTheOthers() = runTest {
-        store.account.value = TEST_ACCOUNT
-        coEvery { cache.clear() } throws IOException("disk")
-
-        repository().logout()
-
-        coVerify { images.clear() }
-    }
-
-    @Test
-    fun logout_notLoggedIn_sendsNothing() = runTest {
-        repository().logout()
-
-        coVerify(exactly = 0) { ocs.revokeAppPassword(any(), any(), any()) }
     }
 
     @Test

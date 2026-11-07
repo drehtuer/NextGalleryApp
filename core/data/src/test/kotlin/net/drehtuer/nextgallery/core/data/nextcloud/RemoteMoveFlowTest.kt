@@ -6,6 +6,8 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import net.drehtuer.nextgallery.core.common.AppError
 import net.drehtuer.nextgallery.core.model.RemoteItem
+import net.drehtuer.nextgallery.core.nextcloud.NextcloudHttpException
+import net.drehtuer.nextgallery.core.nextcloud.WebDavClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -120,5 +122,73 @@ class RemoteMoveFlowTest {
         moves(a, ConflictPolicy.ASK, failed)
 
         assertEquals(RemoteMoveStep.Finished(listOf(failed)), flow.start(listOf(a), "/B"))
+    }
+
+    @Test
+    fun resolve_replaceForAllAndATargetThisMoveBroughtThere_asksAgain() = runTest {
+        val first = RemoteItem("/A/x.jpg", "x.jpg", false)
+        val second = RemoteItem("/B/x.jpg", "x.jpg", false)
+        moves(a, ConflictPolicy.ASK, RemoteMoveResult.Conflict(a, existing))
+        moves(a, ConflictPolicy.REPLACE, RemoteMoveResult.Replaced(a, "/B/a.jpg"))
+        moves(first, ConflictPolicy.REPLACE, RemoteMoveResult.Moved(first, "/B/x.jpg"))
+        moves(second, ConflictPolicy.ASK, RemoteMoveResult.Conflict(second, null))
+        flow.start(listOf(a, first, second), "/B")
+
+        val step = flow.resolve(ConflictPolicy.REPLACE, applyToAll = true)
+
+        assertEquals(RemoteMoveStep.Conflict(second, null, remaining = 0), step)
+    }
+
+    /** The server's files for the /A/x.jpg, /B/x.jpg → /C example, with the real operations on top. */
+    private class ServerFolders {
+        val files = mutableMapOf(
+            "/A/old.jpg" to "new content",
+            "/C/old.jpg" to "content that was there",
+            "/A/x.jpg" to "x from A",
+            "/B/x.jpg" to "x from B",
+        )
+        private val webDav = mockk<WebDavClient> {
+            coEvery { move(any(), any(), any(), any()) } coAnswers {
+                val (from, to) = arg<String>(1) to arg<String>(2)
+                if (to in files && !arg<Boolean>(3)) throw NextcloudHttpException(412)
+                files[to] = files.remove(from) ?: throw NextcloudHttpException(404)
+            }
+            coEvery { stat(any(), any()) } coAnswers {
+                val path = arg<String>(1)
+                if (path in files) RemoteItem(path, path.substringAfterLast('/'), false) else null
+            }
+        }
+        val flow = RemoteMoveFlow(DefaultRemoteFileOperations(testRunner(), webDav))
+    }
+
+    private val old = RemoteItem("/A/old.jpg", "old.jpg", false)
+    private val fromA = RemoteItem("/A/x.jpg", "x.jpg", false)
+    private val fromB = RemoteItem("/B/x.jpg", "x.jpg", false)
+
+    @Test
+    fun acrossFolders_replaceForAll_doesNotSilentlyReplaceAnImageOfThisMove() = runTest {
+        val server = ServerFolders()
+        server.flow.start(listOf(old, fromA, fromB), "/C")
+
+        val step = server.flow.resolve(ConflictPolicy.REPLACE, applyToAll = true)
+
+        assertEquals(fromB, (step as RemoteMoveStep.Conflict).item)
+        assertEquals("x from A", server.files["/C/x.jpg"])
+        assertEquals("x from B", server.files["/B/x.jpg"])
+    }
+
+    @Test
+    fun acrossFolders_undoAfterAskedReplace_putsTheImageBackWhereItCameFrom() = runTest {
+        val server = ServerFolders()
+        server.flow.start(listOf(old, fromA, fromB), "/C")
+        server.flow.resolve(ConflictPolicy.REPLACE, applyToAll = true)
+        server.flow.resolve(ConflictPolicy.REPLACE, applyToAll = false)
+
+        val result = server.flow.undo()
+
+        assertEquals("x from B", server.files["/B/x.jpg"])
+        assertEquals("new content", server.files["/A/old.jpg"])
+        // What was replaced is gone from this folder; it can't come back, and that is reported, not hidden.
+        assertEquals(listOf(fromA to AppError.NotFound), result.failures)
     }
 }

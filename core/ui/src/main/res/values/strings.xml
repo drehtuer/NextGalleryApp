@@ -41,6 +41,7 @@
     <string name="core_ui_remote_error_conflict">Something with this name already exists.</string>
     <string name="core_ui_remote_error_local_network">Can\'t reach this server on your local network. Allow NextGallery to use the local network in the app settings.</string>
     <string name="core_ui_remote_error_invalid_url">Enter a valid https address, such as cloud.example.com.</string>
+    <string name="core_ui_remote_error_server_mismatch">This server gave a different address from the one you entered, so you were not signed in. Check the address you entered.</string>
     <string name="core_ui_remote_error_login_expired">Signing in took too long. Please try again.</string>
     <string name="core_ui_remote_error_invalid_name">This name can\'t be used.</string>
     <string name="core_ui_remote_error_certificate">Not connected, because the server\'s certificate isn\'t trusted.</string>
