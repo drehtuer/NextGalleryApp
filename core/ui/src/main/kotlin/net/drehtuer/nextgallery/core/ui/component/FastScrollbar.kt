@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -30,10 +31,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.launch
 import net.drehtuer.nextgallery.core.common.ScrollbarMath
+import net.drehtuer.nextgallery.core.ui.R
 import net.drehtuer.nextgallery.core.ui.theme.NextGalleryTheme
 import kotlin.math.roundToInt
 
@@ -61,6 +65,7 @@ fun FastScrollbar(
     val currentItemCount by rememberUpdatedState(itemCount)
     val currentVisibleCount by rememberUpdatedState(visibleCount)
     val currentLabel by rememberUpdatedState(label)
+    val scope = rememberCoroutineScope()
     // Derived, so that scrolling only recomposes this when the thumb or the label really change.
     val fraction by remember(state) {
         derivedStateOf {
@@ -88,28 +93,50 @@ fun FastScrollbar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             labelText?.let { ScrollbarLabel(it) }
-            Box(
-                Modifier
-                    .size(dimensions.scrollbarTouchWidth, dimensions.scrollbarThumbHeight)
-                    .testTag(FAST_SCROLLBAR_THUMB_TAG)
-                    .draggable(
-                        orientation = Orientation.Vertical,
-                        state = rememberDraggableState { delta ->
-                            dragFraction = ((dragFraction ?: fraction) + delta / travelPx).coerceIn(0f, 1f)
-                        },
-                        onDragStarted = { dragFraction = fraction },
-                        onDragStopped = { dragFraction = null },
-                    ),
-            ) {
-                Box(
-                    Modifier
-                        .align(Alignment.CenterEnd)
-                        .fillMaxHeight()
-                        .width(dimensions.scrollbarThumbWidth)
-                        .background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small),
-                )
-            }
+            ScrollbarThumb(
+                modifier = Modifier.scrollbarSemantics(
+                    description = stringResource(R.string.core_ui_scroll_position),
+                    fraction = { fraction },
+                    positionText = { currentLabel(state.firstVisibleItemIndex) },
+                    onScrollTo = { target ->
+                        val index = ScrollbarMath.indexForFraction(target, currentItemCount, currentVisibleCount)
+                        scope.launch { state.scrollToItem(index) }
+                    },
+                ),
+                onDragStarted = { dragFraction = fraction },
+                onDrag = { delta -> dragFraction = ((dragFraction ?: fraction) + delta / travelPx).coerceIn(0f, 1f) },
+                onDragStopped = { dragFraction = null },
+            )
         }
+    }
+}
+
+@Composable
+private fun ScrollbarThumb(
+    onDragStarted: () -> Unit,
+    onDrag: (delta: Float) -> Unit,
+    onDragStopped: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val dimensions = NextGalleryTheme.dimensions
+    Box(
+        modifier
+            .size(dimensions.scrollbarTouchWidth, dimensions.scrollbarThumbHeight)
+            .testTag(FAST_SCROLLBAR_THUMB_TAG)
+            .draggable(
+                orientation = Orientation.Vertical,
+                state = rememberDraggableState(onDrag),
+                onDragStarted = { onDragStarted() },
+                onDragStopped = { onDragStopped() },
+            ),
+    ) {
+        Box(
+            Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .width(dimensions.scrollbarThumbWidth)
+                .background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small),
+        )
     }
 }
 

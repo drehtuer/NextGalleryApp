@@ -19,12 +19,15 @@ import kotlinx.coroutines.launch
 import net.drehtuer.nextgallery.core.data.media.MediaActionsRepository
 import net.drehtuer.nextgallery.core.data.media.MediaRepository
 import net.drehtuer.nextgallery.core.data.media.TrashFlow
+import net.drehtuer.nextgallery.core.data.upload.UploadHandoffRepository
 import net.drehtuer.nextgallery.core.model.ImageDetails
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
 import net.drehtuer.nextgallery.core.model.MediaSource
 import net.drehtuer.nextgallery.core.model.ShareSpec
 import net.drehtuer.nextgallery.core.model.TrashEffect
+import net.drehtuer.nextgallery.core.model.UploadAvailability
+import net.drehtuer.nextgallery.core.model.UploadHandoff
 
 /** [initialIndex] is null until the position of the opened image is known. */
 data class ViewerUiState(
@@ -32,6 +35,7 @@ data class ViewerUiState(
     val current: MediaItem? = null,
     val chromeVisible: Boolean = true,
     val details: ImageDetails? = null,
+    val uploadAvailability: UploadAvailability = UploadAvailability.HIDDEN,
 )
 
 sealed interface ViewerEvent {
@@ -46,11 +50,19 @@ sealed interface ViewerEvent {
 
     data object HideInfo : ViewerEvent
 
-    data object Share : ViewerEvent
+    /** An action on the image on screen. */
+    sealed interface ImageAction : ViewerEvent
 
-    data object Edit : ViewerEvent
+    data object Share : ImageAction
 
-    data object Delete : ViewerEvent
+    data object Upload : ImageAction
+
+    data object Edit : ImageAction
+
+    data object Delete : ImageAction
+
+    /** The screen came back, possibly from the Nextcloud app. */
+    data object Resumed : ViewerEvent
 
     data class ConfirmationResult(val confirmed: Boolean) : ViewerEvent
 
@@ -59,6 +71,8 @@ sealed interface ViewerEvent {
 
 sealed interface ViewerEffect {
     data class Share(val spec: ShareSpec) : ViewerEffect
+
+    data class Upload(val handoff: UploadHandoff) : ViewerEffect
 
     data class Trash(val effect: TrashEffect) : ViewerEffect
 
@@ -73,13 +87,14 @@ class ViewerViewModel @AssistedInject constructor(
     private val mediaRepository: MediaRepository,
     private val actions: MediaActionsRepository,
     private val trashFlow: TrashFlow,
+    private val uploadHandoff: UploadHandoffRepository,
 ) : ViewModel() {
     @AssistedFactory
     interface Factory {
         fun create(route: ViewerRoute): ViewerViewModel
     }
 
-    private val source = route.bucketId?.let { MediaSource.Folder(it) } ?: MediaSource.Timeline
+    private val source = route.source()
     private val mutableState = MutableStateFlow(ViewerUiState())
     private val effectChannel = Channel<ViewerEffect>(Channel.BUFFERED)
 
@@ -93,6 +108,11 @@ class ViewerViewModel @AssistedInject constructor(
         viewModelScope.launch {
             val index = mediaRepository.indexOf(source, MediaId(route.mediaId))
             mutableState.update { it.copy(initialIndex = index) }
+        }
+        viewModelScope.launch {
+            uploadHandoff.observeAvailability().collect { availability ->
+                mutableState.update { it.copy(uploadAvailability = availability) }
+            }
         }
     }
 
@@ -111,19 +131,24 @@ class ViewerViewModel @AssistedInject constructor(
 
             ViewerEvent.HideInfo -> mutableState.update { it.copy(details = null) }
 
-            ViewerEvent.Share -> withCurrent { id ->
-                actions.shareSpec(listOf(id))?.let { effectChannel.send(ViewerEffect.Share(it)) }
-            }
+            is ViewerEvent.ImageAction -> withCurrent { id -> perform(event, id) }
 
-            ViewerEvent.Edit -> withCurrent { id -> effectChannel.send(ViewerEffect.OpenEditor(id)) }
-
-            ViewerEvent.Delete -> withCurrent { id -> sendTrashEffect(trashFlow.request(listOf(id))) }
+            ViewerEvent.Resumed -> uploadHandoff.onAppResumed()
 
             is ViewerEvent.ConfirmationResult -> viewModelScope.launch {
                 sendTrashEffect(trashFlow.onConfirmationResult(event.confirmed))
             }
 
             ViewerEvent.UndoDelete -> viewModelScope.launch { sendTrashEffect(trashFlow.undo()) }
+        }
+    }
+
+    private suspend fun perform(action: ViewerEvent.ImageAction, id: MediaId) {
+        when (action) {
+            ViewerEvent.Share -> actions.shareSpec(listOf(id))?.let { effectChannel.send(ViewerEffect.Share(it)) }
+            ViewerEvent.Upload -> effectChannel.send(ViewerEffect.Upload(uploadHandoff.prepare(listOf(id))))
+            ViewerEvent.Edit -> effectChannel.send(ViewerEffect.OpenEditor(id))
+            ViewerEvent.Delete -> sendTrashEffect(trashFlow.request(listOf(id)))
         }
     }
 

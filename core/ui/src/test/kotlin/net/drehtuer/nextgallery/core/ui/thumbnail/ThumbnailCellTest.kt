@@ -4,7 +4,10 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasStateDescription
+import androidx.compose.ui.test.isSelectable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -97,5 +100,28 @@ class ThumbnailCellTest {
         }
 
         composeRule.onNodeWithText("badge", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun thumbnailCell_selecting_notSelected_saysSo() {
+        composeRule.setContent { ThumbnailCell(thumbnail, "IMG_1.jpg", sizePx = 256, selecting = true) }
+
+        composeRule.onNodeWithContentDescription("IMG_1.jpg").assertIsNotSelected()
+    }
+
+    @Test
+    fun thumbnailCell_notSelecting_hasNoSelectedState() {
+        composeRule.setContent { ThumbnailCell(thumbnail, "IMG_1.jpg", sizePx = 256) }
+
+        composeRule.onNode(isSelectable()).assertDoesNotExist()
+    }
+
+    @Test
+    fun thumbnailCell_imageFails_saysSo() {
+        composeRule.setContent { ThumbnailCell(thumbnail, "IMG_1.jpg", sizePx = 256) }
+
+        composeRule.waitUntil(WAIT_MILLIS) {
+            composeRule.onAllNodes(hasStateDescription("Could not be loaded")).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 }

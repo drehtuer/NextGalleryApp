@@ -27,9 +27,11 @@ import net.drehtuer.nextgallery.core.ui.component.DeleteAction
 import net.drehtuer.nextgallery.core.ui.component.EmptyState
 import net.drehtuer.nextgallery.core.ui.component.LoadingIndicator
 import net.drehtuer.nextgallery.core.ui.component.ShareAction
+import net.drehtuer.nextgallery.core.ui.component.UploadAction
 import net.drehtuer.nextgallery.core.ui.theme.NextGalleryTheme
 import net.drehtuer.nextgallery.core.ui.thumbnail.LARGE_THUMBNAIL_PX
 import net.drehtuer.nextgallery.core.ui.thumbnail.ThumbnailCell
+import net.drehtuer.nextgallery.core.ui.thumbnail.thumbnailDescription
 import net.drehtuer.nextgallery.core.ui.thumbnail.toThumbnail
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,6 +53,7 @@ fun SelectionOverviewScreen(
                 actions = {
                     if (!state.items.isNullOrEmpty()) {
                         ShareAction(onClick = { onEvent(SelectionOverviewEvent.Share) })
+                        UploadAction(state.uploadAvailability, onClick = { onEvent(SelectionOverviewEvent.Upload) })
                         DeleteAction(onClick = { onEvent(SelectionOverviewEvent.Delete) })
                     }
                 },
@@ -66,14 +69,18 @@ fun SelectionOverviewScreen(
                     detail = stringResource(R.string.feature_folders_selection_empty_detail),
                 )
 
-                else -> OverviewGrid(state.items, onEvent)
+                else -> OverviewGrid(state.items, state.greyedOutForMissingLocation, onEvent)
             }
         }
     }
 }
 
 @Composable
-private fun OverviewGrid(items: List<SelectionOverviewItem>, onEvent: (SelectionOverviewEvent) -> Unit) {
+private fun OverviewGrid(
+    items: List<SelectionOverviewItem>,
+    greyedOutForMissingLocation: Boolean,
+    onEvent: (SelectionOverviewEvent) -> Unit,
+) {
     val dimensions = NextGalleryTheme.dimensions
     LazyVerticalGrid(
         columns = GridCells.Fixed(dimensions.gridColumns),
@@ -81,11 +88,11 @@ private fun OverviewGrid(items: List<SelectionOverviewItem>, onEvent: (Selection
         horizontalArrangement = Arrangement.spacedBy(dimensions.gridGap),
         verticalArrangement = Arrangement.spacedBy(dimensions.gridGap),
     ) {
-        item(span = { GridItemSpan(maxLineSpan) }) { SelectionNote(items) }
+        item(span = { GridItemSpan(maxLineSpan) }) { SelectionNote(items, greyedOutForMissingLocation) }
         items(items, key = { it.item.id.value }) { (item, greyedOut) ->
             ThumbnailCell(
                 thumbnail = item.toThumbnail(),
-                contentDescription = item.displayName,
+                contentDescription = thumbnailDescription(item),
                 sizePx = LARGE_THUMBNAIL_PX,
                 selected = true,
                 selecting = true,
@@ -97,11 +104,20 @@ private fun OverviewGrid(items: List<SelectionOverviewItem>, onEvent: (Selection
 }
 
 @Composable
-private fun SelectionNote(items: List<SelectionOverviewItem>) {
+private fun SelectionNote(items: List<SelectionOverviewItem>, greyedOutForMissingLocation: Boolean) {
     val greyedOut = items.count { it.greyedOut }
     Text(
         text = if (greyedOut > 0) {
-            pluralStringResource(R.plurals.feature_folders_selection_note_greyed, items.size, items.size, greyedOut)
+            pluralStringResource(
+                if (greyedOutForMissingLocation) {
+                    R.plurals.feature_folders_selection_note_greyed_map
+                } else {
+                    R.plurals.feature_folders_selection_note_greyed
+                },
+                items.size,
+                items.size,
+                greyedOut,
+            )
         } else {
             pluralStringResource(R.plurals.feature_folders_selection_note, items.size, items.size)
         },

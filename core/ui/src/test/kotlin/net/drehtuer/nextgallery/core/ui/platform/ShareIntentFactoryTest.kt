@@ -1,13 +1,18 @@
 package net.drehtuer.nextgallery.core.ui.platform
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import net.drehtuer.nextgallery.core.model.ShareSpec
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -20,9 +25,57 @@ class ShareIntentFactoryTest {
     fun shareImages_opensChooser() {
         val context = mockk<Context>(relaxed = true)
 
-        context.shareImages(one)
+        val started = context.shareImages(one)
 
+        assertTrue(started)
         verify { context.startActivity(match { it.action == Intent.ACTION_CHOOSER }) }
+    }
+
+    @Test
+    fun shareImages_systemRefusesTheIntent_saysSo() {
+        val context = mockk<Context> { every { startActivity(any()) } throws RuntimeException("Failure from system") }
+
+        assertFalse(context.shareImages(one))
+    }
+
+    private val toNextcloud = one.copy(targetPackage = "com.nextcloud.client")
+
+    @Test
+    fun create_targetPackage_isExplicit() {
+        assertEquals("com.nextcloud.client", ShareIntentFactory.create(toNextcloud).`package`)
+    }
+
+    @Test
+    fun create_noTargetPackage_isNotExplicit() {
+        assertNull(ShareIntentFactory.create(one).`package`)
+    }
+
+    @Test
+    fun handOffImages_opensTheTargetAppWithoutChooser() {
+        val context = mockk<Context>(relaxed = true)
+
+        val start = context.handOffImages(toNextcloud)
+
+        assertEquals(HandoffStart.STARTED, start)
+        verify {
+            context.startActivity(
+                match { it.action == Intent.ACTION_SEND && it.`package` == "com.nextcloud.client" },
+            )
+        }
+    }
+
+    @Test
+    fun handOffImages_appGone_saysSo() {
+        val context = mockk<Context> { every { startActivity(any()) } throws ActivityNotFoundException() }
+
+        assertEquals(HandoffStart.APP_MISSING, context.handOffImages(toNextcloud))
+    }
+
+    @Test
+    fun handOffImages_systemRefusesTheIntent_saysSo() {
+        val context = mockk<Context> { every { startActivity(any()) } throws RuntimeException("Failure from system") }
+
+        assertEquals(HandoffStart.FAILED, context.handOffImages(toNextcloud))
     }
 
     @Test

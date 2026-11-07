@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -126,7 +125,8 @@ fun PenOptions(
 ) {
     val spacing = NextGalleryTheme.dimensions.spacingSmall
     Column(modifier.fillMaxWidth().padding(horizontal = NextGalleryTheme.dimensions.spacingMedium)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(spacing)) {
+        // No gap: the 48 dp touch targets around the smaller swatches already keep them apart.
+        Row(Modifier.fillMaxWidth()) {
             NextGalleryOverlayColors.penColors.zip(PEN_COLOR_NAMES).forEach { (color, name) ->
                 PenSwatch(color, stringResource(name), color.toArgb() == colorArgb) { onColor(color.toArgb()) }
             }
@@ -154,12 +154,18 @@ private fun PenSwatch(color: Color, name: String, selected: Boolean, onClick: ()
     val ringWidth = if (selected) dimensions.selectionBorderWidth else dimensions.gridGap
     Box(
         Modifier
-            .size(dimensions.penSwatchSize)
-            .background(color, CircleShape)
-            .border(ringWidth, ring, CircleShape)
+            .size(dimensions.minTouchTarget)
             .selectable(selected = selected, onClick = onClick)
             .semantics { contentDescription = name },
-    )
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            Modifier
+                .size(dimensions.penSwatchSize)
+                .background(color, CircleShape)
+                .border(ringWidth, ring, CircleShape),
+        )
+    }
 }
 
 /** In the order of `NextGalleryOverlayColors.penColors`. */

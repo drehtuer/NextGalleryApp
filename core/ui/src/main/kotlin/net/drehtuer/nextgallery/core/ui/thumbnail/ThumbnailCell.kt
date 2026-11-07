@@ -57,13 +57,15 @@ fun ThumbnailCell(
     val colors = MaterialTheme.colorScheme
     val dimensions = NextGalleryTheme.dimensions
     val unavailable = stringResource(R.string.core_ui_thumbnail_unavailable)
+    val notLoaded = stringResource(R.string.core_ui_thumbnail_failed)
     var failed by remember(thumbnail) { mutableStateOf(false) }
     Box(
         modifier
             .aspectRatio(1f)
             .background(if (failed) colors.errorContainer else colors.surfaceVariant)
             .semantics(mergeDescendants = true) {
-                if (selected) this.selected = true
+                if (selected || selecting) this.selected = selected
+                if (failed) stateDescription = notLoaded
                 if (greyedOut) stateDescription = unavailable
             },
     ) {
@@ -96,7 +98,7 @@ fun ThumbnailCell(
 
 /** Filled with a check when selected; otherwise an empty white ring on a dark backing, readable over any photo. */
 @Composable
-private fun SelectionMark(selected: Boolean, modifier: Modifier) {
+internal fun SelectionMark(selected: Boolean, modifier: Modifier) {
     val dimensions = NextGalleryTheme.dimensions
     val colors = MaterialTheme.colorScheme
     val mark = Modifier

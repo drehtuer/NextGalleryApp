@@ -33,6 +33,34 @@ class SettingsDataSourceTest {
     }
 
     @Test
+    fun update_tileUrl_isReadBack() = runTest {
+        val source = dataSource()
+        val url = "https://tiles.example.org/{z}/{x}/{y}.png"
+
+        source.update { it.copy(tileUrl = url) }
+
+        assertEquals(url, source.settings.first().tileUrl)
+    }
+
+    @Test
+    fun settings_invalidStoredTileUrl_readsDefault() = runTest {
+        val source = dataSource()
+
+        source.update { it.copy(tileUrl = "http://not-allowed.example.org") }
+
+        assertEquals(UserSettings.DEFAULT_TILE_URL, source.settings.first().tileUrl)
+    }
+
+    @Test
+    fun update_currentLocationAsked_isReadBack() = runTest {
+        val source = dataSource()
+
+        source.update { it.copy(currentLocationAsked = true) }
+
+        assertEquals(true, source.settings.first().currentLocationAsked)
+    }
+
+    @Test
     fun settings_corruptFile_readsDefaults() = runTest {
         file().writeText("this is not a preferences file")
 
@@ -110,6 +138,15 @@ class SettingsDataSourceTest {
         dataSource.update { it.copy(themeMode = ThemeMode.DARK) }
 
         assertEquals(ThemeMode.DARK, dataSource.settings.first().themeMode)
+    }
+
+    @Test
+    fun update_remoteRoot_isReadBack() = runTest {
+        val dataSource = dataSource()
+
+        dataSource.update { it.copy(remoteRoot = "/Photos") }
+
+        assertEquals("/Photos", dataSource.settings.first().remoteRoot)
     }
 
     @Test

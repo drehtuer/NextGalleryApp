@@ -8,6 +8,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import net.drehtuer.nextgallery.core.data.index.GeoIndexStore
 import net.drehtuer.nextgallery.core.data.index.MediaIndexStore
 import net.drehtuer.nextgallery.core.data.index.SyncStateStore
 import net.drehtuer.nextgallery.core.data.index.TimelineStore
@@ -25,11 +26,19 @@ abstract class DatabaseModule {
     @Binds
     abstract fun bindSyncStateStore(store: RoomSyncStateStore): SyncStateStore
 
+    @Binds
+    abstract fun bindGeoIndexStore(store: RoomGeoIndexStore): GeoIndexStore
+
     companion object {
+        @Provides
+        fun provideGeoDao(database: NextGalleryDatabase): GeoDao = database.geoDao()
+
         @Provides
         @Singleton
         fun provideDatabase(@ApplicationContext context: Context): NextGalleryDatabase =
-            Room.databaseBuilder(context, NextGalleryDatabase::class.java, NextGalleryDatabase.NAME).build()
+            Room.databaseBuilder(context, NextGalleryDatabase::class.java, NextGalleryDatabase.NAME)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .build()
 
         @Provides
         fun provideMediaDao(database: NextGalleryDatabase): MediaDao = database.mediaDao()
@@ -42,5 +51,11 @@ abstract class DatabaseModule {
 
         @Provides
         fun provideSyncStateDao(database: NextGalleryDatabase): SyncStateDao = database.syncStateDao()
+
+        @Provides
+        fun provideRemoteCacheDao(database: NextGalleryDatabase): RemoteCacheDao = database.remoteCacheDao()
+
+        @Provides
+        fun provideUploadStateDao(database: NextGalleryDatabase): UploadStateDao = database.uploadStateDao()
     }
 }

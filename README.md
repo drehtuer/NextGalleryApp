@@ -2,7 +2,7 @@
 
 A simple, fast Android gallery app with basic editing, multiple ways to browse your photos, and built-in Nextcloud integration.
 
-> Status: early development. Photo access, background indexing, the folder view, the timeline, the full-screen viewer and settings work; the map is next. See [STATUS.md](docs/STATUS.md). This README describes the intended scope.
+> Status: all features are implemented; hardening for a first release is under way, and what needs a device is still open. See [STATUS.md](docs/STATUS.md).
 
 ## Documentation
 
@@ -10,6 +10,7 @@ A simple, fast Android gallery app with basic editing, multiple ways to browse y
 - [Design decisions & open questions](docs/DESIGN_DECISIONS.md) – what has been decided and what is still open.
 - [Implementation TODO](docs/TODO.md) – ordered, step-by-step implementation plan.
 - [Original design brief](docs/DESIGN_HANDOVER.md) – what Claude Design was asked for (historical).
+- [Changelog](docs/CHANGELOG.md) – what changed in each version.
 - [Status](docs/STATUS.md) – what is implemented, what is next, and what still needs checking on the device.
 - [Design](docs/DESIGN.md) – the visual design: colours, type, dimensions, wording and states of every screen.
 
@@ -59,16 +60,16 @@ A simple, fast Android gallery app with basic editing, multiple ways to browse y
 - **Organise server photos** – long-press an image (or a selection) to move it to another server folder, share it or delete it to the Nextcloud trash bin, with undo.
 
 NextGalleryApp does not duplicate what the official Nextcloud Android app already does (uploading, offline files, …); it hands off to that app instead. The built-in viewer and moving or deleting server images are the deliberate exceptions.
-- **Upload status** – each local image shows whether it already exists on Nextcloud (badge on the thumbnail).
-- **Upload** – hands a single image or a selection to the official Nextcloud Android app, which does the actual upload (target folder, name conflicts, large files). Requires the Nextcloud app to be installed.
+- **Upload status** – while signed in, each local image shows whether it already exists on Nextcloud (badge on the thumbnail in the folder grid and the timeline).
+- **Upload** – hands a single image or a selection to the official Nextcloud Android app, which does the actual upload (target folder, name conflicts, large files). Requires the Nextcloud app to be installed; images already on the server are left out.
 - **Login** – via Nextcloud Login Flow v2 (browser-based sign-in, app password), so the account password is never stored in the app. Without a login, Nextcloud features are unavailable and the app shows a hint to log in.
 - **Self-hosted servers** – self-signed or otherwise untrusted certificates can be accepted after a warning dialog showing the certificate details.
 
 #### How "already uploaded" is determined
 
 1. Match by relative path and file size against the configured remote folder (cheap, one `PROPFIND` per folder).
-2. If the server provides checksums (`oc:checksums`), compare a SHA-1/MD5 of the local file for an exact match.
-3. Results are cached locally and refreshed in the background, so the grid never waits on the network.
+2. If the server provides checksums (`oc:checksums`), compare a SHA-1/MD5 of the local file for an exact match. Only name-and-size matches are read, and only once per version of the file. Different content counts as not uploaded.
+3. Results are cached locally and refreshed in the background, every 6 hours with a network, after a sign-in or a new remote folder, and on returning from the Nextcloud app, so the grid never waits on the network.
 4. Files the Nextcloud app renamed during upload (e.g. on a name conflict) are not recognised and show as "not uploaded".
 
 ## Planned tech stack
@@ -83,7 +84,7 @@ NextGalleryApp does not duplicate what the official Nextcloud Android app alread
 | Map | osmdroid with OpenStreetMap tiles (configurable tile URL) – no API key needed |
 | Nextcloud | WebDAV over OkHttp; preview API for remote thumbnails |
 | Background work | WorkManager (indexing, upload-state sync) |
-| Credentials | Android Keystore–encrypted storage |
+| Credentials | App password encrypted with Tink, key in the Android Keystore; signing in happens in the browser (Login Flow v2) |
 | UI design | Stock Material 3 with a placeholder theme until the design from Claude Design is delivered |
 | SDK levels | Min, compile and target SDK 37 (Android 17); older Android versions are not supported |
 | Reference device | Pixel 10a, Android 17 |
@@ -93,7 +94,8 @@ NextGalleryApp does not duplicate what the official Nextcloud Android app alread
 - `READ_MEDIA_IMAGES` – read photos; `READ_MEDIA_VISUAL_USER_SELECTED` – limited access to selected photos only.
 - `ACCESS_MEDIA_LOCATION` – read GPS data from EXIF for the map view.
 - `ACCESS_COARSE_LOCATION` – optional; opens the map at your current location. Without it, the map opens where most of your photos are.
-- `INTERNET` – Nextcloud only.
+- `INTERNET` and `ACCESS_NETWORK_STATE` – map tiles and Nextcloud; traffic is https only.
+- `ACCESS_LOCAL_NETWORK` – for a Nextcloud server on your own network; asked for when you sign in.
 - Package visibility for `com.nextcloud.client` (`<queries>`) – to hand uploads to the Nextcloud app.
 - Deleting and overwriting originals goes through the system confirmation dialogs (`MediaStore.createDeleteRequest` / `createWriteRequest`), so no broad storage permission is required.
 
@@ -129,7 +131,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 Before opening a pull request, run the checks CI runs:
 
 ```bash
-./gradlew ktlintFormat detekt lint test :build-logic:convention:test
+./gradlew ktlintFormat detekt lint test :build-logic:convention:test :app:assembleRelease
 ```
 
 `./gradlew coverageReport` writes the JaCoCo line and branch coverage reports (`build/reports/` in each module).
@@ -137,6 +139,29 @@ Before opening a pull request, run the checks CI runs:
 CI sends the coverage and the code analysis to [SonarCloud](https://sonarcloud.io/project/overview?id=drehtuer_NextGalleryApp). This needs Automatic Analysis turned off in the SonarCloud project and a `SONAR_TOKEN` repository secret (see D41 in [DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md)).
 
 Instrumented tests do not run in CI. Run them on the host against an API 37 emulator or the Pixel 10a with `./gradlew connectedDebugAndroidTest` (this needs a local Android SDK).
+
+Benchmarks and the Baseline Profile need a real device with photos and an unlocked screen, also from the host: `./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest` and `./gradlew :app:generateBaselineProfile`. The second writes files under `app/src/release/generated/`, which are then committed.
+
+### Release build
+
+`./gradlew :app:assembleRelease` builds a minified APK. Without a keystore it is unsigned (`app-release-unsigned.apk`) and Android won't install it. To sign it, create a keystore and put a `keystore.properties` next to `settings.gradle.kts`; Git ignores both, so never force-add them:
+
+```properties
+storeFile=/path/to/release.jks
+storePassword=...
+keyAlias=nextgallery
+keyPassword=...
+```
+
+```bash
+keytool -genkeypair -v -keystore /path/to/release.jks -alias nextgallery -keyalg RSA -keysize 4096 -validity 10000
+./gradlew :app:assembleRelease
+adb install app/build/outputs/apk/release/app-release.apk
+```
+
+Keep the keystore safe: an installed app only accepts updates signed with the same key. A relative `storeFile` counts from the repository root, and the path must be visible inside the devcontainer.
+
+The version comes from the nearest Git tag of the form `vMAJOR.MINOR.PATCH`: `v1.2.3` gives the name 1.2.3 and the code 1002003. Tags with a suffix such as `-rc1` stop the build, because their code would equal the final version's. Without a tag, or where Git can't run, the build calls itself 0.1.0; `-PversionTag=v1.2.3` overrides both. Record changes in [CHANGELOG.md](docs/CHANGELOG.md) before tagging.
 
 ## License
 

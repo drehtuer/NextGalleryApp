@@ -1,6 +1,10 @@
 package net.drehtuer.nextgallery.feature.folders
 
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertAll
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -8,6 +12,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
 import androidx.paging.LoadState
 import androidx.paging.LoadStates
 import androidx.paging.PagingData
@@ -16,8 +21,11 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.flow.flowOf
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
+import net.drehtuer.nextgallery.core.model.UploadAvailability
+import net.drehtuer.nextgallery.core.model.UploadState
 import net.drehtuer.nextgallery.core.ui.component.MEDIA_GRID_PLACEHOLDER_TAG
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,6 +36,12 @@ class FolderGridScreenTest {
     val composeRule = createComposeRule()
 
     private val events = mutableListOf<FolderGridEvent>()
+    private val visibleReports = mutableListOf<FolderGridEvent.VisibleItemsChanged>()
+
+    /** The grid reports what it shows by itself, at a time of its own. */
+    private fun record(event: FolderGridEvent) {
+        if (event is FolderGridEvent.VisibleItemsChanged) visibleReports += event else events += event
+    }
 
     private fun show(
         state: FolderGridUiState = FolderGridUiState(title = "Camera"),
@@ -39,8 +53,49 @@ class FolderGridScreenTest {
         val finished = LoadState.NotLoading(endOfPaginationReached = true)
         val pages = flowOf(PagingData.from(items, LoadStates(refresh, finished, finished)))
         composeRule.setContent {
-            FolderGridScreen(state, pages.collectAsLazyPagingItems(), { events += it }, onBack, onOpenSelectionOverview)
+            FolderGridScreen(state, pages.collectAsLazyPagingItems(), ::record, onBack, onOpenSelectionOverview)
         }
+    }
+
+    private val selecting = FolderGridUiState(selectedIds = setOf(MediaId(1)))
+
+    @Test
+    fun uploadAvailable_clicked_sendsEvent() {
+        show(selecting.copy(uploadAvailability = UploadAvailability.AVAILABLE))
+
+        composeRule.onNodeWithContentDescription("Upload").performClick()
+
+        assertEquals(listOf(FolderGridEvent.UploadSelected), events)
+    }
+
+    @Test
+    fun loggedOut_noUploadAction() {
+        show(selecting.copy(uploadAvailability = UploadAvailability.HIDDEN))
+
+        composeRule.onNodeWithContentDescription("Upload").assertDoesNotExist()
+    }
+
+    @Test
+    fun badgeKnown_isShown() {
+        show(FolderGridUiState(uploadBadges = mapOf(MediaId(1) to UploadState.NotUploaded)))
+
+        composeRule.onNodeWithContentDescription("Not on your Nextcloud", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun noBadgeEntry_showsNoBadge() {
+        show(FolderGridUiState())
+
+        composeRule.onNodeWithContentDescription("Not on your Nextcloud", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun grid_reportsTheVisibleImages() {
+        show()
+
+        composeRule.waitUntil { visibleReports.isNotEmpty() }
+
+        assertEquals(listOf(FolderGridEvent.VisibleItemsChanged(setOf(MediaId(1)))), visibleReports)
     }
 
     @Test
@@ -167,4 +222,24 @@ class FolderGridScreenTest {
 
         assertEquals(listOf(FolderGridEvent.ClearSelection), events)
     }
+
+    @Test
+    fun selecting_actionsAllHaveANameAndATouchTarget() {
+        show(selecting.copy(uploadAvailability = UploadAvailability.AVAILABLE))
+
+        val actions = composeRule.onAllNodes(hasClickAction())
+
+        assertTrue(actions.fetchSemanticsNodes().isNotEmpty())
+        actions.assertAll(namedTouchTarget)
+    }
+}
+
+/** A screen reader can say what it does, and a finger can hit it. */
+private val namedTouchTarget = SemanticsMatcher("has a name and a 48 dp touch target") { node ->
+    val named = SemanticsProperties.Text in node.config || SemanticsProperties.ContentDescription in node.config
+    val minimum = with(node.layoutInfo.density) { 48.dp.roundToPx() }
+    // The touch bounds are empty for what is scrolled out of the window, so these count the layout size as well.
+    val touch = node.touchBoundsInRoot
+    named && maxOf(touch.width.toInt(), node.size.width) >= minimum &&
+        maxOf(touch.height.toInt(), node.size.height) >= minimum
 }

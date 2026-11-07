@@ -17,6 +17,7 @@ class AndroidMediaPermissionSource @Inject constructor(@param:ApplicationContext
             Manifest.permission.READ_MEDIA_IMAGES,
             Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED,
             Manifest.permission.ACCESS_MEDIA_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
         )
     }
 }

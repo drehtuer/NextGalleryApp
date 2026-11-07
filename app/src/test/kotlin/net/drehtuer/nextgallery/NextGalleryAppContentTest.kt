@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -18,10 +19,12 @@ import net.drehtuer.nextgallery.core.model.MediaAccess
 import net.drehtuer.nextgallery.core.ui.component.ScreenBanner
 import net.drehtuer.nextgallery.feature.editor.EditorRoute
 import net.drehtuer.nextgallery.feature.folders.SelectionOverviewRoute
+import net.drehtuer.nextgallery.feature.remote.RemoteViewerRoute
 import net.drehtuer.nextgallery.feature.timeline.TimelineRoute
 import net.drehtuer.nextgallery.feature.viewer.ViewerRoute
 import net.drehtuer.nextgallery.navigation.FoldersRoute
 import net.drehtuer.nextgallery.navigation.SettingsGraphRoute
+import net.drehtuer.nextgallery.navigation.settingsGraph
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -31,6 +34,10 @@ import org.robolectric.annotation.Config
 @RunWith(AndroidJUnit4::class)
 @Config(application = Application::class)
 class NextGalleryAppContentTest {
+    private companion object {
+        const val LICENCES_TIMEOUT_MILLIS = 5_000L
+    }
+
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -144,6 +151,15 @@ class NextGalleryAppContentTest {
         composeRule.onNodeWithText("Timeline").assertDoesNotExist()
     }
 
+    @Test
+    fun remoteViewerOpen_hidesBottomNavigation() {
+        val navController = showSharedStandIns()
+
+        composeRule.runOnIdle { navController.navigate(RemoteViewerRoute("/a.jpg")) }
+
+        composeRule.onNodeWithText("Timeline").assertDoesNotExist()
+    }
+
     private fun showSharedStandIns(): NavHostController {
         lateinit var navController: NavHostController
         composeRule.setContent {
@@ -161,6 +177,7 @@ class NextGalleryAppContentTest {
                     }
                     composable<EditorRoute> { Text("Editor screen") }
                 },
+                remote = { composable<RemoteViewerRoute> { Text("Remote viewer") } },
             )
         }
         return navController
@@ -189,7 +206,7 @@ class NextGalleryAppContentTest {
         val navController = showSettingsGraph()
         composeRule.runOnIdle { navController.navigate(SettingsGraphRoute) }
 
-        composeRule.onNodeWithText("About & licences").performClick()
+        composeRule.onNodeWithText("About & licences").performScrollTo().performClick()
 
         composeRule.onNodeWithText("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})").assertIsDisplayed()
     }
@@ -198,11 +215,26 @@ class NextGalleryAppContentTest {
     fun settingsGraph_licencesOpenFromAbout() {
         val navController = showSettingsGraph()
         composeRule.runOnIdle { navController.navigate(SettingsGraphRoute) }
-        composeRule.onNodeWithText("About & licences").performClick()
+        composeRule.onNodeWithText("About & licences").performScrollTo().performClick()
 
         composeRule.onNodeWithText("Open-source licences").performScrollTo().performClick()
 
-        composeRule.onNodeWithText("AndroidX and Jetpack Compose").assertIsDisplayed()
+        composeRule.onNodeWithText("Open-source licences").assertIsDisplayed()
+        composeRule.onNodeWithText("GeoNames place data").assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsGraph_licences_listTheLibrariesFromTheGeneratedFile() {
+        val navController = showSettingsGraph()
+        composeRule.runOnIdle { navController.navigate(SettingsGraphRoute) }
+        composeRule.onNodeWithText("About & licences").performScrollTo().performClick()
+        composeRule.onNodeWithText("Open-source licences").performScrollTo().performClick()
+
+        composeRule.waitUntil(LICENCES_TIMEOUT_MILLIS) {
+            composeRule.onAllNodes(hasText("Apache-2.0", substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithText("Activity").assertExists()
     }
 
     /** The real settings graph. Its root, About and licences screens need no Hilt. */
@@ -216,6 +248,7 @@ class NextGalleryAppContentTest {
                 onOpenSettings = {},
                 navController = navController,
                 folders = { composable<FoldersRoute> { Text("Folders screen") } },
+                settings = { settingsGraph(it, accountLabel = { null }) },
             )
         }
         return navController

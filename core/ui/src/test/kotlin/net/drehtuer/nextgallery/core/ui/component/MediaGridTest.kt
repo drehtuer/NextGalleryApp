@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertWidthIsEqualTo
@@ -23,6 +24,8 @@ import kotlinx.coroutines.flow.flowOf
 import net.drehtuer.nextgallery.core.model.DateSource
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
+import net.drehtuer.nextgallery.core.model.UploadState
+import net.drehtuer.nextgallery.core.ui.thumbnail.UploadBadge
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -52,6 +55,22 @@ class MediaGridTest {
                 FastScrollbar(state, items.itemCount)
             }
         }
+    }
+
+    @Test
+    fun mediaGrid_showsTheBadgeOfAnItem() {
+        val pages = flowOf(PagingData.from(listOf(item(1))))
+        composeRule.setContent {
+            MediaGrid(
+                pages.collectAsLazyPagingItems(),
+                emptySet(),
+                {},
+                {},
+                cellBadge = { UploadBadge(UploadState.NotUploaded) },
+            )
+        }
+
+        composeRule.onNodeWithContentDescription("Not on your Nextcloud", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test
@@ -145,4 +164,28 @@ class MediaGridTest {
         generationModified = 1,
         location = null,
     )
+
+    @Test
+    fun mediaGrid_thumbnail_isDescribedByNameAndDate() {
+        val taken = item(1).copy(displayName = "IMG_1.jpg", dateTakenMillis = NOON_23_OCT_2026_UTC)
+        val pages = flowOf(PagingData.from(listOf(taken)))
+        composeRule.setContent { MediaGrid(pages.collectAsLazyPagingItems(), emptySet(), {}, {}) }
+
+        composeRule.onNodeWithContentDescription("IMG_1.jpg, 23 Oct 2026").assertExists()
+    }
+
+    @Test
+    fun mediaGrid_longPressIsAnnouncedAsSelect() {
+        val taken = item(1).copy(displayName = "IMG_1.jpg", dateTakenMillis = NOON_23_OCT_2026_UTC)
+        val pages = flowOf(PagingData.from(listOf(taken)))
+        composeRule.setContent { MediaGrid(pages.collectAsLazyPagingItems(), emptySet(), {}, {}) }
+
+        val cell = composeRule.onNodeWithContentDescription("IMG_1.jpg, 23 Oct 2026").fetchSemanticsNode()
+
+        assertEquals("Select", cell.config[SemanticsActions.OnLongClick].label)
+    }
+
+    private companion object {
+        const val NOON_23_OCT_2026_UTC = 1_792_756_800_000L
+    }
 }

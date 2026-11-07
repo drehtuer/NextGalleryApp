@@ -4,13 +4,18 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assertAll
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.unit.dp
 import androidx.paging.LoadState
 import androidx.paging.LoadStates
 import androidx.paging.PagingData
@@ -19,6 +24,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.flow.flowOf
 import net.drehtuer.nextgallery.core.data.media.ImageDetailsMapper
 import net.drehtuer.nextgallery.core.model.MediaItem
+import net.drehtuer.nextgallery.core.model.UploadAvailability
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -50,6 +56,24 @@ class ViewerScreenTest {
                 },
             )
         }
+    }
+
+    private val onFirstImage = ViewerUiState(initialIndex = 0, current = mediaItem(1))
+
+    @Test
+    fun uploadClicked_sendsEvent() {
+        show(onFirstImage.copy(uploadAvailability = UploadAvailability.AVAILABLE))
+
+        composeRule.onNodeWithContentDescription("Upload").performClick()
+
+        assertTrue(ViewerEvent.Upload in events)
+    }
+
+    @Test
+    fun loggedOut_noUploadAction() {
+        show(onFirstImage.copy(uploadAvailability = UploadAvailability.HIDDEN))
+
+        composeRule.onNodeWithContentDescription("Upload").assertDoesNotExist()
     }
 
     @Test
@@ -186,4 +210,24 @@ class ViewerScreenTest {
 
         assertTrue(ViewerEvent.ItemCountChanged(2) in events)
     }
+
+    @Test
+    fun actions_allHaveANameAndATouchTarget() {
+        show(onFirstImage.copy(uploadAvailability = UploadAvailability.AVAILABLE))
+
+        val actions = composeRule.onAllNodes(hasClickAction())
+
+        assertTrue(actions.fetchSemanticsNodes().isNotEmpty())
+        actions.assertAll(namedTouchTarget)
+    }
+}
+
+/** A screen reader can say what it does, and a finger can hit it. */
+private val namedTouchTarget = SemanticsMatcher("has a name and a 48 dp touch target") { node ->
+    val named = SemanticsProperties.Text in node.config || SemanticsProperties.ContentDescription in node.config
+    val minimum = with(node.layoutInfo.density) { 48.dp.roundToPx() }
+    // The touch bounds are empty for what is scrolled out of the window, so these count the layout size as well.
+    val touch = node.touchBoundsInRoot
+    named && maxOf(touch.width.toInt(), node.size.width) >= minimum &&
+        maxOf(touch.height.toInt(), node.size.height) >= minimum
 }

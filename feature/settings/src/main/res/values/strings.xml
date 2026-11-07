@@ -1,12 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="feature_settings_folders">Folders</string>
     <string name="feature_settings_folders_detail">Include, exclude and hidden folders</string>
     <string name="feature_settings_appearance">Appearance</string>
     <string name="feature_settings_appearance_detail">Theme, grid columns and accent colour</string>
+    <string name="feature_settings_map_tiles">Map</string>
+    <string name="feature_settings_map_tiles_detail">Tile server</string>
+    <string name="feature_settings_map_tiles_label">Tile server address</string>
+    <string name="feature_settings_map_tiles_hint">An https:// address with {z}, {x} and {y}. The server sees which map areas you look at. Follow its usage policy.</string>
+    <string name="feature_settings_map_tiles_invalid">The address must start with https:// and contain {z}, {x} and {y}.</string>
+    <string name="feature_settings_map_tiles_save">Save</string>
+    <string name="feature_settings_map_tiles_reset">Use OpenStreetMap</string>
     <string name="feature_settings_nextcloud">Nextcloud</string>
     <string name="feature_settings_not_connected">Not connected</string>
     <string name="feature_settings_about">About &amp; licences</string>
+
+    <string name="feature_settings_nextcloud_title">Connect your Nextcloud</string>
+    <string name="feature_settings_nextcloud_message" tools:ignore="Typos">Browse the photos on your own server. You sign in in the browser, so NextGallery never sees your password.</string>
+    <string name="feature_settings_server_address">Server address</string>
+    <string name="feature_settings_sign_in">Sign in</string>
+    <string name="feature_settings_waiting_for_browser" tools:ignore="Typos">Waiting for you to sign in in the browser…</string>
+    <string name="feature_settings_connected">Connected</string>
+    <string name="feature_settings_log_out">Log out</string>
+    <string name="feature_settings_remote_root">Upload status folder</string>
+    <string name="feature_settings_remote_root_use">Use “%1$s”</string>
+    <string name="feature_settings_local_network_title">Servers on your network</string>
+    <string name="feature_settings_local_network_message">If your Nextcloud runs on your own network, Android has to allow NextGallery to connect to it. Other servers work without this.</string>
+    <string name="feature_settings_local_network_continue">Continue</string>
+    <string name="feature_settings_certificates">Accepted certificates</string>
+    <string name="feature_settings_certificates_detail">Server certificates you chose to trust</string>
+    <string name="feature_settings_certificates_empty">You haven\'t accepted any certificates.</string>
+    <string name="feature_settings_certificate_remove">Remove</string>
 
     <string name="feature_settings_rules_intro">Default shows a folder if it has images. Include always shows it; Exclude always hides it.</string>
     <string name="feature_settings_rule_include">Include</string>
@@ -41,5 +65,6 @@
     <string name="feature_settings_source_code">Source code</string>
     <string name="feature_settings_source_code_url" translatable="false">https://github.com/drehtuer/NextGalleryApp</string>
     <string name="feature_settings_licences">Open-source licences</string>
+    <string name="feature_settings_licence_detail">%1$s · %2$s</string>
     <string name="feature_settings_attribution">Map data © OpenStreetMap contributors, available under the Open Database Licence. Place names from GeoNames (geonames.org), CC BY 4.0, looked up on the phone.</string>
 </resources>

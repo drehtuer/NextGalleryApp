@@ -16,6 +16,10 @@
         <item quantity="one">%1$d selected in all folders. Greyed out: %2$d in other folders, which this view can\'t open.</item>
         <item quantity="other">%1$d selected in all folders. Greyed out: %2$d in other folders, which this view can\'t open.</item>
     </plurals>
+    <plurals name="feature_folders_selection_note_greyed_map">
+        <item quantity="one">%1$d selected in all folders. Greyed out: %2$d without a location, which the map can\'t show.</item>
+        <item quantity="other">%1$d selected in all folders. Greyed out: %2$d without a location, which the map can\'t show.</item>
+    </plurals>
     <string name="feature_folders_selection_empty">Nothing selected</string>
     <string name="feature_folders_selection_empty_detail">Long-press a photo in any folder to start selecting.</string>
     <plurals name="feature_folders_item_count">

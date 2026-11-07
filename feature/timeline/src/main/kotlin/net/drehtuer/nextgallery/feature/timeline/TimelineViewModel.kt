@@ -21,11 +21,16 @@ import net.drehtuer.nextgallery.core.data.media.TrashFlow
 import net.drehtuer.nextgallery.core.data.selection.SelectionRepository
 import net.drehtuer.nextgallery.core.data.timeline.TimelineIndex
 import net.drehtuer.nextgallery.core.data.timeline.TimelineRepository
+import net.drehtuer.nextgallery.core.data.upload.UploadHandoffRepository
+import net.drehtuer.nextgallery.core.data.upload.UploadStateRepository
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
 import net.drehtuer.nextgallery.core.model.MediaSource
 import net.drehtuer.nextgallery.core.model.ShareSpec
 import net.drehtuer.nextgallery.core.model.TrashEffect
+import net.drehtuer.nextgallery.core.model.UploadAvailability
+import net.drehtuer.nextgallery.core.model.UploadHandoff
+import net.drehtuer.nextgallery.core.model.UploadState
 import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
@@ -36,6 +41,9 @@ data class TimelineUiState(
     val today: LocalDate? = null,
     val selectedIds: Set<MediaId> = emptySet(),
     val selecting: Boolean = selectedIds.isNotEmpty(),
+    /** The images on screen. An image without an entry has no badge, as all have while logged out (D35). */
+    val uploadBadges: Map<MediaId, UploadState> = emptyMap(),
+    val uploadAvailability: UploadAvailability = UploadAvailability.HIDDEN,
 )
 
 sealed interface TimelineEvent {
@@ -52,11 +60,18 @@ sealed interface TimelineEvent {
 
     data object ShareSelected : TimelineEvent
 
+    data object UploadSelected : TimelineEvent
+
     data object DeleteSelected : TimelineEvent
 
     data class ConfirmationResult(val confirmed: Boolean) : TimelineEvent
 
     data object UndoDelete : TimelineEvent
+
+    data class VisibleItemsChanged(val ids: Set<MediaId>) : TimelineEvent
+
+    /** The screen came back, possibly from the Nextcloud app. */
+    data object Resumed : TimelineEvent
 }
 
 sealed interface TimelineEffect {
@@ -64,20 +79,28 @@ sealed interface TimelineEffect {
 
     data class Share(val spec: ShareSpec) : TimelineEffect
 
+    data class Upload(val handoff: UploadHandoff) : TimelineEffect
+
     data class Trash(val effect: TrashEffect) : TimelineEffect
 }
 
 @HiltViewModel
-class TimelineViewModel @Inject constructor(
+class TimelineViewModel
+@Suppress("LongParameterList")
+@Inject
+constructor(
     private val mediaRepository: MediaRepository,
     timelineRepository: TimelineRepository,
     private val selectionRepository: SelectionRepository,
     private val actions: MediaActionsRepository,
     private val trashFlow: TrashFlow,
     private val clock: Clock,
+    uploadStates: UploadStateRepository,
+    private val uploadHandoff: UploadHandoffRepository,
 ) : ViewModel() {
     private val effectChannel = Channel<TimelineEffect>(Channel.BUFFERED)
     private val startedSelecting = MutableStateFlow(false)
+    private val visibleIds = MutableStateFlow<Set<MediaId>>(emptySet())
 
     val effects: Flow<TimelineEffect> = effectChannel.receiveAsFlow()
 
@@ -89,8 +112,17 @@ class TimelineViewModel @Inject constructor(
         timelineRepository.observeIndex(),
         selectionRepository.observe(),
         startedSelecting,
-    ) { index, selectedIds, started ->
-        TimelineUiState(index, today(), selectedIds, selecting = started || selectedIds.isNotEmpty())
+        uploadStates.observeBadges(visibleIds),
+        uploadHandoff.observeAvailability(),
+    ) { index, selectedIds, started, badges, availability ->
+        TimelineUiState(
+            index = index,
+            today = today(),
+            selectedIds = selectedIds,
+            selecting = started || selectedIds.isNotEmpty(),
+            uploadBadges = badges,
+            uploadAvailability = availability,
+        )
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), TimelineUiState())
 
@@ -116,6 +148,15 @@ class TimelineViewModel @Inject constructor(
                     effectChannel.send(TimelineEffect.Share(it))
                 }
             }
+
+            TimelineEvent.UploadSelected -> viewModelScope.launch {
+                val handoff = uploadHandoff.prepare(selectionRepository.observe().value)
+                effectChannel.send(TimelineEffect.Upload(handoff))
+            }
+
+            is TimelineEvent.VisibleItemsChanged -> visibleIds.value = event.ids
+
+            TimelineEvent.Resumed -> uploadHandoff.onAppResumed()
 
             TimelineEvent.DeleteSelected -> viewModelScope.launch {
                 sendTrashEffect(trashFlow.request(selectionRepository.observe().value))

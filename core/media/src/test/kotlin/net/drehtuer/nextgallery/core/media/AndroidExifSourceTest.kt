@@ -1,5 +1,7 @@
 package net.drehtuer.nextgallery.core.media
 
+import android.Manifest
+import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
@@ -14,6 +16,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
 
@@ -65,6 +68,36 @@ class AndroidExifSourceTest {
             listOf("Google", "Pixel 10a", "0.008", "1.8", "400", "27/5"),
             listOf(exif?.make, exif?.model, exif?.exposureTime, exif?.fNumber, exif?.iso, exif?.focalLength),
         )
+    }
+
+    @Test
+    fun read_jpegWithGpsTags_returnsRawValues() = runTest {
+        val source = AndroidExifSource(context, testDispatchers())
+        val file = jpegWithExif()
+        ExifInterface(file).apply {
+            setAttribute(ExifInterface.TAG_GPS_LATITUDE, "45/1,30/1,0/1")
+            setAttribute(ExifInterface.TAG_GPS_LATITUDE_REF, "N")
+            setAttribute(ExifInterface.TAG_GPS_LONGITUDE, "10/1,15/1,0/1")
+            setAttribute(ExifInterface.TAG_GPS_LONGITUDE_REF, "E")
+            saveAttributes()
+        }
+
+        val exif = source.read(Uri.fromFile(file).toString())
+
+        assertEquals(
+            listOf("45/1,30/1,0/1", "N", "10/1,15/1,0/1", "E"),
+            listOf(exif?.gpsLatitude, exif?.gpsLatitudeRef, exif?.gpsLongitude, exif?.gpsLongitudeRef),
+        )
+    }
+
+    @Test
+    fun read_withLocationPermission_stillReadsTheFile() = runTest {
+        shadowOf(context.applicationContext as Application).grantPermissions(Manifest.permission.ACCESS_MEDIA_LOCATION)
+        val source = AndroidExifSource(context, testDispatchers())
+
+        val exif = source.read(Uri.fromFile(jpegWithExif()).toString())
+
+        assertEquals("2024:03:15 14:30:05", exif?.dateTimeOriginal)
     }
 
     @Test

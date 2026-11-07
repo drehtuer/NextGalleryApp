@@ -6,6 +6,7 @@ import net.drehtuer.nextgallery.core.common.RelativePaths
 import net.drehtuer.nextgallery.core.common.runCatchingCancellable
 import net.drehtuer.nextgallery.core.model.AccentColor
 import net.drehtuer.nextgallery.core.model.FolderRule
+import net.drehtuer.nextgallery.core.model.RemotePaths
 import net.drehtuer.nextgallery.core.model.ThemeMode
 import net.drehtuer.nextgallery.core.model.UserSettings
 import javax.inject.Inject
@@ -26,6 +27,14 @@ interface SettingsRepository {
     suspend fun setThemeMode(mode: ThemeMode): AppResult<Unit>
 
     suspend fun setAccentColor(color: AccentColor): AppResult<Unit>
+
+    /** The server folder the local folders map to (D13, used for the upload status in Phase 9). */
+    suspend fun setRemoteRoot(path: String): AppResult<Unit>
+
+    /** [url] must pass [TileUrls.isValid]. */
+    suspend fun setTileUrl(url: String): AppResult<Unit>
+
+    suspend fun setCurrentLocationAsked(): AppResult<Unit>
 }
 
 class DefaultSettingsRepository @Inject constructor(private val dataSource: SettingsDataSource) : SettingsRepository {
@@ -52,10 +61,20 @@ class DefaultSettingsRepository @Inject constructor(private val dataSource: Sett
 
     override suspend fun setAccentColor(color: AccentColor): AppResult<Unit> = update { it.copy(accentColor = color) }
 
+    override suspend fun setRemoteRoot(path: String): AppResult<Unit> =
+        update { it.copy(remoteRoot = RemotePaths.normalize(path)) }
+
+    override suspend fun setTileUrl(url: String): AppResult<Unit> {
+        require(TileUrls.isValid(url)) { "Unsupported tile URL: $url" }
+        return update { it.copy(tileUrl = url) }
+    }
+
+    override suspend fun setCurrentLocationAsked(): AppResult<Unit> = update { it.copy(currentLocationAsked = true) }
+
     private suspend fun update(transform: (UserSettings) -> UserSettings): AppResult<Unit> =
         runCatchingCancellable { dataSource.update(transform) }
+}
 
-    private fun List<FolderRule>.withoutPath(path: String) = filterNot {
-        RelativePaths.isUnder(it.relativePath, path) && RelativePaths.isUnder(path, it.relativePath)
-    }
+private fun List<FolderRule>.withoutPath(path: String) = filterNot {
+    RelativePaths.isUnder(it.relativePath, path) && RelativePaths.isUnder(path, it.relativePath)
 }

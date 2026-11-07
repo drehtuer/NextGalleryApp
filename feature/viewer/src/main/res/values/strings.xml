@@ -11,6 +11,7 @@
     <string name="feature_viewer_info_type">Type</string>
     <string name="feature_viewer_info_folder">Folder</string>
     <string name="feature_viewer_info_location">Location</string>
+    <string name="feature_viewer_info_location_near">near %1$s · %2$s</string>
     <string name="feature_viewer_info_camera">Camera</string>
     <string name="feature_viewer_info_exposure">Exposure</string>
     <string name="feature_viewer_info_aperture">Aperture</string>

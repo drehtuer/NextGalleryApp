@@ -14,6 +14,8 @@ import net.drehtuer.nextgallery.core.common.DispatcherProvider
 import net.drehtuer.nextgallery.core.common.SystemClock
 import net.drehtuer.nextgallery.core.data.edit.MemoryInfoSource
 import net.drehtuer.nextgallery.core.data.index.WorkScheduler
+import net.drehtuer.nextgallery.core.data.map.LocationProvider
+import net.drehtuer.nextgallery.core.data.map.PlaceSource
 import net.drehtuer.nextgallery.core.data.settings.SettingsDataSource
 import java.io.File
 import javax.inject.Singleton
@@ -32,6 +34,12 @@ abstract class PlatformModule {
 
     @Binds
     abstract fun bindMemoryInfoSource(source: ActivityManagerMemoryInfo): MemoryInfoSource
+
+    @Binds
+    abstract fun bindPlaceSource(source: AssetPlaceSource): PlaceSource
+
+    @Binds
+    abstract fun bindLocationProvider(provider: AndroidLocationProvider): LocationProvider
 
     companion object {
         @Provides

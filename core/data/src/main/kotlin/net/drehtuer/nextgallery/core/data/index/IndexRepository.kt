@@ -19,6 +19,7 @@ interface IndexRepository {
 @Singleton
 class DefaultIndexRepository @Inject constructor(
     private val indexer: MediaIndexer,
+    private val locationBackfill: LocationBackfill,
     private val dispatchers: DispatcherProvider,
 ) : IndexRepository {
     private val mutableStatus = MutableStateFlow<IndexStatus>(IndexStatus.Idle)
@@ -27,7 +28,9 @@ class DefaultIndexRepository @Inject constructor(
     override suspend fun sync(mode: IndexMode): AppResult<IndexStats> {
         mutableStatus.value = IndexStatus.Running
         try {
-            val result = withContext(dispatchers.io) { runCatchingCancellable { indexer.sync(mode) } }
+            val result = withContext(dispatchers.io) {
+                runCatchingCancellable { indexer.sync(mode).also { locationBackfill.run() } }
+            }
             mutableStatus.value = when (result) {
                 is AppResult.Success -> IndexStatus.Idle
                 is AppResult.Failure -> IndexStatus.Failed(result.error)

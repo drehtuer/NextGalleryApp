@@ -12,6 +12,18 @@ class ShareSpecTest {
     }
 
     @Test
+    fun from_noTarget_hasNoTargetPackage() {
+        assertNull(ShareSpec.from(listOf(item(1, "image/png")))?.targetPackage)
+    }
+
+    @Test
+    fun from_target_keepsTheTargetPackage() {
+        val spec = ShareSpec.from(listOf(item(1, "image/png")), targetPackage = "com.nextcloud.client")
+
+        assertEquals("com.nextcloud.client", spec?.targetPackage)
+    }
+
+    @Test
     fun from_sameMimeType_usesThatType() {
         val spec = ShareSpec.from(listOf(item(1, "image/png"), item(2, "image/png")))
 

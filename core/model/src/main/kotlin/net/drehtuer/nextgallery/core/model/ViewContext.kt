@@ -5,4 +5,6 @@ sealed interface ViewContext {
     data class Folder(val bucketId: Long) : ViewContext
 
     data object Timeline : ViewContext
+
+    data object Map : ViewContext
 }

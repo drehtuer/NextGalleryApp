@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import net.drehtuer.nextgallery.core.data.selection.SelectionOverviewItem
 import net.drehtuer.nextgallery.core.model.MediaId
+import net.drehtuer.nextgallery.core.model.UploadAvailability
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -27,6 +28,30 @@ class SelectionOverviewScreenTest {
     }
 
     private val shown = SelectionOverviewItem(mediaItem(1), greyedOut = false)
+
+    private fun showWithUpload(availability: UploadAvailability) = composeRule.setContent {
+        SelectionOverviewScreen(
+            SelectionOverviewUiState(listOf(shown), uploadAvailability = availability),
+            { events += it },
+            onBack = {},
+        )
+    }
+
+    @Test
+    fun uploadClicked_sendsEvent() {
+        showWithUpload(UploadAvailability.AVAILABLE)
+
+        composeRule.onNodeWithContentDescription("Upload").performClick()
+
+        assertEquals(listOf(SelectionOverviewEvent.Upload), events)
+    }
+
+    @Test
+    fun loggedOut_noUploadAction() {
+        showWithUpload(UploadAvailability.HIDDEN)
+
+        composeRule.onNodeWithContentDescription("Upload").assertDoesNotExist()
+    }
 
     @Test
     fun loading_showsLoadingIndicator() {
@@ -64,6 +89,21 @@ class SelectionOverviewScreenTest {
 
         composeRule.onNodeWithText(
             "2 selected in all folders. Greyed out: 1 in other folders, which this view can't open.",
+        ).assertIsDisplayed()
+    }
+
+    @Test
+    fun greyedOutOnMap_noteNamesTheMissingLocation() {
+        composeRule.setContent {
+            SelectionOverviewScreen(
+                SelectionOverviewUiState(listOf(shown.copy(greyedOut = true)), greyedOutForMissingLocation = true),
+                {},
+                {},
+            )
+        }
+
+        composeRule.onNodeWithText(
+            "1 selected in all folders. Greyed out: 1 without a location, which the map can't show.",
         ).assertIsDisplayed()
     }
 
@@ -109,5 +149,23 @@ class SelectionOverviewScreenTest {
         composeRule.onNodeWithContentDescription("Back").performClick()
 
         assertEquals(1, backs)
+    }
+
+    @Test
+    fun thumbnail_isDescribedByNameAndDate() {
+        val taken = mediaItem(1).copy(displayName = "IMG_1.jpg", dateTakenMillis = NOON_23_OCT_2026_UTC)
+        composeRule.setContent {
+            SelectionOverviewScreen(
+                SelectionOverviewUiState(items = listOf(SelectionOverviewItem(taken, greyedOut = false))),
+                {},
+                {},
+            )
+        }
+
+        composeRule.onNodeWithContentDescription("IMG_1.jpg, 23 Oct 2026").assertExists()
+    }
+
+    private companion object {
+        const val NOON_23_OCT_2026_UTC = 1_792_756_800_000L
     }
 }

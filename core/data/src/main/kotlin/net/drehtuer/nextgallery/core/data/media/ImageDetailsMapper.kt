@@ -1,5 +1,6 @@
 package net.drehtuer.nextgallery.core.data.media
 
+import net.drehtuer.nextgallery.core.data.index.GpsParser
 import net.drehtuer.nextgallery.core.model.ImageDetails
 import net.drehtuer.nextgallery.core.model.MediaItem
 import net.drehtuer.nextgallery.core.model.RawExif
@@ -16,7 +17,8 @@ object ImageDetailsMapper {
         height = item.height,
         mimeType = item.mimeType,
         relativePath = item.relativePath,
-        location = item.location,
+        // The index only has the location after the second pass; the file may already be open here.
+        location = item.location ?: exif?.let(GpsParser::parse),
         camera = camera(exif?.make, exif?.model),
         exposureTime = exposureTime(exif?.exposureTime),
         aperture = number(exif?.fNumber)?.let { "f/$it" },

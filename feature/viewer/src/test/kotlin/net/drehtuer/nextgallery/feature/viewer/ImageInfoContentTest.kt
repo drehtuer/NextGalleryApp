@@ -8,6 +8,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import net.drehtuer.nextgallery.core.data.media.ImageDetailsMapper
 import net.drehtuer.nextgallery.core.model.GeoPoint
 import net.drehtuer.nextgallery.core.model.ImageDetails
+import net.drehtuer.nextgallery.core.model.Place
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -51,6 +52,16 @@ class ImageInfoContentTest {
     fun imageInfo_withLocation_showsCoordinates() {
         composeRule.setContent { ImageInfoContent(details.copy(location = GeoPoint(48.1, 11.5))) }
 
-        composeRule.onNodeWithText("48.1, 11.5").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("48.10° N, 11.50° E").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun imageInfo_withPlace_showsPlaceAndCoordinates() {
+        val place = Place("Desenzano del Garda", "IT", 45.47, 10.54, 22665)
+        composeRule.setContent { ImageInfoContent(details.copy(location = GeoPoint(45.62, 10.68), place = place)) }
+
+        composeRule.onNodeWithText("near Desenzano del Garda, Italy · 45.62° N, 10.68° E")
+            .performScrollTo()
+            .assertIsDisplayed()
     }
 }

@@ -19,9 +19,12 @@ import net.drehtuer.nextgallery.core.data.media.MediaActionsRepository
 import net.drehtuer.nextgallery.core.data.media.TrashFlow
 import net.drehtuer.nextgallery.core.data.selection.SelectionOverviewItem
 import net.drehtuer.nextgallery.core.data.selection.SelectionRepository
+import net.drehtuer.nextgallery.core.data.upload.UploadHandoffRepository
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.ShareSpec
 import net.drehtuer.nextgallery.core.model.TrashEffect
+import net.drehtuer.nextgallery.core.model.UploadAvailability
+import net.drehtuer.nextgallery.core.model.UploadHandoff
 import net.drehtuer.nextgallery.core.model.ViewContext
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -39,6 +42,9 @@ class SelectionOverviewViewModelTest {
     }
     private val actions = mockk<MediaActionsRepository> { coEvery { shareSpec(selected) } returns spec }
     private val trashFlow = mockk<TrashFlow>(relaxed = true)
+    private val uploadHandoff = mockk<UploadHandoffRepository>(relaxed = true) {
+        every { observeAvailability() } returns flowOf(UploadAvailability.APP_MISSING)
+    }
 
     @Before
     fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
@@ -46,12 +52,51 @@ class SelectionOverviewViewModelTest {
     @After
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun viewModel() = SelectionOverviewViewModel(7, selectionRepository, actions, trashFlow)
+    private fun viewModel() = SelectionOverviewViewModel(
+        ViewContext.Folder(7),
+        selectionRepository,
+        actions,
+        trashFlow,
+        uploadHandoff,
+    )
+
+    @Test
+    fun state_containsUploadAvailability() = runTest {
+        val state = viewModel().state.first { it.items != null }
+
+        assertEquals(UploadAvailability.APP_MISSING, state.uploadAvailability)
+    }
+
+    @Test
+    fun onEvent_upload_sendsTheHandoffOfTheSelection() = runTest {
+        coEvery { uploadHandoff.prepare(selected) } returns UploadHandoff.NextcloudAppMissing
+        val viewModel = viewModel()
+
+        viewModel.onEvent(SelectionOverviewEvent.Upload)
+
+        viewModel.effects.test {
+            assertEquals(SelectionOverviewEffect.Upload(UploadHandoff.NextcloudAppMissing), awaitItem())
+            cancel()
+        }
+    }
+
+    @Test
+    fun onEvent_resumed_tellsTheRepository() {
+        viewModel().onEvent(SelectionOverviewEvent.Resumed)
+
+        verify { uploadHandoff.onAppResumed() }
+    }
 
     @Test
     fun state_withoutBucket_usesTimelineContext() = runTest {
         every { selectionRepository.observeOverview(ViewContext.Timeline) } returns flowOf(emptyList())
-        val viewModel = SelectionOverviewViewModel(null, selectionRepository, actions, trashFlow)
+        val viewModel = SelectionOverviewViewModel(
+            ViewContext.Timeline,
+            selectionRepository,
+            actions,
+            trashFlow,
+            uploadHandoff,
+        )
 
         assertEquals(emptyList<SelectionOverviewItem>(), viewModel.state.first { it.items != null }.items)
     }

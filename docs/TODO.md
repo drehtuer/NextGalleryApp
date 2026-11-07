@@ -259,27 +259,27 @@ _Depends on: Phases 2 (grid), 3 (viewer)._
 **Goal:** images with GPS shown as clustered markers on an OpenStreetMap map.
 _Depends on: Phases 1 (GPS in index, ACCESS_MEDIA_LOCATION), 3 (viewer)._
 
-- [ ] **6.1 Location data**
-  - [ ] `MediaIndexer` fills lat/long from `ExifSource` (`GpsParser` in `:core:data` turns raw GPS tags into `GeoPoint`); re-index when `ACCESS_MEDIA_LOCATION` is granted later. JVM tests: valid GPS, missing GPS, permission missing → null, permission granted → re-index.
-  - [ ] Lazy GPS backfill: a `LocationBackfill` step in `:core:data` run after the main sync (via `IndexRepository`) for rows with `exif_scanned = false` (column exists since schema v1, see ARCHITECTURE.md §4.1). Tests: backfill only unscanned rows, flag set afterwards.
-  - [ ] `MediaDao.observeGeotagged(bounds?)` (id, lat, lon). Test.
-- [ ] **6.2 Clustering (`:core:data`, JVM)**
-  - [ ] `GeoPoint`, `GeoBounds`, `Cluster(center, count, coverId, ids)` in `:core:model`.
-  - [ ] `GridClusterer.cluster(points, bounds, zoom, cellPx)` (pure Kotlin, grid-based). Tests: single point, merge within cell, split at higher zoom, antimeridian handling.
-  - [ ] `MapRepository.observeClusters(viewport: Flow<Viewport>)` (debounced, computed on `Dispatchers.Default`). Test with Turbine.
-  - [ ] `PlaceNamer` (D45): loads the bundled GeoNames `cities15000` extract (name, country, lat, lon) into a spatial grid; `nearest(point, maxKm = 30)` → place or null; `clusterTitle(cluster)` → "near X", "near X and N more places" or null (count only). JVM tests: within/outside 30 km, merged cluster named after its largest place with a town, no town.
-  - [ ] Build step that turns the GeoNames dump into the bundled asset (only the needed columns), plus the attribution in About. Test: asset parses and has the expected row count.
-- [ ] **6.3 `:feature:map`**
-  - [ ] `MapRenderer` interface (`setClusters`, `setViewport`, `onViewportChanged`, `onClusterClick`) + `OsmdroidMapRenderer` in `AndroidView` (user agent set, tile cache in app cache dir, no Play Services). Test: `FakeMapRenderer` used in ViewModel tests; osmdroid config (user agent, tile URL) in Robolectric; instrumented test (local) that the map renders clusters.
-  - [ ] Tile source setting (default OSM tile server, configurable URL; D23) in `SettingsRepository`, read by `OsmdroidMapRenderer`. Tests: default value, custom URL applied.
-  - [ ] Cluster marker drawable with thumbnail + count (Coil-loaded bitmap). Test: count text formatting (`999+`).
-  - [ ] Viewport (D44): zoom 0–19, horizontal world repetition, multi-touch pinch and two-finger drag (osmdroid), zoom buttons and a "my location" button. Robolectric test: min/max zoom and repetition configured.
-  - [ ] Current location (D44): `ACCESS_COARSE_LOCATION` in the manifest; `LocationProvider` port with a `LocationManager` adapter (last known or one fresh fix, no Play Services); start viewport = current location at zoom 8, else the bounds of the largest cluster. Tests: permission granted/denied → start viewport; Compose test: location dot shown.
-  - [ ] `MapViewModel` → `MapUiState(clusters, viewport, permissionNeeded)`; events `ViewportChanged`, `ClusterClicked`. Tests per event.
-  - [ ] `MapScreen`: map, permission prompts for `ACCESS_MEDIA_LOCATION` and `ACCESS_COARSE_LOCATION`, empty state "no geotagged images". Compose UI test: states.
-  - [ ] Map rule in `SelectionRepresentability` (item has GPS) and selection overview entry from the map. JVM test: item without GPS greyed out for `ViewContext.Map`.
-  - [ ] Cluster tap → bottom-sheet grid of cluster items (title from `PlaceNamer`, else count and coordinates; own fast scrollbar) or viewer with `MediaSource.Map(ids/bounds)`. Test.
-- [ ] **6.4 Update docs** – ARCHITECTURE.md (MapRenderer abstraction, clustering) and README match code.
+- [x] **6.1 Location data**
+  - [x] `MediaIndexer` fills lat/long from `ExifSource` (`GpsParser` in `:core:data` turns raw GPS tags into `GeoPoint`); re-index when `ACCESS_MEDIA_LOCATION` is granted later. JVM tests: valid GPS, missing GPS, permission missing → null, permission granted → re-index. _`MediaIndexer` itself only keeps the location of unchanged files; the reading is all in `LocationBackfill`. A grant queues a sync, which ends with that pass (`IndexScheduler.onPhotoLocationsAllowed`)._
+  - [x] Lazy GPS backfill: a `LocationBackfill` step in `:core:data` run after the main sync (via `IndexRepository`) for rows with `exif_scanned = false` (column exists since schema v1, see ARCHITECTURE.md §4.1). Tests: backfill only unscanned rows, flag set afterwards.
+  - [x] `MediaDao.observeGeotagged(bounds?)` (id, lat, lon). Test. _`GeoDao.observeGeotagged()` without bounds: clustering needs every image of a cell, so `GridClusterer` filters by viewport. Behind a new `GeoIndexStore` port; no schema change._
+- [x] **6.2 Clustering (`:core:data`, JVM)**
+  - [x] `GeoPoint`, `GeoBounds`, `Cluster(center, count, coverId, ids)` in `:core:model`. _`Cluster(center, items)`; count, cover and bounds derive from the items._
+  - [x] `GridClusterer.cluster(points, bounds, zoom, cellPx)` (pure Kotlin, grid-based). Tests: single point, merge within cell, split at higher zoom, antimeridian handling.
+  - [x] `MapRepository.observeClusters(viewport: Flow<Viewport>)` (debounced, computed on `Dispatchers.Default`). Test with Turbine.
+  - [x] `PlaceNamer` (D45): loads the bundled GeoNames `cities15000` extract (name, country, lat, lon) into a spatial grid; `nearest(point, maxKm = 30)` → place or null; `clusterTitle(cluster)` → "near X", "near X and N more places" or null (count only). JVM tests: within/outside 30 km, merged cluster named after its largest place with a town, no town. _Returns `ClusterTitle(place, morePlaces)`; the wording is in `:feature:map`. The extract also has the population, to find the largest place. The search is in `PlaceIndex`._
+  - [x] Build step that turns the GeoNames dump into the bundled asset (only the needed columns), plus the attribution in About. Test: asset parses and has the expected row count. _`core/platform/tools/build-places-asset.sh`, run by hand; the result is committed (`core/platform/src/main/assets/geonames/cities15000.tsv`, 34,204 places). Without the file the app shows coordinates only._
+- [x] **6.3 `:feature:map`**
+  - [x] `MapRenderer` interface (`setClusters`, `setViewport`, `onViewportChanged`, `onClusterClick`) + `OsmdroidMapRenderer` in `AndroidView` (user agent set, tile cache in app cache dir, no Play Services). Test: `FakeMapRenderer` used in ViewModel tests; osmdroid config (user agent, tile URL) in Robolectric; instrumented test (local) that the map renders clusters. _`setViewport` is `setCamera`. `OsmdroidMapRendererDeviceTest` is written and compiled, but has not run on a device yet. `FakeMapRenderer` is used for `MapRendererBinding`; the ViewModel only sends effects._
+  - [x] Tile source setting (default OSM tile server, configurable URL; D23) in `SettingsRepository`, read by `OsmdroidMapRenderer`. Tests: default value, custom URL applied. _Plus a "Map" row in Settings to change it; only `https://` addresses with `{z}`, `{x}` and `{y}` are accepted (D19)._
+  - [x] Cluster marker drawable with thumbnail + count (Coil-loaded bitmap). Test: count text formatting (`999+`).
+  - [x] Viewport (D44): zoom 0–19, horizontal world repetition, multi-touch pinch and two-finger drag (osmdroid), zoom buttons and a "my location" button. Robolectric test: min/max zoom and repetition configured.
+  - [x] Current location (D44): `ACCESS_COARSE_LOCATION` in the manifest; `LocationProvider` port with a `LocationManager` adapter (last known or one fresh fix, no Play Services); start viewport = current location at zoom 8, else the bounds of the largest cluster. Tests: permission granted/denied → start viewport; Compose test: location dot shown. _Without a location it opens on the centre of the largest cluster at zoom 8. The dot is drawn by osmdroid, so the test checks that it reaches the renderer (`MapRendererBindingTest`) and how it is drawn (`MarkerStyleTest`)._
+  - [x] `MapViewModel` → `MapUiState(clusters, viewport, permissionNeeded)`; events `ViewportChanged`, `ClusterClicked`. Tests per event.
+  - [x] `MapScreen`: map, permission prompts for `ACCESS_MEDIA_LOCATION` and `ACCESS_COARSE_LOCATION`, empty state "no geotagged images". Compose UI test: states.
+  - [x] Map rule in `SelectionRepresentability` (item has GPS) and selection overview entry from the map. JVM test: item without GPS greyed out for `ViewContext.Map`.
+  - [x] Cluster tap → bottom-sheet grid of cluster items (title from `PlaceNamer`, else count and coordinates; own fast scrollbar) or viewer with `MediaSource.Map(ids/bounds)`. Test. _`MediaSource.Map(bounds)`: the smallest rectangle around a cluster's images holds exactly those images, because they all come from one grid cell. So no list of ids has to be passed around._
+- [x] **6.4 Update docs** – ARCHITECTURE.md (MapRenderer abstraction, clustering) and README match code.
 
 **Definition of done:** geotagged images appear as clusters that split on zoom; tapping opens images; images without GPS are absent; works without Play Services; tests for every function; CI green.
 
@@ -325,45 +325,47 @@ _Depends on: Phase 3 (viewer entry point, write/delete request helpers)._
 **Goal:** sign in with Login Flow v2 and browse/view Nextcloud images via WebDAV and the preview API.
 _Depends on: Phases 3 (viewer), 4 (settings)._
 
-- [ ] **8.1 Model (`:core:model`)**
-  - [ ] `NextcloudAccount(serverUrl, loginName, userId, appPassword)` (password never logged; `toString` redacted). Test: redaction.
-  - [ ] `RemoteItem(path, name, isDirectory, size, mime, etag, lastModified, fileId, checksums?)`. 
-- [ ] **8.2 Credentials**
-  - [ ] `SecretCipher` port and `AccountStore` in `:core:data` (DataStore-core + `SecretCipher`): `observeAccount()`, `save()`, `clear()`. JVM tests per function with a fake cipher; undecryptable data → null.
-  - [ ] `KeystoreSecretCipher` in `:core:platform`: Tink `AndroidKeysetManager` with Android Keystore master key (`android-keystore://nextgallery_master`). Test: encrypt/decrypt round-trip, instrumented (Robolectric has no `AndroidKeyStore`).
-- [ ] **8.3 `:core:nextcloud` client**
-  - [ ] `:app` manifest: `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_LOCAL_NETWORK` (D39). (`:core:nextcloud` is a JVM module and has no manifest.)
-  - [ ] Request `ACCESS_LOCAL_NETWORK` at the start of the login with an explanation; map blocked LAN connections to a clear `AppError` instead of a timeout. Tests: permission state → request shown; blocked connection → error. On-device check: LAN IP, `.local` name, VPN/Tailscale address, login page in Custom Tabs (D39).
-  - [ ] On-device check that an accepted self-signed certificate still works with Certificate Transparency on by default (D40).
-  - [ ] XML parsing on the XmlPullParser API: `compileOnly` dependency, provided by Android at runtime; kxml2 on the JVM test classpath.
-  - [ ] `NextcloudHttpModule`: base `OkHttpClient` (timeouts, user agent), `AuthInterceptor` (Basic auth from account, OCS-APIRequest header). Test with MockWebServer: header present.
-  - [ ] `LoginFlowV2Client`: `start(serverUrl)` → `{loginUrl, pollEndpoint, token}`; `poll()` until 200 or timeout. Tests (MockWebServer): start, 404 pending, success, expiry.
-  - [ ] `ServerUrlNormalizer` (add https, strip `/index.php`, trailing slash). Tests per case.
-  - [ ] `PropfindRequestBuilder` (depth 1, props: resourcetype, getcontentlength, getcontenttype, getetag, getlastmodified, oc:fileid, oc:checksums, oc:permissions). Test: XML body.
-  - [ ] `MultistatusParser` (XmlPullParser) → `List<RemoteItem>`. Tests with fixture XML: files, folders, missing props, URL-encoded names.
-  - [ ] `WebDavClient`: `list(path)`, `download(path, sink)`, and (D46) `move(from, to, overwrite = false)`, `createFolder(path)`, `delete(path)`; trash-bin `restore(item)`. Uploading stays with the Nextcloud app (D31). Tests (MockWebServer) per method incl. 401/404, 412 on an existing target, 403 on a read-only folder.
-  - [ ] `PinningTrustManager` + `HostnameVerifier` (D32): platform trust first, then pinned SHA-256 per host, else `UntrustedCertificateException(chain)`. JVM tests with `okhttp-tls` `HeldCertificate`: CA-signed accepted, unknown self-signed rejected, pinned accepted, pinned but changed rejected with `changedFromPinned`, pinned with hostname mismatch accepted.
-  - [ ] `CertificateInfoMapper`. Test: fields and fingerprint of a fixture certificate.
-  - [ ] `RemotePathMapper`: `davUrl(account, path)` (`/remote.php/dav/files/<userId>/…`, segment encoding), `previewUrl(fileId, size)` (`/index.php/core/preview?fileId=…&x=…&y=…&a=1`). Tests.
-- [ ] **8.4 Coil integration (`:core:ui` / `:app`)**
-  - [ ] Separate authenticated Coil `ImageLoader` (or `OkHttpNetworkFetcherFactory` with auth client) qualified `@RemoteImageLoader`; disk-cache key by fileId+etag+size. Tests: keyer.
-- [ ] **8.5 Repository (`:core:data`)**
-  - [ ] `NextcloudAccountRepository`: `login(serverUrl): Flow<LoginState>` (Started(loginUrl) → Polling → Success/Failed), `logout()` (revoke via `DELETE /ocs/v2.php/core/apppassword` best effort, clear store, remote cache and upload states; D35). Tests per state.
-  - [ ] Logged-out guard: every remote call returns `AppError.NotLoggedIn` without network access. Test.
-  - [ ] `TrustedCertificateRepository` + `TrustedCertificateStore` port (DataStore): `accept(info)`, `remove(host)`, `observe()`. JVM tests per function.
-  - [ ] `RemoteBrowseRepository.list(path): Flow<RemoteListing>` (Room `remote_cache` per path, so offline browsing shows what was loaded before; filter supported image mimes + folders). Tests.
-  - [ ] `RemoteShareRepository.prepare(items)` (D48): downloads to a temporary cache folder with progress, returns a `ShareSpec`; `FileProvider` limited to that folder; old files removed at the next share and at app start. Tests: progress, failure, offline, cleanup; Robolectric: URIs and read grants.
-  - [ ] `RemoteFileOperations` (D46): `move(items, targetFolder, conflictPolicy)` → per-item result (moved, renamed, replaced, skipped, failed), `undoMove`, `delete(items)` / `undoDelete` via the trash bin, `canWrite(folder)` from `oc:permissions`, `nextFreeName("IMG_1.jpg")` → "IMG_1 (2).jpg". Tests per function and per conflict policy.
-- [ ] **8.6 `:feature:remote` and settings**
-  - [ ] `NextcloudSettingsViewModel` / `NextcloudSettingsScreen` in `:feature:settings`: server URL input, "Sign in" opens Custom Tab with `loginUrl`, shows polling/progress, account info, logout, remote root folder picker (used in Phase 9). Tests per event; Compose tests per state.
-  - [ ] `RemoteBrowserViewModel` (current path, listing, breadcrumbs, `LoginRequired` state) / `RemoteBrowserScreen` (folder list + thumbnail grid with previews, pull-to-refresh, offline/error state; login-required hint with a login button, D35). Tests per event; Compose tests.
-  - [ ] Remote selection and context menu (D47): Select action, selection bar (Select all, Move), long-press menu (Move to folder…, Share, Delete) for one image or the whole selection. ViewModel tests per event; Compose test: long-press opens the menu.
-  - [ ] Move sheet (D46): folder picker with breadcrumbs, read-only folders disabled, "New folder", "Move here" disabled in the source folder; conflict dialog (keep both, replace, skip, apply to all); snackbars with Undo; offline hint. Tests per event; Compose tests per state.
-  - [ ] `CertificateWarningDialog` in `:core:ui` and the accept-and-retry flow in the login and remote ViewModels (D32). Tests: untrusted → dialog effect, accept → pinned and retried, cancel → error state; Compose test: details shown.
-  - [ ] `TrustedCertificatesScreen` in `:feature:settings` (list, remove). Tests.
-  - [ ] `RemoteViewerViewModel` / `RemoteViewerScreen`: pager over folder's images, Telephoto zoom loading full image via authenticated loader (download to cache), info sheet from `RemoteItem`. Tests.
-  - [ ] Nextcloud tab and settings entries wired in `:app`.
-- [ ] **8.7 Update docs** – ARCHITECTURE.md (Nextcloud client, credential storage), README (login, permissions: INTERNET) match code.
+- [x] **8.1 Model (`:core:model`)**
+  - [x] `NextcloudAccount(serverUrl, loginName, userId, appPassword)` (password never logged; `toString` redacted). Test: redaction.
+  - [x] `RemoteItem(path, name, isDirectory, size, mime, etag, lastModified, fileId, checksums?)`. _Also `permissions`, `hasPreview` and `childCount` (`nc:contained-file-count`, for the folder rows' counts; servers that don't send it show no count)._
+- [x] **8.2 Credentials**
+  - [x] `SecretCipher` port and `AccountStore` in `:core:data` (DataStore-core + `SecretCipher`): `observeAccount()`, `save()`, `clear()`. JVM tests per function with a fake cipher; undecryptable data → null.
+  - [x] `KeystoreSecretCipher` in `:core:platform`: Tink `AndroidKeysetManager` with Android Keystore master key (`android-keystore://nextgallery_master`). Test: encrypt/decrypt round-trip, instrumented (Robolectric has no `AndroidKeyStore`). _`KeystoreSecretCipherTest` is written and compiles; it has not run on a device yet._
+- [x] **8.3 `:core:nextcloud` client**
+  - [x] `:app` manifest: `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_LOCAL_NETWORK` (D39). (`:core:nextcloud` is a JVM module and has no manifest.)
+  - [x] Request `ACCESS_LOCAL_NETWORK` at the start of the login with an explanation; map blocked LAN connections to a clear `AppError` instead of a timeout. Tests: permission state → request shown; blocked connection → error.
+  - [ ] On-device check: LAN IP, `.local` name, VPN/Tailscale address, login page in Custom Tabs (D39). _Open: needs a server and the device. Also check how a blocked connection actually fails; the mapping turns any network failure on a local address without the permission into the clear error._
+  - [ ] On-device check that an accepted self-signed certificate still works with Certificate Transparency on by default (D40). _Open: needs a server and the device. Also check there that a rejected certificate reaches the dialog (`UntrustedCertificateException` as cause under Conscrypt; if the cause were lost, the connection still fails, with a network error instead of the dialog)._
+  - [x] XML parsing on the XmlPullParser API: `compileOnly` dependency, provided by Android at runtime; kxml2 on the JVM test classpath.
+  - [x] `NextcloudHttpModule`: base `OkHttpClient` (timeouts, user agent), `AuthInterceptor` (Basic auth from account, OCS-APIRequest header). Test with MockWebServer: header present. _Network interceptor, for the account's scheme, host and port only; tests cover redirects to another host and plain http being refused. `OcsClient` holds the user-id and revoke calls: the app-password login needs the user id before the account is stored, so the architecture's "PROPFIND to fetch userId" became `ocs/v2.php/cloud/user`._
+  - [x] `LoginFlowV2Client`: `start(serverUrl)` → `{loginUrl, pollEndpoint, token}`; `poll()` until 200 or timeout. Tests (MockWebServer): start, 404 pending, success, expiry.
+  - [x] `ServerUrlNormalizer` (add https, strip `/index.php`, trailing slash). Tests per case.
+  - [x] `PropfindRequestBuilder` (depth 1, props: resourcetype, getcontentlength, getcontenttype, getetag, getlastmodified, oc:fileid, oc:checksums, oc:permissions). Test: XML body.
+  - [x] `MultistatusParser` (XmlPullParser) → `List<RemoteItem>`. Tests with fixture XML: files, folders, missing props, URL-encoded names.
+  - [x] `WebDavClient`: `list(path)`, `download(path, sink)`, and (D46) `move(from, to, overwrite = false)`, `createFolder(path)`, `delete(path)`; trash-bin `restore(item)`. Uploading stays with the Nextcloud app (D31). Tests (MockWebServer) per method incl. 401/404, 412 on an existing target, 403 on a read-only folder.
+  - [x] `PinningTrustManager` + `HostnameVerifier` (D32): platform trust first, then pinned SHA-256 per host, else `UntrustedCertificateException(chain)`. JVM tests with `okhttp-tls` `HeldCertificate`: CA-signed accepted, unknown self-signed rejected, pinned accepted, pinned but changed rejected with `changedFromPinned`, pinned with hostname mismatch accepted. _Tested with real TLS handshakes against MockWebServer, also: expired CA-signed, CA-signed hostname mismatch (dialog, D32), pin of another host, removed pin, nothing sent to the server after a rejection._
+  - [x] `CertificateInfoMapper`. Test: fields and fingerprint of a fixture certificate.
+  - [x] `RemotePathMapper`: `davUrl(account, path)` (`/remote.php/dav/files/<userId>/…`, segment encoding), `previewUrl(fileId, size)` (`/index.php/core/preview?fileId=…&x=…&y=…&a=1`). Tests.
+- [x] **8.4 Coil integration (`:core:ui` / `:app`)**
+  - [x] Separate authenticated Coil `ImageLoader` (or `OkHttpNetworkFetcherFactory` with auth client) qualified `@RemoteImageLoader`; disk-cache key by fileId+etag+size. Tests: keyer. _Coil applies keyers after mapping to the URL, so the key is set on each request (`remoteImageCacheKey`). Own disk cache of 500 MB (D37), which logging out can wipe separately; `LocalRemoteImageLoader` hands the loader to the screens._
+- [x] **8.5 Repository (`:core:data`)**
+  - [x] `NextcloudAccountRepository`: `login(serverUrl): Flow<LoginState>` (Started(loginUrl) → Polling → Success/Failed), `logout()` (revoke via `DELETE /ocs/v2.php/core/apppassword` best effort, clear store, remote cache and upload states; D35). Tests per state. _Upload states came with Phase 9, in `RemoteDataWiper`._
+  - [x] Logged-out guard: every remote call returns `AppError.NotLoggedIn` without network access. Test.
+  - [x] `TrustedCertificateRepository` + `TrustedCertificateStore` port (DataStore): `accept(info)`, `remove(host)`, `observe()`. JVM tests per function.
+  - [x] `RemoteBrowseRepository.list(path): Flow<RemoteListing>` (Room `remote_cache` per path, so offline browsing shows what was loaded before; filter supported image mimes + folders). Tests.
+  - [x] `RemoteShareRepository.prepare(items)` (D48): downloads to a temporary cache folder with progress, returns a `ShareSpec`; `FileProvider` limited to that folder; old files removed at the next share and at app start. Tests: progress, failure, offline, cleanup; Robolectric: URIs and read grants. _Offline, sharing is refused for all images, also those in the image cache: the JVM repository can't see Coil's cache. Read grants are set by the existing `ShareIntentFactory`, which has its test._
+  - [x] `RemoteFileOperations` (D46): `move(items, targetFolder, conflictPolicy)` → per-item result (moved, renamed, replaced, skipped, failed), `undoMove`, `delete(items)` / `undoDelete` via the trash bin, `canWrite(folder)` from `oc:permissions`, `nextFreeName("IMG_1.jpg")` → "IMG_1 (2).jpg". Tests per function and per conflict policy. _`RemoteMoveFlow` holds the per-file questions. Replace refuses to overwrite a folder. Undo after Replace moves the image back, but the replaced file stays in the Nextcloud trash bin. Restoring has only run against MockWebServer: check it on a real server._
+- [x] **8.6 `:feature:remote` and settings**
+  - [x] `NextcloudSettingsViewModel` / `NextcloudSettingsScreen` in `:feature:settings`: server URL input, "Sign in" opens Custom Tab with `loginUrl`, shows polling/progress, account info, logout, remote root folder picker (used in Phase 9). Tests per event; Compose tests per state. _This is where the signed-out form of DESIGN.md lives; the tab shows the same texts with a button that opens it (D35). It also opens again with the server filled in after a 401._
+  - [x] `RemoteBrowserViewModel` (current path, listing, breadcrumbs, `LoginRequired` state) / `RemoteBrowserScreen` (folder list + thumbnail grid with previews, pull-to-refresh, offline/error state; login-required hint with a login button, D35). Tests per event; Compose tests. _Path changes stay in one route, with Up and breadcrumbs; the selection survives changing folders._
+  - [x] Remote selection and context menu (D47): Select action, selection bar (Select all, Move), long-press menu (Move to folder…, Share, Delete) for one image or the whole selection. ViewModel tests per event; Compose test: long-press opens the menu.
+  - [x] Move sheet (D46): folder picker with breadcrumbs, read-only folders disabled, "New folder", "Move here" disabled in the source folder; conflict dialog (keep both, replace, skip, apply to all); snackbars with Undo; offline hint. Tests per event; Compose tests per state.
+  - [x] `CertificateWarningDialog` in `:core:ui` and the accept-and-retry flow in the login and remote ViewModels (D32). Tests: untrusted → dialog effect, accept → pinned and retried, cancel → error state; Compose test: details shown.
+  - [x] `TrustedCertificatesScreen` in `:feature:settings` (list, remove). Tests.
+  - [x] `RemoteViewerViewModel` / `RemoteViewerScreen`: pager over folder's images, Telephoto zoom loading full image via authenticated loader (download to cache), info sheet from `RemoteItem`. Tests. _Telephoto itself is not exercised in a JVM test (`pageContent` is replaced); the real page needs a device and a server._
+  - [x] Nextcloud tab and settings entries wired in `:app`.
+- [x] **8.7 Update docs** – ARCHITECTURE.md (Nextcloud client, credential storage), README (login, permissions: INTERNET) match code.
+- [x] **8.8 Security review** – logout local first and not cancellable; results of a call whose account left are dropped; a new login wipes unless provably the same user; replace-all never hits an image of the same move, undo goes backwards; `undoDelete` only falls back on the path if a file id is unknown; `safeFileName` and `isValidName` handle control characters; unused app passwords are revoked; login responses are tied to the entered server; responses are limited; a DOCTYPE fails the parse; Keystore failures read as logged out and the clear text keyset is refused. _Android's own XML parser and the Keystore path are only covered by the instrumented `MultistatusParserDeviceTest` and `KeystoreSecretCipherTest`; run by the coordinator._
 
 **Definition of done:** user signs in via browser without entering password in-app; app password stored encrypted; remote folders browse with server previews; full image opens only on view; logout revokes the app password and leaves no remote access, with a login hint shown; a self-signed server can be used after accepting the warning; tests for every function; CI green.
 
@@ -374,28 +376,28 @@ _Depends on: Phases 3 (viewer), 4 (settings)._
 **Goal:** show a per-thumbnail "on Nextcloud" badge and hand images that are not uploaded yet to the Nextcloud Android app (D31).
 _Depends on: Phases 4 (settings), 8 (WebDAV client, account)._
 
-- [ ] **9.1 Model & settings**
-  - [ ] `UploadState` (`Unknown`, `NotUploaded`, `Uploaded(verifiedByChecksum)`).
-  - [ ] `remoteRoot` in settings (should match the Nextcloud app's upload folder); `RemoteTargetResolver.remotePathFor(item, remoteRoot)` = `<remoteRoot>/<local relative path>/<displayName>`. Tests: nesting, trailing slashes, special characters.
-- [ ] **9.2 Database (migration → next version)**
-  - [ ] `UploadStateEntity` (`upload_state`: media_id PK, remote_path, local_size, remote_etag, checksum_verified, state, checked_at). Migration test.
-  - [ ] `UploadStateDao`: `upsertAll`, `observeStatusFor(ids)`, `observeStatusByBucket(bucketId)`, `deleteForMissingMedia()`, `clear()`. Tests per method.
-- [ ] **9.3 Status check (`:core:data` + `:core:platform`)**
-  - [ ] `ChecksumCalculator.sha1(InputStream)` / `md5(InputStream)` (streaming, JVM); content opened through the `MediaContentSource` port (`ContentResolverContentSource` adapter, Robolectric test). Tests with fixture bytes.
-  - [ ] `ChecksumParser.parse("SHA1:… MD5:…")`. Tests.
-  - [ ] `UploadStateMatcher.match(localItems, remoteListing)` – path+size match; if remote has `oc:checksums`, confirm via local hash. Tests: match, size mismatch, missing remote, checksum confirm/mismatch.
-  - [ ] `UploadStateRepository.refreshAll()`: one PROPFIND per local folder → matcher → upsert. JVM tests: success, offline → retryable failure, logged out → no-op.
-  - [ ] `UploadStateSyncWorker` in `:core:platform` (periodic e.g. 6 h, network constraint; one-shot via `requestUploadStateSync()`), maps the result. Tests (Robolectric): success, retry.
-- [ ] **9.4 Hand-off (`:core:data` + `:core:platform`)**
-  - [ ] `NextcloudAppSource` port; `PackageManagerNextcloudAppSource` + manifest `<queries>` for `com.nextcloud.client`. Test (Robolectric): installed / not installed.
-  - [ ] `UploadHandoffRepository.prepare(ids)`: drops `Uploaded` items, returns a `ShareSpec` targeted at `com.nextcloud.client`; `NothingToUpload` when all are uploaded; `NextcloudAppMissing` when not installed. `onReturnedFromHandoff()` → `requestUploadStateSync()`. JVM tests per outcome.
-  - [ ] `ShareIntentFactory` honours a target package (explicit intent). Robolectric test.
-- [ ] **9.5 UI**
-  - [ ] `UploadBadge` composable in `:core:ui` (icon per `UploadState`, content description). Compose test per state.
-  - [ ] Folder grid and timeline ViewModels combine paging items with `observeStatusFor`; badges shown only when logged in. Tests.
-  - [ ] "Upload" action in viewer, `SelectionTopBar` and selection overview: hand-off of the not-yet-uploaded items; disabled with a hint when the Nextcloud app is missing; hidden when logged out. Tests per case.
-  - [ ] Settings: remote root. Tests.
-- [ ] **9.6 Update docs** – ARCHITECTURE.md (upload-state algorithm, hand-off) and README "How already uploaded is determined" match code.
+- [x] **9.1 Model & settings**
+  - [x] `UploadState` (`Unknown`, `NotUploaded`, `Uploaded(verifiedByChecksum)`).
+  - [x] `remoteRoot` in settings (should match the Nextcloud app's upload folder); `RemoteTargetResolver.remotePathFor(item, remoteRoot)` = `<remoteRoot>/<local relative path>/<displayName>`. Tests: nesting, trailing slashes, special characters. _`remoteRoot` and its setting were already there from Phase 8._
+- [x] **9.2 Database (migration → next version)**
+  - [x] `UploadStateEntity` (`upload_state`: media_id PK, remote_path, local_size, remote_etag, checksum_verified, state, checked_at). Migration test. _Schema version 3. Also `local_date_modified_s` as in ARCHITECTURE.md §4.1, and `remote_folder_etag` for the skip rule of §5.7._
+  - [x] `UploadStateDao`: `upsertAll`, `observeStatusFor(ids)`, `observeStatusByBucket(bucketId)`, `deleteForMissingMedia()`, `clear()`. Tests per method. _No `deleteForMissingMedia()`: the foreign key removes the rows. No `observeStatusByBucket`: the timeline needs the visible ids anyway (§5.2), and the folder grid uses them as well. Added what the check reads, and `upsertExisting`, which leaves out images deleted during the check._
+- [x] **9.3 Status check (`:core:data` + `:core:platform`)**
+  - [x] `ChecksumCalculator.sha1(InputStream)` / `md5(InputStream)` (streaming, JVM); content opened through the `MediaContentSource` port (`ContentResolverContentSource` adapter, Robolectric test). Tests with fixture bytes. _Reads the original with `setRequireOriginal`, because the system otherwise blanks the location in the file, so also an on-device test._
+  - [x] `ChecksumParser.parse("SHA1:… MD5:…")`. Tests.
+  - [x] `UploadStateMatcher.match(localItems, remoteListing)` – path+size match; if remote has `oc:checksums`, confirm via local hash. Tests: match, size mismatch, missing remote, checksum confirm/mismatch. _The image is read through a function parameter, and only for a name-and-size match that was not compared before._
+  - [x] `UploadStateRepository.refreshAll()`: one PROPFIND per local folder → matcher → upsert. JVM tests: success, offline → retryable failure, logged out → no-op.
+  - [x] `UploadStateSyncWorker` in `:core:platform` (periodic e.g. 6 h, network constraint; one-shot via `requestUploadStateSync()`), maps the result. Tests (Robolectric): success, retry.
+- [x] **9.4 Hand-off (`:core:data` + `:core:platform`)**
+  - [x] `NextcloudAppSource` port; `PackageManagerNextcloudAppSource` + manifest `<queries>` for `com.nextcloud.client`. Test (Robolectric): installed / not installed.
+  - [x] `UploadHandoffRepository.prepare(ids)`: drops `Uploaded` items, returns a `ShareSpec` targeted at `com.nextcloud.client`; `NothingToUpload` when all are uploaded; `NextcloudAppMissing` when not installed. `onReturnedFromHandoff()` → `requestUploadStateSync()`. JVM tests per outcome. _As `onAppResumed()`, called on every resume: it requests a check only after a hand-off, and also looks for the Nextcloud app again. Returns `UploadHandoff`, because `:core:ui` carries it out._
+  - [x] `ShareIntentFactory` honours a target package (explicit intent). Robolectric test.
+- [x] **9.5 UI**
+  - [x] `UploadBadge` composable in `:core:ui` (icon per `UploadState`, content description). Compose test per state.
+  - [x] Folder grid and timeline ViewModels combine paging items with `observeStatusFor`; badges shown only when logged in. Tests. _Through the ids of the images on screen; the paging query stays as it was. No badges in the map's cluster sheet: the task names the folder grid and the timeline._
+  - [x] "Upload" action in viewer, `SelectionTopBar` and selection overview: hand-off of the not-yet-uploaded items; disabled with a hint when the Nextcloud app is missing; hidden when logged out. Tests per case. _Dimmed and still tappable, as in DESIGN.md. Not in the map's own selection bar, but in the selection overview it opens._
+  - [x] Settings: remote root. Tests. _Done in Phase 8; changing it now requests a check._
+- [x] **9.6 Update docs** – ARCHITECTURE.md (upload-state algorithm, hand-off) and README "How already uploaded is determined" match code.
 
 **Definition of done:** badges reflect server state without blocking the grid; selected images that are not on the server open in the Nextcloud app's upload screen; badges update after returning; already-present files are not handed over again; tests for every function; CI green.
 
@@ -408,29 +410,29 @@ _Depends on: Phases 1–9._
 
 - [x] **10.0 Apply design** – replace the placeholder theme tokens with the values in [DESIGN.md](DESIGN.md) (delivered; can be done now): five accents × light/dark, fixed roles, always-dark viewer colours, type scale, shapes and the new dimension tokens. Adjust screens only where DESIGN.md changes the layout (selection ring, badges, Appearance, About with version and source link). Set a `versionName`. Compose tests: theme per accent and mode. _Done before Phase 4. Applied to all existing screens, with new wording, states, icons and the Select action. The rest comes with the screens that need it: settings icon, Appearance and About in 4.3, upload action and badges in Phase 9. `versionName` was already set._
 - [ ] **10.1 Performance**
-  - [ ] `:benchmark` (`com.android.test`) module with Macrobenchmark: cold start, folder grid scroll, timeline fast-scroll, viewer swipe. Run on the Pixel 10a against the D24 targets.
-  - [ ] Baseline Profile generator (`androidx.baselineprofile` plugin) for `:app`; commit `baseline-prof.txt`. Verify startup improvement.
-  - [ ] Profile indexing on 50k images (time, memory); tune batch size, Room transactions. Record results in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
-  - [ ] StrictMode in debug builds; fix disk/network on main thread.
+  - [ ] `:benchmark` (`com.android.test`) module with Macrobenchmark: cold start, folder grid scroll, timeline fast-scroll, viewer swipe. Run on the Pixel 10a against the D24 targets. _The module and the journeys are written and compile; they have never run, so the selectors may need adjusting. The run and the comparison with D24 are still open._
+  - [ ] Baseline Profile generator (`androidx.baselineprofile` plugin) for `:app`; commit `baseline-prof.txt`. Verify startup improvement. _The generator is written and `:app` is set up to use its output (`./gradlew :app:generateBaselineProfile`). Generating needs a device, so there is no profile yet and nothing is measured._
+  - [ ] Profile indexing on 50k images (time, memory); tune batch size, Room transactions. Record results in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md). _Needs a device._
+  - [ ] StrictMode in debug builds; fix disk/network on main thread. _StrictMode is on in debug builds and logs. Reading the code found no disk or network work on the main thread in the app's own code that was worth moving: only `Context.filesDir`/`cacheDir` lookups while Hilt builds singletons, and osmdroid's setup, because a `MapView` has to be created on the main thread. Nothing was changed for that. What the log says on a device is still open._
 - [ ] **10.2 Accessibility**
-  - [ ] Content descriptions for thumbnails (date/name), badges, actions; TalkBack traversal of grids and viewer.
-  - [ ] Touch targets ≥ 48 dp, contrast check, font scaling 200 %; scrollbar operable via accessibility actions.
-  - [ ] Compose UI tests asserting semantics on key screens; Accessibility Scanner pass.
-- [ ] **10.3 Strings**
-  - [ ] All user strings in `strings.xml` (lint `HardcodedText` as error); plurals for counts.
-  - [ ] English only (D34); no translations or per-app language support in v1.
+  - [ ] Content descriptions for thumbnails (date/name), badges, actions; TalkBack traversal of grids and viewer. _The descriptions are done and tested; the traversal needs TalkBack on a device. Not reachable without sight: the map's markers and the crop handles, see ARCHITECTURE.md §11.1._
+  - [ ] Touch targets ≥ 48 dp, contrast check, font scaling 200 %; scrollbar operable via accessibility actions. _Touch targets, the contrast of the text roles (WCAG AA in all accents and modes) and both scrollbars are done and tested. Font scaling at 200 % needs a look on a device._
+  - [ ] Compose UI tests asserting semantics on key screens; Accessibility Scanner pass. _The tests are done; the scanner needs a device._
+- [x] **10.3 Strings**
+  - [x] All user strings in `strings.xml` (lint `HardcodedText` as error); plurals for counts. _The lint check only sees XML. A search of the Kotlin sources found no user text and no count built by hand. The numbers left in plain strings are units and "x of y"._
+  - [x] English only (D34); no translations or per-app language support in v1.
 - [ ] **10.4 Release build**
-  - [ ] R8 full mode, `isMinifyEnabled`/`isShrinkResources`; keep rules for kotlinx.serialization routes, Tink, osmdroid, Room. Run instrumented smoke tests on `release`-like `benchmark` build type.
-  - [ ] Check that all native libraries in the APK are 16 KB page aligned (D40).
-  - [ ] Verify the dependency tree has no proprietary dependencies (GMS/Firebase) and only GPL-3.0-compatible licenses.
+  - [ ] R8 full mode, `isMinifyEnabled`/`isShrinkResources`; keep rules for kotlinx.serialization routes, Tink, osmdroid, Room. Run instrumented smoke tests on `release`-like `benchmark` build type. _The build and the rules are done, `:app:assembleRelease` runs in CI, and the classes and members the rules are for were checked in the DEX file. Running the result needs a device: see the list in ARCHITECTURE.md §3.1._
+  - [x] Check that all native libraries in the APK are 16 KB page aligned (D40). _`zipalign -c -P 16` passes for all 8 libraries; they are stored uncompressed and all their LOAD segments have `p_align` 0x4000._
+  - [x] Verify the dependency tree has no proprietary dependencies (GMS/Firebase) and only GPL-3.0-compatible licenses. _Of the 150 shipped libraries, 149 are Apache-2.0 and one BSD-3-Clause, according to their POM files. The build now fails on a proprietary group or on any other licence._
   - [ ] _Deferred until distribution (D28):_ reproducible build settings (no build timestamps, `dependenciesInfo { includeInApk = false }`), Fastlane metadata in `fastlane/metadata/android/`, F-Droid submission.
-  - [ ] Release signing with a local keystore via `keystore.properties` (never committed); `signingConfigs.release`.
-  - [ ] Versioning scheme (`versionCode` from tag), CHANGELOG.
+  - [ ] Release signing with a local keystore via `keystore.properties` (never committed); `signingConfigs.release`. _Set up: without the file the release build is unsigned. The wiring was checked with a file naming a missing keystore, which the signing step refuses. A real signed build needs a keystore, which only the owner creates._
+  - [x] Versioning scheme (`versionCode` from tag), CHANGELOG. _`v1.2.3` gives version 1.2.3 and code 1002003. [CHANGELOG.md](CHANGELOG.md) is in `docs/`, as all documentation is. No tag exists yet._
   - [ ] _Deferred until distribution (D28):_ GitHub Actions `release.yml` building signed artifacts on tag.
 - [ ] **10.5 Final checks**
   - [ ] Full manual pass on the reference Pixel 10a (Android 17); instrumented suite green on a local API 37 emulator and on the Pixel 10a.
-  - [ ] Third-party license screen (`:feature:settings` About) generated from dependencies.
-  - [ ] Privacy: confirm no analytics/tracking, network only to user's Nextcloud and OSM tiles.
-- [ ] **10.6 Update docs** – README (status, building, installing the release build), ARCHITECTURE.md final state, DESIGN_DECISIONS.md resolved questions.
+  - [x] Third-party license screen (`:feature:settings` About) generated from dependencies. _The AboutLibraries Gradle plugin writes the list during the build; only its data ships, not its library. GeoNames and OpenStreetMap stay as entries by hand. The screen shows the licence names, not their full texts._
+  - [x] Privacy: confirm no analytics/tracking, network only to user's Nextcloud and OSM tiles. _Confirmed by reading the code and the APK; all entry points are listed in ARCHITECTURE.md §11. The two links that open a browser are what the user tapped. Not watched on the wire._
+- [x] **10.6 Update docs** – README (status, building, installing the release build), ARCHITECTURE.md final state, DESIGN_DECISIONS.md resolved questions.
 
 **Definition of done:** signed, minified release build passes benchmarks and accessibility checks, contains no proprietary dependencies and installs on the Pixel 10a.

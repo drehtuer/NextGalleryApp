@@ -9,10 +9,19 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertContentDescriptionEquals
+import androidx.compose.ui.test.assertRangeInfoEquals
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
+import androidx.compose.ui.test.hasStateDescription
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.unit.dp
@@ -136,4 +145,51 @@ class DateRailTest {
     }
 
     private fun LazyGridState.visibleCount() = layoutInfo.visibleItemsInfo.size
+
+    private val twentyDays = TimelineIndex((1..20).map { day(it) })
+
+    @Test
+    fun thumb_isNamedForAScreenReader() {
+        show()
+
+        composeRule.onNodeWithTag(DATE_RAIL_THUMB_TAG).assertContentDescriptionEquals("Scroll position")
+    }
+
+    @Test
+    fun thumb_saysTheDateInTheMiddle() {
+        show()
+
+        scrollTo(2)
+
+        composeRule.onNodeWithTag(DATE_RAIL_THUMB_TAG).assert(hasStateDescription("23 Oct 2026"))
+    }
+
+    @Test
+    fun thumb_reportsTheScrollPosition() {
+        show(twentyDays)
+
+        composeRule.runOnIdle { runBlocking { gridState.scrollToItem(twentyDays.rowCount - 1) } }
+
+        composeRule.onNodeWithTag(DATE_RAIL_THUMB_TAG).assertRangeInfoEquals(ProgressBarRangeInfo(1f, 0f..1f))
+    }
+
+    @Test
+    fun setProgress_jumpsToThatPositionWithoutDragging() {
+        show(twentyDays)
+
+        composeRule.onNodeWithTag(DATE_RAIL_THUMB_TAG).performSemanticsAction(SemanticsActions.SetProgress) { it(1f) }
+
+        composeRule.runOnIdle {
+            assertEquals(twentyDays.rowCount - gridState.visibleCount(), gridState.firstVisibleItemIndex)
+        }
+    }
+
+    @Test
+    fun labels_areLeftToTheThumbForAScreenReader() {
+        show()
+
+        composeRule.onNode(isHiddenFromAccessibility).assertExists()
+    }
 }
+
+private val isHiddenFromAccessibility = SemanticsMatcher.keyIsDefined(SemanticsProperties.HideFromAccessibility)

@@ -33,11 +33,23 @@ data class NextGalleryDimensions(
     val selectionRingInset: Dp = 6.dp,
     val selectionRingStroke: Dp = 2.dp,
     val selectionIconSize: Dp = 16.dp,
+    val minTouchTarget: Dp = 48.dp,
     val scrollbarThumbWidth: Dp = 6.dp,
     val scrollbarThumbHeight: Dp = 48.dp,
     val scrollbarTouchWidth: Dp = 48.dp,
     val badgeSize: Dp = 24.dp,
+    val badgeInset: Dp = 6.dp,
+    val badgeIconSize: Dp = 16.dp,
     val clusterMarkerSize: Dp = 60.dp,
+    val clusterMarkerBorder: Dp = 3.dp,
+    val clusterPillHeight: Dp = 22.dp,
+    val clusterSheetHeight: Dp = 600.dp,
+    val clusterSheetColumns: Int = 4,
+    val mapZoomButtonSize: Dp = 48.dp,
+    val mapLocationButtonSize: Dp = 56.dp,
+    val locationDotSize: Dp = 20.dp,
+    val locationDotRing: Dp = 3.dp,
+    val locationHaloSize: Dp = 48.dp,
     val dateRailInset: Dp = 18.dp,
     val dateRailTrackWidth: Dp = 2.dp,
     val dateRailLabelPadding: Dp = 4.dp,
@@ -53,9 +65,13 @@ data class NextGalleryDimensions(
     val cropHandleLength: Dp = 20.dp,
     val cropTouchTolerance: Dp = 24.dp,
     val penSwatchSize: Dp = 36.dp,
+    val breadcrumbHeight: Dp = 32.dp,
+    val contextMenuWidth: Dp = 232.dp,
 )
 
 private val LocalNextGalleryDimensions = staticCompositionLocalOf { NextGalleryDimensions() }
+
+private val LocalNextGalleryMapColors = staticCompositionLocalOf { nextGalleryMapColors(darkTheme = false) }
 
 private val NextGalleryTypography = Typography(
     headlineMedium = textStyle(size = 32, line = 40, FontWeight.Normal),
@@ -88,6 +104,11 @@ object NextGalleryTheme {
         @Composable
         @ReadOnlyComposable
         get() = LocalNextGalleryDimensions.current
+
+    val mapColors: NextGalleryMapColors
+        @Composable
+        @ReadOnlyComposable
+        get() = LocalNextGalleryMapColors.current
 }
 
 /** App theme with the values from DESIGN.md (D22). Features must only use values from this theme. */
@@ -98,7 +119,13 @@ fun NextGalleryTheme(
     gridColumns: Int = NextGalleryDimensions().gridColumns,
     content: @Composable () -> Unit,
 ) {
-    AppliedTheme(nextGalleryColorScheme(accent, darkTheme), NextGalleryDimensions(gridColumns = gridColumns), content)
+    CompositionLocalProvider(LocalNextGalleryMapColors provides nextGalleryMapColors(darkTheme)) {
+        AppliedTheme(
+            nextGalleryColorScheme(accent, darkTheme),
+            NextGalleryDimensions(gridColumns = gridColumns),
+            content,
+        )
+    }
 }
 
 /** Whether this mode shows the dark theme right now. */
