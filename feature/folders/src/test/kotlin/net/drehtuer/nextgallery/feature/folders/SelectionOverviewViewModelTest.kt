@@ -51,7 +51,7 @@ class SelectionOverviewViewModelTest {
     @Test
     fun state_withoutBucket_usesTimelineContext() = runTest {
         every { selectionRepository.observeOverview(ViewContext.Timeline) } returns flowOf(emptyList())
-        val viewModel = SelectionOverviewViewModel(null, selectionRepository, actions, trashFlow)
+        val viewModel = SelectionOverviewViewModel(ViewContext.Timeline, selectionRepository, actions, trashFlow)
 
         assertEquals(emptyList<SelectionOverviewItem>(), viewModel.state.first { it.items != null }.items)
     }

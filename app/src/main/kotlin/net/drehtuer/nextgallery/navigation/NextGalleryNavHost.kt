@@ -137,7 +137,9 @@ fun NavGraphBuilder.mapGraph(navController: NavHostController) {
             onOpenViewer = { id, bounds ->
                 navController.navigate(ViewerRoute(id.value, bucketId = null, mapBounds = bounds.encode()))
             },
-            onOpenSelectionOverview = { navController.navigate(SelectionOverviewRoute(bucketId = null, fromMap = true)) },
+            onOpenSelectionOverview = {
+                navController.navigate(SelectionOverviewRoute(bucketId = null, fromMap = true))
+            },
         )
     }
 }
@@ -175,17 +177,5 @@ fun NavGraphBuilder.settingsGraph(
             onOpenLicences = { navController.navigate(LicencesRoute) },
         )
         licencesScreen(onBack = navController::popBackStack)
-    }
-}
-
-@Composable
-private fun PlaceholderScreen(title: String) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(title, style = MaterialTheme.typography.headlineSmall)
-        Text(stringResource(R.string.placeholder_coming_soon), style = MaterialTheme.typography.bodyLarge)
     }
 }

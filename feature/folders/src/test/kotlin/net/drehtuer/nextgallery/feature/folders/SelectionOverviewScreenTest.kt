@@ -68,6 +68,21 @@ class SelectionOverviewScreenTest {
     }
 
     @Test
+    fun greyedOutOnMap_noteNamesTheMissingLocation() {
+        composeRule.setContent {
+            SelectionOverviewScreen(
+                SelectionOverviewUiState(listOf(shown.copy(greyedOut = true)), greyedOutForMissingLocation = true),
+                {},
+                {},
+            )
+        }
+
+        composeRule.onNodeWithText(
+            "1 selected in all folders. Greyed out: 1 without a location, which the map can't show.",
+        ).assertIsDisplayed()
+    }
+
+    @Test
     fun noGreyedOutImages_noteOnlyCounts() {
         show(listOf(shown))
 

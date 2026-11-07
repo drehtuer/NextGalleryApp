@@ -66,14 +66,18 @@ fun SelectionOverviewScreen(
                     detail = stringResource(R.string.feature_folders_selection_empty_detail),
                 )
 
-                else -> OverviewGrid(state.items, onEvent)
+                else -> OverviewGrid(state.items, state.greyedOutForMissingLocation, onEvent)
             }
         }
     }
 }
 
 @Composable
-private fun OverviewGrid(items: List<SelectionOverviewItem>, onEvent: (SelectionOverviewEvent) -> Unit) {
+private fun OverviewGrid(
+    items: List<SelectionOverviewItem>,
+    greyedOutForMissingLocation: Boolean,
+    onEvent: (SelectionOverviewEvent) -> Unit,
+) {
     val dimensions = NextGalleryTheme.dimensions
     LazyVerticalGrid(
         columns = GridCells.Fixed(dimensions.gridColumns),
@@ -81,7 +85,7 @@ private fun OverviewGrid(items: List<SelectionOverviewItem>, onEvent: (Selection
         horizontalArrangement = Arrangement.spacedBy(dimensions.gridGap),
         verticalArrangement = Arrangement.spacedBy(dimensions.gridGap),
     ) {
-        item(span = { GridItemSpan(maxLineSpan) }) { SelectionNote(items) }
+        item(span = { GridItemSpan(maxLineSpan) }) { SelectionNote(items, greyedOutForMissingLocation) }
         items(items, key = { it.item.id.value }) { (item, greyedOut) ->
             ThumbnailCell(
                 thumbnail = item.toThumbnail(),
@@ -97,11 +101,20 @@ private fun OverviewGrid(items: List<SelectionOverviewItem>, onEvent: (Selection
 }
 
 @Composable
-private fun SelectionNote(items: List<SelectionOverviewItem>) {
+private fun SelectionNote(items: List<SelectionOverviewItem>, greyedOutForMissingLocation: Boolean) {
     val greyedOut = items.count { it.greyedOut }
     Text(
         text = if (greyedOut > 0) {
-            pluralStringResource(R.plurals.feature_folders_selection_note_greyed, items.size, items.size, greyedOut)
+            pluralStringResource(
+                if (greyedOutForMissingLocation) {
+                    R.plurals.feature_folders_selection_note_greyed_map
+                } else {
+                    R.plurals.feature_folders_selection_note_greyed
+                },
+                items.size,
+                items.size,
+                greyedOut,
+            )
         } else {
             pluralStringResource(R.plurals.feature_folders_selection_note, items.size, items.size)
         },

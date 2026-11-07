@@ -6,24 +6,29 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class ViewerRouteTest {
+    private val bounds = GeoBounds(45.0, 10.0, 46.0, 11.0)
+
     @Test
-    fun source_noMapBounds_isTheFolder() {
+    fun source_bucket_isThatFolder() {
         assertEquals(MediaSource.Folder(7), ViewerRoute(mediaId = 1, bucketId = 7).source())
     }
 
     @Test
-    fun source_mapBounds_isTheCluster() {
-        val bounds = GeoBounds(45.0, 10.0, 46.0, 11.0)
+    fun source_noBucket_isTimeline() {
+        assertEquals(MediaSource.Timeline, ViewerRoute(mediaId = 1, bucketId = null).source())
+    }
 
-        val route = ViewerRoute(mediaId = 1, bucketId = 0, mapBounds = bounds.encode())
+    @Test
+    fun source_mapBounds_isThatCluster() {
+        val route = ViewerRoute(mediaId = 1, bucketId = null, mapBounds = bounds.encode())
 
         assertEquals(MediaSource.Map(bounds), route.source())
     }
 
     @Test
-    fun source_unreadableMapBounds_fallsBackToTheFolder() {
-        val route = ViewerRoute(mediaId = 1, bucketId = 7, mapBounds = "somewhere")
+    fun source_invalidMapBounds_fallsBackToTimeline() {
+        val route = ViewerRoute(mediaId = 1, bucketId = null, mapBounds = "invalid")
 
-        assertEquals(MediaSource.Folder(7), route.source())
+        assertEquals(MediaSource.Timeline, route.source())
     }
 }

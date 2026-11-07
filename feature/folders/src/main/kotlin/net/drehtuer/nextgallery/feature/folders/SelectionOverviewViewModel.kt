@@ -24,7 +24,10 @@ import net.drehtuer.nextgallery.core.model.TrashEffect
 import net.drehtuer.nextgallery.core.model.ViewContext
 
 /** [items] is null while the selected images are being read. */
-data class SelectionOverviewUiState(val items: List<SelectionOverviewItem>? = null)
+data class SelectionOverviewUiState(
+    val items: List<SelectionOverviewItem>? = null,
+    val greyedOutForMissingLocation: Boolean = false,
+)
 
 sealed interface SelectionOverviewEvent {
     data class ItemClicked(val id: MediaId) : SelectionOverviewEvent
@@ -62,7 +65,7 @@ class SelectionOverviewViewModel @AssistedInject constructor(
     val effects: Flow<SelectionOverviewEffect> = effectChannel.receiveAsFlow()
 
     val state: StateFlow<SelectionOverviewUiState> = selectionRepository.observeOverview(context)
-        .map { SelectionOverviewUiState(it) }
+        .map { SelectionOverviewUiState(it, greyedOutForMissingLocation = context == ViewContext.Map) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), SelectionOverviewUiState())
 
     fun onEvent(event: SelectionOverviewEvent) {

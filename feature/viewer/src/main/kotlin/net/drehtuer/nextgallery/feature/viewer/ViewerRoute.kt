@@ -18,7 +18,7 @@ import net.drehtuer.nextgallery.core.model.MediaSource
 import net.drehtuer.nextgallery.core.ui.platform.rememberTrashEffectHandler
 import net.drehtuer.nextgallery.core.ui.platform.shareImages
 
-/** Pages through the map cluster [mapBounds] (from [GeoBounds.encode]) if set, the folder [bucketId], or the timeline. */
+/** Pages through the map cluster [mapBounds] ([GeoBounds.encode]) if set, the folder [bucketId], or the timeline. */
 @Serializable
 data class ViewerRoute(val mediaId: Long, val bucketId: Long?, val mapBounds: String? = null) {
     internal fun source(): MediaSource {
