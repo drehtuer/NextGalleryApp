@@ -51,11 +51,17 @@ class DefaultRemoteShareRepository(
             emit(RemoteShareProgress.Failed(AppError.Network(null)))
             return@flow
         }
+        val owner = runner.currentAccount()
+        if (owner == null) {
+            emit(RemoteShareProgress.Failed(AppError.NotLoggedIn))
+            return@flow
+        }
         val uris = mutableListOf<String>()
         items.forEachIndexed { index, item ->
             emit(RemoteShareProgress.Downloading(index + 1, items.size))
             val file = cache.newFile(index, safeFileName(item.name))
-            val result = runner.call { account ->
+            // The account may leave during a download: all images are of one account, and a logout's wipe misses none.
+            val result = runner.call(owner) { account ->
                 file.outputStream().use { sink -> webDav.download(account, item.path, sink) }
             }
             if (result is AppResult.Failure) {
@@ -83,6 +89,7 @@ class DefaultRemoteShareRepository(
  * last path part is kept.
  */
 internal fun safeFileName(name: String): String {
-    val last = name.substringAfterLast('/').substringAfterLast('\\').trim()
-    return last.trimStart('.').filterNot { it.isISOControl() }.ifEmpty { "image" }
+    val visible = name.filterNot { it.isISOControl() }
+    val last = visible.substringAfterLast('/').substringAfterLast('\\')
+    return last.trimStart { it == '.' || it.isWhitespace() }.trimEnd().ifEmpty { "image" }
 }

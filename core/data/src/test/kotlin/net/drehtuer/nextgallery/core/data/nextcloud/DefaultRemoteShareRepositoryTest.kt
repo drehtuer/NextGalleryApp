@@ -137,6 +137,32 @@ class DefaultRemoteShareRepositoryTest {
     }
 
     @Test
+    fun prepare_loggedOutDuringADownload_failsAndCleansUp() = runTest {
+        coEvery { webDav.download(TEST_ACCOUNT, "/P/a.jpg", any(), any()) } coAnswers {
+            arg<OutputStream>(2).write("image".toByteArray())
+            store.account.value = null
+        }
+
+        val states = repository.prepare(listOf(a)).toList()
+
+        assertEquals(RemoteShareProgress.Failed(AppError.NotLoggedIn), states.last())
+        assertFalse(File(folder.root, "0-a.jpg").exists())
+    }
+
+    @Test
+    fun prepare_anotherAccountDuringADownload_stopsAndCleansUp() = runTest {
+        coEvery { webDav.download(TEST_ACCOUNT, "/P/a.jpg", any(), any()) } coAnswers {
+            store.account.value = TEST_ACCOUNT.copy(userId = "someone-else")
+        }
+
+        val states = repository.prepare(listOf(a, b)).toList()
+
+        assertEquals(RemoteShareProgress.Failed(AppError.NotLoggedIn), states.last())
+        assertTrue(cache.files.isEmpty())
+        coVerify(exactly = 0) { webDav.download(any(), "/P/b.png", any(), any()) }
+    }
+
+    @Test
     fun clear_removesTheTemporaryFiles() = runTest {
         repository.prepare(listOf(a)).toList()
         val clearsBefore = cache.clears
@@ -170,5 +196,25 @@ class DefaultRemoteShareRepositoryTest {
     @Test
     fun safeFileName_controlCharacters_areRemoved() {
         assertEquals("ab.jpg", safeFileName("a\u0000b.jpg"))
+    }
+
+    @Test
+    fun safeFileName_controlCharacterBetweenDots_getsAPlainName() {
+        assertEquals("image", safeFileName(".\u0000."))
+    }
+
+    @Test
+    fun safeFileName_controlCharacterHidingADotName_getsAPlainName() {
+        assertEquals("image", safeFileName("a/\u0007..\u0007"))
+    }
+
+    @Test
+    fun safeFileName_spacesAroundDots_getsAPlainName() {
+        assertEquals("image", safeFileName(" . . "))
+    }
+
+    @Test
+    fun safeFileName_controlCharacterHidingASpace_isTrimmedAfterwards() {
+        assertEquals("a.jpg", safeFileName(" \u0000 a.jpg \u0000 "))
     }
 }

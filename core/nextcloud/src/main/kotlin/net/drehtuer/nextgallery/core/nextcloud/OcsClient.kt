@@ -27,7 +27,7 @@ class OcsClient(private val client: OkHttpClient, private val io: CoroutineDispa
             .build()
         client.newCall(request(url, loginName, appPassword).get().build()).await().use { response ->
             response.requireSuccess()
-            parseUserId(response.body.string())
+            parseUserId(response.bodyAsLimitedString())
         }
     }
 

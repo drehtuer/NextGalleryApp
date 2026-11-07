@@ -1,9 +1,20 @@
 package net.drehtuer.nextgallery.core.nextcloud
 
+import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /** The user entered something that cannot be used as a server address. */
 class InvalidServerUrlException(message: String) : IllegalArgumentException(message)
+
+internal fun HttpUrl.isSameOriginAs(other: HttpUrl): Boolean =
+    scheme == other.scheme && host == other.host && port == other.port
+
+/** Whether both are valid URLs with the same scheme, host and port. */
+fun isSameOrigin(first: String, second: String): Boolean {
+    val firstUrl = first.toHttpUrlOrNull()
+    val secondUrl = second.toHttpUrlOrNull()
+    return firstUrl != null && secondUrl != null && firstUrl.isSameOriginAs(secondUrl)
+}
 
 /** Turns what the user typed into the server's base URL (https only, unless [allowCleartext]; D19). */
 class ServerUrlNormalizer(private val allowCleartext: Boolean) {

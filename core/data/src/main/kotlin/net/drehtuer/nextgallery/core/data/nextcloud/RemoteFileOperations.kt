@@ -30,6 +30,15 @@ sealed interface RemoteMoveResult {
     data class Failed(override val item: RemoteItem, val error: AppError) : RemoteMoveResult
 }
 
+/** Where the image is now, if the move changed anything. */
+internal val RemoteMoveResult.newPath: String?
+    get() = when (this) {
+        is RemoteMoveResult.Moved -> newPath
+        is RemoteMoveResult.Renamed -> newPath
+        is RemoteMoveResult.Replaced -> newPath
+        is RemoteMoveResult.Skipped, is RemoteMoveResult.Conflict, is RemoteMoveResult.Failed -> null
+    }
+
 data class RemoteBatchResult(val done: List<RemoteItem>, val failures: List<Pair<RemoteItem, AppError>>)
 
 /** A folder for the move sheet: [folders] are its subfolders, [self] tells whether it can be written to. */
@@ -42,7 +51,10 @@ interface RemoteFileOperations {
         conflictPolicy: ConflictPolicy = ConflictPolicy.ASK,
     ): List<RemoteMoveResult>
 
-    /** Moves the images back, and never over a file that has appeared at the old place in the meantime. */
+    /**
+     * Moves the images back, last moved first, and never over a file that has appeared at the old place in the
+     * meantime.
+     */
     suspend fun undoMove(results: List<RemoteMoveResult>): RemoteBatchResult
 
     /** Into the Nextcloud trash bin. */
@@ -77,15 +89,8 @@ class DefaultRemoteFileOperations @Inject constructor(
     }
 
     override suspend fun undoMove(results: List<RemoteMoveResult>): RemoteBatchResult = batch(
-        results.mapNotNull { result ->
-            val newPath = when (result) {
-                is RemoteMoveResult.Moved -> result.newPath
-                is RemoteMoveResult.Renamed -> result.newPath
-                is RemoteMoveResult.Replaced -> result.newPath
-                else -> null
-            }
-            newPath?.let { result.item to it }
-        },
+        // Later moves may have taken the place of earlier ones, so going backwards each path holds the expected image.
+        results.asReversed().mapNotNull { result -> result.newPath?.let { result.item to it } },
     ) { account, (item, newPath) -> webDav.move(account, newPath, item.path, overwrite = false) }
         .let { batch ->
             RemoteBatchResult(
@@ -121,13 +126,19 @@ class DefaultRemoteFileOperations @Inject constructor(
         return RemoteBatchResult(done, failures)
     }
 
-    /** An older file of that name may be in the trash as well: prefer the same file id, then the newest entry. */
+    /**
+     * An older file of that name may be in the trash as well, so the same file id decides. Only where an id is unknown
+     * can the path decide, with the newest entry: an entry with another id is another file, and restoring it would be
+     * wrong.
+     */
     private fun latestEntryFor(item: RemoteItem, trash: List<TrashItem>): TrashItem? {
         val candidates = trash.filter { it.originalPath == item.path }
-        return candidates.filter {
-            it.fileId != null && it.fileId == item.fileId
-        }.maxByOrNull { it.deletionTimeSeconds }
-            ?: candidates.maxByOrNull { it.deletionTimeSeconds }
+        val eligible = if (item.fileId == null) {
+            candidates
+        } else {
+            candidates.filter { it.fileId == item.fileId }.ifEmpty { candidates.filter { it.fileId == null } }
+        }
+        return eligible.maxByOrNull { it.deletionTimeSeconds }
     }
 
     override suspend fun listFolder(path: String): AppResult<RemoteFolderContent> =

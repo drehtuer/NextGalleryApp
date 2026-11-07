@@ -1,6 +1,7 @@
 package net.drehtuer.nextgallery.core.data.nextcloud
 
 import net.drehtuer.nextgallery.core.model.RemoteItem
+import net.drehtuer.nextgallery.core.model.RemotePaths
 import javax.inject.Inject
 
 sealed interface RemoteMoveStep {
@@ -12,7 +13,8 @@ sealed interface RemoteMoveStep {
 
 /**
  * The steps of moving images: each image moves until one has a name conflict, the user decides, and it goes on. "Do the
- * same for the other conflicts" is kept until the end. Each ViewModel has its own instance.
+ * same for the other conflicts" is kept until the end, except that "replace" never silently hits an image this same
+ * move brought there. Each ViewModel has its own instance.
  */
 class RemoteMoveFlow @Inject constructor(private val operations: RemoteFileOperations) {
     private var target = ""
@@ -50,7 +52,7 @@ class RemoteMoveFlow @Inject constructor(private val operations: RemoteFileOpera
     private suspend fun advance(): RemoteMoveStep {
         while (pending.isNotEmpty()) {
             val item = pending.removeFirst()
-            when (val result = operations.move(listOf(item), target, appliedPolicy).single()) {
+            when (val result = operations.move(listOf(item), target, policyFor(item)).single()) {
                 is RemoteMoveResult.Conflict -> {
                     current = item
                     return RemoteMoveStep.Conflict(item, result.existing, remaining = pending.size)
@@ -61,5 +63,15 @@ class RemoteMoveFlow @Inject constructor(private val operations: RemoteFileOpera
         }
         lastFinished = results.toList()
         return RemoteMoveStep.Finished(lastFinished)
+    }
+
+    private fun policyFor(item: RemoteItem): ConflictPolicy {
+        val path = RemotePaths.join(target, item.name)
+        val isMovedHereByThisMove = results.any { it.newPath == path }
+        return if (appliedPolicy == ConflictPolicy.REPLACE && isMovedHereByThisMove) {
+            ConflictPolicy.ASK
+        } else {
+            appliedPolicy
+        }
     }
 }

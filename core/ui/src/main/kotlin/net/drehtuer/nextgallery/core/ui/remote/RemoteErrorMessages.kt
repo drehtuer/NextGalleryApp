@@ -21,6 +21,8 @@ fun AppError.remoteMessage(): Int = when (this) {
 
     AppError.InvalidServerUrl -> R.string.core_ui_remote_error_invalid_url
 
+    AppError.ServerMismatch -> R.string.core_ui_remote_error_server_mismatch
+
     AppError.LoginExpired -> R.string.core_ui_remote_error_login_expired
 
     AppError.InvalidName -> R.string.core_ui_remote_error_invalid_name
@@ -29,8 +31,7 @@ fun AppError.remoteMessage(): Int = when (this) {
 
     is AppError.Network, is AppError.Io -> R.string.core_ui_remote_error_network
 
-    is AppError.Server, is AppError.Unknown -> R.string.core_ui_remote_error_server
-
-    // Only the editor reports these; a remote operation cannot.
-    is AppError.InsufficientMemory, is AppError.OriginalDamaged -> R.string.core_ui_remote_error_server
+    // Only the editor reports the last two; a remote operation cannot.
+    is AppError.Server, is AppError.Unknown, is AppError.InsufficientMemory, is AppError.OriginalDamaged ->
+        R.string.core_ui_remote_error_server
 }

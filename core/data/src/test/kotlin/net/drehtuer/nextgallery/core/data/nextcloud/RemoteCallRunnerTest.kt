@@ -50,4 +50,67 @@ class RemoteCallRunnerTest {
             kotlinx.coroutines.runBlocking { testRunner().call { throw CancellationException() } }
         }
     }
+
+    @Test
+    fun currentAccount_returnsTheSignedInAccount() = runTest {
+        assertEquals(TEST_ACCOUNT, testRunner().currentAccount())
+    }
+
+    @Test
+    fun call_forAnOwnerWhoLeftBefore_doesNotRunTheCall() = runTest {
+        var called = false
+
+        val result = testRunner(FakeAccountStore(null)).call(TEST_ACCOUNT) { called = true }
+
+        assertEquals(AppResult.Failure(AppError.NotLoggedIn), result)
+        assertFalse(called)
+    }
+
+    @Test
+    fun call_ownerLeavesDuringTheCall_discardsTheResult() = runTest {
+        val store = FakeAccountStore()
+
+        val result = testRunner(store).call(TEST_ACCOUNT) {
+            store.account.value = null
+            "secret of the old account"
+        }
+
+        assertEquals(AppResult.Failure(AppError.NotLoggedIn), result)
+    }
+
+    @Test
+    fun call_anotherAccountSignsInDuringTheCall_discardsTheResult() = runTest {
+        val store = FakeAccountStore()
+
+        val result = testRunner(store).call(TEST_ACCOUNT) {
+            store.account.value = TEST_ACCOUNT.copy(userId = "someone-else")
+            "secret of the old account"
+        }
+
+        assertEquals(AppResult.Failure(AppError.NotLoggedIn), result)
+    }
+
+    @Test
+    fun call_ownerGetsANewPasswordDuringTheCall_keepsTheResult() = runTest {
+        val store = FakeAccountStore()
+
+        val result = testRunner(store).call(TEST_ACCOUNT) {
+            store.account.value = TEST_ACCOUNT.copy(appPassword = "new")
+            "listing"
+        }
+
+        assertEquals(AppResult.Success("listing"), result)
+    }
+
+    @Test
+    fun call_accountChangesDuringACallThatFails_reportsNotLoggedIn() = runTest {
+        val store = FakeAccountStore()
+
+        val result = testRunner(store).call {
+            store.account.value = null
+            throw NextcloudHttpException(401)
+        }
+
+        assertEquals(AppResult.Failure(AppError.NotLoggedIn), result)
+    }
 }

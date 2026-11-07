@@ -22,8 +22,8 @@ data class TrashItem(
  * properties it does not have there). Hrefs outside the root and names no real file can have are dropped: the response
  * comes from the network, and its paths end up in URLs and file names.
  */
-class MultistatusParser {
-    private val reader = MultistatusReader()
+class MultistatusParser internal constructor(private val reader: MultistatusReader) {
+    constructor() : this(MultistatusReader())
 
     fun parseFiles(stream: InputStream, root: HttpUrl): List<RemoteItem> = reader.read(stream).mapNotNull { response ->
         relativeSegments(response, root)?.let { toRemoteItem(response, it) }

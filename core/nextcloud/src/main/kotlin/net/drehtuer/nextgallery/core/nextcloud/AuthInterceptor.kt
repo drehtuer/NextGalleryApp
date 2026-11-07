@@ -2,7 +2,6 @@ package net.drehtuer.nextgallery.core.nextcloud
 
 import net.drehtuer.nextgallery.core.model.NextcloudAccount
 import okhttp3.Credentials
-import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
 import okhttp3.Response
@@ -31,9 +30,6 @@ class AuthInterceptor(private val credentials: CredentialsProvider) : Intercepto
                 .build(),
         )
     }
-
-    private fun HttpUrl.isSameOriginAs(other: HttpUrl) =
-        scheme == other.scheme && host == other.host && port == other.port
 
     companion object {
         const val HEADER_AUTHORIZATION = "Authorization"

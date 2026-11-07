@@ -9,6 +9,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.security.ProviderException
 
 class DefaultAccountStoreTest {
     @get:Rule
@@ -62,6 +63,19 @@ class DefaultAccountStoreTest {
             override fun decrypt(ciphertext: ByteArray) = "{}".toByteArray()
         }
         val other = DefaultAccountStore.create(File(folder.root, "other.preferences_pb"), garbling)
+        other.save(TEST_ACCOUNT)
+
+        assertNull(other.observeAccount().first())
+    }
+
+    @Test
+    fun observeAccount_keystoreProviderFails_isNull() = runTest {
+        val failing = object : SecretCipher {
+            override fun encrypt(plaintext: ByteArray) = plaintext
+
+            override fun decrypt(ciphertext: ByteArray): ByteArray = throw ProviderException("Keystore unavailable")
+        }
+        val other = DefaultAccountStore.create(File(folder.root, "other.preferences_pb"), failing)
         other.save(TEST_ACCOUNT)
 
         assertNull(other.observeAccount().first())

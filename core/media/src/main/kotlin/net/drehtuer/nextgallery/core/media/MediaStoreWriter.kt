@@ -10,6 +10,7 @@ import androidx.core.net.toUri
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.withContext
 import net.drehtuer.nextgallery.core.common.DispatcherProvider
+import net.drehtuer.nextgallery.core.common.deleteIfPossible
 import net.drehtuer.nextgallery.core.data.edit.EncodedImage
 import net.drehtuer.nextgallery.core.data.edit.MediaWriteSink
 import net.drehtuer.nextgallery.core.model.MediaId
@@ -84,7 +85,7 @@ class MediaStoreWriter @Inject constructor(
         try {
             input.use { stream -> file.outputStream().use { stream.copyTo(it) } }
         } catch (e: IOException) {
-            file.delete()
+            file.deleteIfPossible()
             throw e
         }
         EncodedImage(file)

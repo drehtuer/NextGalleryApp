@@ -14,6 +14,8 @@ object NextcloudErrorMapper {
             error is NextcloudHttpException -> mapStatus(error.code)
             error is LoginExpiredException -> AppError.LoginExpired
             error is InvalidServerUrlException -> AppError.InvalidServerUrl
+            error is ServerMismatchException -> AppError.ServerMismatch
+            error is ResponseTooLargeException -> AppError.Server(HttpURLConnection.HTTP_ENTITY_TOO_LARGE)
             error is IOException -> AppError.Network(error.message)
             else -> AppError.from(error)
         }
