@@ -1166,6 +1166,8 @@ CI (`.github/workflows/ci.yml`) runs on every branch push (direct pushes and mer
 
 The documentation site (`.github/workflows/pages.yml`, D56) is built when a GitHub release is published, or by hand from the Actions tab. It copies `README.md`, `docs/` and the Jekyll config in `.github/pages/` into one folder, builds it with GitHub's Jekyll (`actions/jekyll-build-pages`) and deploys it to GitHub Pages. `README.md` becomes the start page, links between the Markdown files become links between pages, and links to other repository files point to GitHub at the released commit. Mermaid diagrams are drawn in the browser by a script in `.github/pages/_includes/head-custom.html`.
 
+Security checks (D57, D58): `.github/workflows/security.yml` runs CodeQL for Kotlin and for the workflows on pushes to `main`, on pull requests and weekly; the Kotlin build for it runs on the runner with the JDK and Android SDK installed there, because CodeQL must trace the compiler. The same workflow submits the resolved Gradle dependencies to GitHub's dependency graph and runs a dependency review on pull requests. `.github/workflows/scorecard.yml` runs OpenSSF Scorecard. Dependabot (`.github/dependabot.yml`) proposes weekly updates for Gradle, the actions and the devcontainer image.
+
 ### 13.1 Robolectric and on-device tests
 
 Robolectric 4.17 is the first release that supports SDK 37. Since `minSdk` is 37, it is the minimum usable version. Robolectric's SDK 36+ runtimes need JDK 21, so the build toolchain, local development and CI all use JDK 21. The `--add-opens` JVM flags from the Robolectric setup guide are set in the test convention plugin.

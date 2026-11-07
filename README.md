@@ -1,5 +1,15 @@
 # NextGalleryApp
 
+[![CI](https://github.com/drehtuer/NextGalleryApp/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/drehtuer/NextGalleryApp/actions/workflows/ci.yml)
+[![Security](https://github.com/drehtuer/NextGalleryApp/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/drehtuer/NextGalleryApp/actions/workflows/security.yml)
+[![Documentation](https://github.com/drehtuer/NextGalleryApp/actions/workflows/pages.yml/badge.svg)](https://drehtuer.github.io/NextGalleryApp/)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=drehtuer_NextGalleryApp&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=drehtuer_NextGalleryApp)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=drehtuer_NextGalleryApp&metric=coverage)](https://sonarcloud.io/summary/new_code?id=drehtuer_NextGalleryApp)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=drehtuer_NextGalleryApp&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=drehtuer_NextGalleryApp)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=drehtuer_NextGalleryApp&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=drehtuer_NextGalleryApp)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/drehtuer/NextGalleryApp/badge)](https://scorecard.dev/viewer/?uri=github.com/drehtuer/NextGalleryApp)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+
 A simple, fast Android gallery app with basic editing, multiple ways to browse your photos, and built-in Nextcloud integration.
 
 > Status: all features are implemented; hardening for a first release is under way, and what needs a device is still open. See [STATUS.md](docs/STATUS.md).
@@ -13,6 +23,7 @@ A simple, fast Android gallery app with basic editing, multiple ways to browse y
 - [Changelog](docs/CHANGELOG.md) – what changed in each version.
 - [Status](docs/STATUS.md) – what is implemented, what is next, and what still needs checking on the device.
 - [Design](docs/DESIGN.md) – the visual design: colours, type, dimensions, wording and states of every screen.
+- [Security policy](docs/SECURITY.md) – how to report a vulnerability, and how the code is checked.
 
 The documentation is also published as a website: <https://drehtuer.github.io/NextGalleryApp/>. It is rebuilt with every release.
 
@@ -146,6 +157,8 @@ Before opening a pull request, run the checks CI runs (`ktlintFormat` fixes what
 `./gradlew coverageReport` writes the JaCoCo line and branch coverage reports (`build/reports/` in each module).
 
 CI sends the coverage and the code analysis to [SonarCloud](https://sonarcloud.io/project/overview?id=drehtuer_NextGalleryApp). This needs Automatic Analysis turned off in the SonarCloud project and a `SONAR_TOKEN` repository secret (see D41 in [DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md)).
+
+Two more workflows check security (D57, D58 in [DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md)). [security.yml](.github/workflows/security.yml) runs CodeQL on the Kotlin code and the workflows, sends the Gradle dependencies to GitHub's dependency graph, and runs a dependency review on pull requests. [scorecard.yml](.github/workflows/scorecard.yml) runs OpenSSF Scorecard. Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) proposes updates for Gradle, the actions and the devcontainer image every Monday. The results are under the repository's Security tab.
 
 Instrumented tests do not run in CI. Run them on the host against an API 37 emulator or the Pixel 10a with `./gradlew connectedDebugAndroidTest` (this needs a local Android SDK).
 

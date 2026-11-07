@@ -429,6 +429,7 @@ _Depends on: Phases 1–9._
   - [ ] Release signing with a local keystore via `keystore.properties` (never committed); `signingConfigs.release`. _Set up: without the file the release build is unsigned. The wiring was checked with a file naming a missing keystore, which the signing step refuses. A real signed build needs a keystore, which only the owner creates._
   - [x] Versioning scheme (`versionCode` from tag), CHANGELOG. _`v1.2.3` gives version 1.2.3 and code 1002003. [CHANGELOG.md](CHANGELOG.md) is in `docs/`, as all documentation is. No tag exists yet._
   - [ ] _Deferred until distribution (D28):_ GitHub Actions `release.yml` building signed artifacts on tag.
+  - [x] Security checks: Dependabot (D57), CodeQL, dependency review and OpenSSF Scorecard (D58), [SECURITY.md](SECURITY.md) with private vulnerability reporting, status badges in the README.
   - [x] Documentation site: `pages.yml` publishes `README.md` and `docs/` to GitHub Pages with Jekyll when a release is published (D56). _Built locally with the same Jekyll image; the first deployment happens with the first release._
 - [ ] **10.5 Final checks**
   - [ ] Full manual pass on the reference Pixel 10a (Android 17); instrumented suite green on a local API 37 emulator and on the Pixel 10a.
