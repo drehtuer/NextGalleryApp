@@ -115,6 +115,7 @@ These need the Pixel 10a or an API 37 emulator (`./gradlew connectedDebugAndroid
 - Map markers, crop handles and the pen canvas cannot be used with TalkBack (osmdroid overlays are not exposed to it).
 - The licence screen shows licence names, not the full texts, which are in the generated file. Apache-2.0 asks for a copy of the licence, so you may want them shown.
 - SonarCloud coverage only counts the tests CI runs, so adapters covered only by instrumented tests show as uncovered (D41).
+- The Android Gradle plugin and its lint tool bring libraries with known advisories (Bouncy Castle 1.80.2, Guava 33.4.0, jose4j 0.9.5, jdom2 2.0.6, commons-lang3 3.16.0, wire-runtime 6.4.0, logback-core 1.3.16). They run only at build time and are not in the APK; AGP 9.5.1 still has them. Dependabot lists them as development dependencies (D58); check again with each AGP update.
 - detekt 2.0 is an alpha release, because detekt 1.23 does not work with AGP 9 (D18).
 - Espresso is pinned to 3.7.0 for tests; the version pulled in by Compose UI test calls an API removed in SDK 37.
 - `failOnNoDiscoveredTests` is disabled, because Hilt generates test sources even in test tasks that have no tests.
