@@ -28,8 +28,6 @@ sealed interface AppError {
     /** A remote operation was requested without an account (D35); nothing was sent. */
     data object NotLoggedIn : AppError
 
-    data object NotFound : AppError
-
     /** The account may not do this, e.g. a read-only share (403). */
     data object Forbidden : AppError
 
