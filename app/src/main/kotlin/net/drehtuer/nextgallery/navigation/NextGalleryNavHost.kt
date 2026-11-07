@@ -43,8 +43,8 @@ import net.drehtuer.nextgallery.feature.settings.folderRulesScreen
 import net.drehtuer.nextgallery.feature.settings.licencesScreen
 import net.drehtuer.nextgallery.feature.settings.nextcloudAccountScreen
 import net.drehtuer.nextgallery.feature.settings.settingsScreen
-import net.drehtuer.nextgallery.feature.timeline.timelineScreen
 import net.drehtuer.nextgallery.feature.settings.trustedCertificatesScreen
+import net.drehtuer.nextgallery.feature.timeline.timelineScreen
 import net.drehtuer.nextgallery.feature.viewer.ViewerRoute
 import net.drehtuer.nextgallery.feature.viewer.viewerScreen
 

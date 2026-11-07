@@ -18,8 +18,8 @@ import net.drehtuer.nextgallery.core.model.MediaAccess
 import net.drehtuer.nextgallery.core.ui.component.ScreenBanner
 import net.drehtuer.nextgallery.feature.editor.EditorRoute
 import net.drehtuer.nextgallery.feature.folders.SelectionOverviewRoute
-import net.drehtuer.nextgallery.feature.timeline.TimelineRoute
 import net.drehtuer.nextgallery.feature.remote.RemoteViewerRoute
+import net.drehtuer.nextgallery.feature.timeline.TimelineRoute
 import net.drehtuer.nextgallery.feature.viewer.ViewerRoute
 import net.drehtuer.nextgallery.navigation.FoldersRoute
 import net.drehtuer.nextgallery.navigation.SettingsGraphRoute

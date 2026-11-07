@@ -8,15 +8,29 @@ import net.drehtuer.nextgallery.core.ui.R
 @StringRes
 fun AppError.remoteMessage(): Int = when (this) {
     AppError.Auth -> R.string.core_ui_remote_error_auth
+
     AppError.NotLoggedIn -> R.string.core_ui_remote_error_not_logged_in
+
     AppError.NotFound -> R.string.core_ui_remote_error_not_found
+
     AppError.Forbidden, AppError.PermissionDenied -> R.string.core_ui_remote_error_forbidden
+
     AppError.Conflict -> R.string.core_ui_remote_error_conflict
+
     AppError.LocalNetworkBlocked -> R.string.core_ui_remote_error_local_network
+
     AppError.InvalidServerUrl -> R.string.core_ui_remote_error_invalid_url
+
     AppError.LoginExpired -> R.string.core_ui_remote_error_login_expired
+
     AppError.InvalidName -> R.string.core_ui_remote_error_invalid_name
+
     is AppError.UntrustedCertificate -> R.string.core_ui_remote_error_certificate
+
     is AppError.Network, is AppError.Io -> R.string.core_ui_remote_error_network
+
     is AppError.Server, is AppError.Unknown -> R.string.core_ui_remote_error_server
+
+    // Only the editor reports these; a remote operation cannot.
+    is AppError.InsufficientMemory, is AppError.OriginalDamaged -> R.string.core_ui_remote_error_server
 }
