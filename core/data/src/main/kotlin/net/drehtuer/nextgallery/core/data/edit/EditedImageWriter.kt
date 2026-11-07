@@ -8,6 +8,7 @@ import net.drehtuer.nextgallery.core.common.AppError
 import net.drehtuer.nextgallery.core.common.AppResult
 import net.drehtuer.nextgallery.core.common.DispatcherProvider
 import net.drehtuer.nextgallery.core.common.OriginalDamagedException
+import net.drehtuer.nextgallery.core.common.deleteIfPossible
 import net.drehtuer.nextgallery.core.common.runCatchingCancellable
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
@@ -79,7 +80,7 @@ class EditedImageWriter @Inject constructor(
                 currentCoroutineContext().ensureActive()
                 withContext(NonCancellable) { commit(encoded) }
             } finally {
-                encoded.file.delete()
+                encoded.file.deleteIfPossible()
             }
         }.refusingOutOfMemory(memoryInfo) { requiredBytes }
     }
@@ -123,15 +124,15 @@ class EditedImageWriter @Inject constructor(
         val backup = sink.backup(item.contentUri)
         val failure = runCatchingCancellable { sink.write(item.contentUri, encoded) } as? AppResult.Failure
         if (failure == null) {
-            backup.file.delete()
+            backup.file.deleteIfPossible()
             return
         }
         if (runCatchingCancellable { sink.write(item.contentUri, backup) } is AppResult.Success) {
-            backup.file.delete()
+            backup.file.deleteIfPossible()
             throw failure.toException()
         }
         val recovered = runCatchingCancellable { insertCopy(item, backup) } is AppResult.Success
-        if (recovered) backup.file.delete()
+        if (recovered) backup.file.deleteIfPossible()
         throw OriginalDamagedException(recovered, failure.toException())
     }
 

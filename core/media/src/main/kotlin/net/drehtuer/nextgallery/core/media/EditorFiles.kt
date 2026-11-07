@@ -1,6 +1,7 @@
 package net.drehtuer.nextgallery.core.media
 
 import android.content.Context
+import net.drehtuer.nextgallery.core.common.deleteIfPossible
 import java.io.File
 
 /** Temporary files of the editor: encoded images and backups. */
@@ -16,6 +17,6 @@ internal object EditorFiles {
     fun deleteOlderThan(context: Context, olderThanMillis: Long) {
         File(context.cacheDir, DIRECTORY).listFiles().orEmpty()
             .filter { it.lastModified() < olderThanMillis }
-            .forEach { it.delete() }
+            .forEach { it.deleteIfPossible() }
     }
 }
