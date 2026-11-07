@@ -145,4 +145,5 @@ private fun BrowserDialogs(state: RemoteBrowserUiState, onEvent: (RemoteBrowserE
     state.move.sheet?.let { MoveSheet(it, onEvent) }
     state.move.conflict?.let { MoveConflictDialog(it, onEvent) }
     state.share?.let { ShareProgressDialog(it, onCancel = { onEvent(ActionEvent.CancelShare) }) }
+    state.deleteConfirmation?.let { DeleteConfirmationDialog(it, onEvent) }
 }

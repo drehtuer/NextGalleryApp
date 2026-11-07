@@ -5,6 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.HttpUrl
@@ -15,8 +16,9 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /**
- * The OCS calls around the login. The credentials go on the request here, because they are not (or no longer) in the
- * account store; [client] must not follow redirects, so they can't reach another host.
+ * The OCS calls around the login, and the capabilities. The credentials go on the request here, because for the login
+ * calls they are not (or no longer) in the account store; [client] must not follow redirects, so they can't reach
+ * another host.
  */
 class OcsClient(private val client: OkHttpClient, private val io: CoroutineDispatcher = Dispatchers.IO) {
     /** The user id for the DAV paths, which can differ from the login name. */
@@ -40,11 +42,40 @@ class OcsClient(private val client: OkHttpClient, private val io: CoroutineDispa
             .use { it.requireSuccess() }
     }
 
-    private fun parseUserId(body: String): String = try {
+    /**
+     * Whether the server's trash bin is on: the files_trashbin app reports `files.undelete` in the capabilities, and a
+     * server without it reports nothing. Throws if the answer can't be read.
+     */
+    suspend fun isTrashBinEnabled(serverUrl: String, loginName: String, appPassword: String): Boolean =
+        withContext(io) {
+            val url = serverUrl.toHttpUrl().newBuilder()
+                .addPathSegments("ocs/v2.php/cloud/capabilities")
+                .addQueryParameter("format", "json")
+                .build()
+            client.newCall(request(url, loginName, appPassword).get().build()).await().use { response ->
+                response.requireSuccess()
+                parseUndelete(response.bodyAsLimitedString())
+            }
+        }
+
+    private fun parseUserId(body: String): String = parsing {
         Json.parseToJsonElement(body).jsonObject
             .getValue("ocs").jsonObject
             .getValue("data").jsonObject
             .getValue("id").jsonPrimitive.content
+    }
+
+    private fun parseUndelete(body: String): Boolean = parsing {
+        val capabilities = Json.parseToJsonElement(body).jsonObject
+            .getValue("ocs").jsonObject
+            .getValue("data").jsonObject
+            .getValue("capabilities").jsonObject
+        capabilities["files"]?.jsonObject?.get("undelete")?.jsonPrimitive?.booleanOrNull == true
+    }
+
+    /** A malformed or incomplete answer becomes an [IOException], like a broken connection. */
+    private inline fun <T> parsing(read: () -> T): T = try {
+        read()
     } catch (e: SerializationException) {
         throw IOException("The server sent an invalid response", e)
     } catch (e: NoSuchElementException) {
