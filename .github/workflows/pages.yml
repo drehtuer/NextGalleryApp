@@ -36,7 +36,7 @@ jobs:
           perl -pi -e 's{\]\((?!https?:|mailto:|#|docs/)([^)\s]+)\)}{]('"$base"'/$1)}g' site/README.md
 
       - name: Configure Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1
