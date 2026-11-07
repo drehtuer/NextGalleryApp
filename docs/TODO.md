@@ -428,7 +428,7 @@ _Depends on: Phases 1–9._
   - [ ] _Deferred until distribution (D28):_ reproducible build settings (no build timestamps, `dependenciesInfo { includeInApk = false }`), Fastlane metadata in `fastlane/metadata/android/`, F-Droid submission.
   - [ ] Release signing with a local keystore via `keystore.properties` (never committed); `signingConfigs.release`. _Set up: without the file the release build is unsigned. The wiring was checked with a file naming a missing keystore, which the signing step refuses. A real signed build needs a keystore, which only the owner creates._
   - [x] Versioning scheme (`versionCode` from tag), CHANGELOG. _`v1.2.3` gives version 1.2.3 and code 1002003. [CHANGELOG.md](CHANGELOG.md) is in `docs/`, as all documentation is. No tag exists yet._
-  - [ ] _Deferred until distribution (D28):_ GitHub Actions `release.yml` building signed artifacts on tag.
+  - [x] GitHub Actions `release.yml` building signed artifacts on tag (D61). _Signed with the key from the `release` environment; draft first, published last, because releases are immutable. APKs are named `NextGallery-<version>.apk` and `NextGallery-debug-<version>-<timestamp>.apk`._
   - [x] Security checks: Dependabot (D59), CodeQL, dependency review and OpenSSF Scorecard (D60), [SECURITY.md](SECURITY.md) with private vulnerability reporting, status badges in the README.
   - [x] Documentation site: `pages.yml` publishes `README.md` and `docs/` to GitHub Pages with Jekyll when a release is published (D58). _Built locally with the same Jekyll image; the first deployment happens with the first release._
 - [ ] **10.5 Final checks**

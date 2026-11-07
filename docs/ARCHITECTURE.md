@@ -93,7 +93,7 @@ Rules:
 
 - Gradle Kotlin DSL; dependencies and versions in `gradle/libs.versions.toml`.
 - Convention plugins in `build-logic/convention`:
-  - `nextgallery.android.application` – `:app` defaults (SDK levels, application ID, Kotlin toolchain 21, R8 config, version from the Git tag, release signing from `keystore.properties`). It also fails the build if a proprietary group such as `com.google.android.gms` or `com.google.firebase` reaches a shipped classpath.
+  - `nextgallery.android.application` – `:app` defaults (SDK levels, application ID, Kotlin toolchain 21, R8 config, version from the Git tag, release signing from `keystore.properties`, APK names `NextGallery-<version>.apk` and `NextGallery-debug-<version>-<timestamp>.apk` in `build/outputs/nextgallery/<variant>/`). It also fails the build if a proprietary group such as `com.google.android.gms` or `com.google.firebase` reaches a shipped classpath.
   - `nextgallery.android.benchmark` – `:benchmark`, a `com.android.test` module for Macrobenchmark and the Baseline Profile generator. Its debug variant is off, so `assembleDebug` and `connectedDebugAndroidTest` leave it alone; CI only compiles it.
   - `nextgallery.android.library` – Android library defaults.
   - `nextgallery.android.compose` – enables Compose and adds the Compose BOM.
@@ -1205,6 +1205,8 @@ CI (`.github/workflows/ci.yml`) runs on every branch push (direct pushes and mer
 The documentation site (`.github/workflows/pages.yml`, D58) is built when a GitHub release is published, or by hand from the Actions tab. It copies `README.md`, `docs/` and the Jekyll config in `.github/pages/` into one folder, builds it with GitHub's Jekyll (`actions/jekyll-build-pages`) and deploys it to GitHub Pages. `README.md` becomes the start page, links between the Markdown files become links between pages, and links to other repository files point to GitHub at the released commit. Mermaid diagrams are drawn in the browser by a script in `.github/pages/_includes/head-custom.html`.
 
 Security checks (D59, D60): `.github/workflows/security.yml` runs CodeQL for Kotlin and for the workflows on pushes to `main`, on pull requests and weekly; the Kotlin build for it runs on the runner with the JDK and Android SDK installed there, because CodeQL must trace the compiler. The same workflow submits the resolved Gradle dependencies to GitHub's dependency graph and runs a dependency review on pull requests. `.github/workflows/scorecard.yml` runs OpenSSF Scorecard. Dependabot (`.github/dependabot.yml`) proposes weekly updates for Gradle, the actions and the devcontainer image.
+
+Releases (D61): pushing a tag `vMAJOR.MINOR.PATCH` runs `.github/workflows/release.yml`. It builds `:app:assembleRelease` in the devcontainer image, signed with the key from the `release` environment, verifies the signature with `apksigner`, and attaches `NextGallery-<version>.apk`, the R8 mapping file and `SHA256SUMS` to a draft release whose notes come from CHANGELOG.md. Because releases are immutable, it publishes only after that, and then calls `pages.yml`. The APK names come from `NamedApkTask` in build-logic, which `assembleDebug` and `assembleRelease` run last; it copies AGP's APK to `app/build/outputs/nextgallery/<variant>/` as named by `ApkNames`.
 
 ### 13.1 Robolectric and on-device tests
 

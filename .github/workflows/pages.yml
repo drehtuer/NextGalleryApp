@@ -1,8 +1,11 @@
 name: Documentation
 
-# Publishes README.md and docs/ as the GitHub Pages site when a release is published, so the site always matches the
-# latest release. It can also be started by hand from the Actions tab (it then builds the chosen branch or tag).
+# Publishes README.md and docs/ as the GitHub Pages site for each release, so the site always matches the latest
+# release. release.yml calls it after publishing, because a release published by a workflow starts no other workflow;
+# a release published by hand starts it directly. It can also be started from the Actions tab (it then builds the
+# chosen branch or tag).
 on:
+  workflow_call:
   release:
     types: [published]
   workflow_dispatch:
