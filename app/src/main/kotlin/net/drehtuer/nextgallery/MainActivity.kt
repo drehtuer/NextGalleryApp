@@ -11,20 +11,29 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil3.ImageLoader
 import dagger.hilt.android.AndroidEntryPoint
+import net.drehtuer.nextgallery.core.ui.remote.LocalRemoteImageLoader
 import net.drehtuer.nextgallery.core.ui.theme.NextGalleryTheme
 import net.drehtuer.nextgallery.core.ui.theme.isDark
 import net.drehtuer.nextgallery.feature.viewer.ExternalImageScreen
+import net.drehtuer.nextgallery.image.RemoteImageLoader
 import net.drehtuer.nextgallery.navigation.externalImageUri
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
+
+    @Inject
+    @RemoteImageLoader
+    lateinit var remoteImageLoader: ImageLoader
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,11 +59,13 @@ class MainActivity : ComponentActivity() {
                 onDispose {}
             }
             NextGalleryTheme(darkTheme, state.accentColor, state.gridColumns) {
-                NextGalleryAppContent(
-                    state = state,
-                    onRequestAccess = { accessRequest.launch(viewModel.requestedPermissions.toTypedArray()) },
-                    onOpenSettings = ::openAppSettings,
-                )
+                CompositionLocalProvider(LocalRemoteImageLoader provides remoteImageLoader) {
+                    NextGalleryAppContent(
+                        state = state,
+                        onRequestAccess = { accessRequest.launch(viewModel.requestedPermissions.toTypedArray()) },
+                        onOpenSettings = ::openAppSettings,
+                    )
+                }
             }
         }
     }

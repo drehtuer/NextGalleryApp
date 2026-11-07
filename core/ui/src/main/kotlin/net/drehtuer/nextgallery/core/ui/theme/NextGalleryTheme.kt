@@ -53,6 +53,8 @@ data class NextGalleryDimensions(
     val cropHandleLength: Dp = 20.dp,
     val cropTouchTolerance: Dp = 24.dp,
     val penSwatchSize: Dp = 36.dp,
+    val breadcrumbHeight: Dp = 32.dp,
+    val contextMenuWidth: Dp = 232.dp,
 )
 
 private val LocalNextGalleryDimensions = staticCompositionLocalOf { NextGalleryDimensions() }

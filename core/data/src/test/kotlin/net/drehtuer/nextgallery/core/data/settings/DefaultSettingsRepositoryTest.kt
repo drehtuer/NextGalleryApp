@@ -25,6 +25,13 @@ class DefaultSettingsRepositoryTest {
     private val repository = DefaultSettingsRepository(dataSource)
 
     @Test
+    fun setRemoteRoot_storesNormalizedPath() = runTest {
+        repository.setRemoteRoot("Photos/InstantUpload/")
+
+        assertEquals("/Photos/InstantUpload", stored.remoteRoot)
+    }
+
+    @Test
     fun observeSettings_comesFromDataSource() {
         val settings = flowOf(UserSettings())
         every { dataSource.settings } returns settings

@@ -17,6 +17,7 @@ dependencies {
     implementation(projects.core.data)
     implementation(projects.core.model)
     implementation(projects.core.platform)
+    implementation(projects.core.nextcloud)
     implementation(projects.feature.folders)
     implementation(projects.feature.timeline)
     implementation(projects.feature.map)
@@ -31,5 +32,6 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
     implementation(libs.kotlinx.serialization.json)
 }
