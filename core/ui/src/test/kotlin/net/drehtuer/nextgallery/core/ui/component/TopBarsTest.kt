@@ -38,6 +38,16 @@ class TopBarsTest {
     }
 
     @Test
+    fun settingsAction_clicked_invokesCallback() {
+        var clicks = 0
+        composeRule.setContent { SettingsAction(onClick = { clicks++ }) }
+
+        composeRule.onNodeWithContentDescription("Settings").performClick()
+
+        assertEquals(1, clicks)
+    }
+
+    @Test
     fun deleteAction_clicked_invokesCallback() {
         var clicks = 0
         composeRule.setContent { DeleteAction(onClick = { clicks++ }) }

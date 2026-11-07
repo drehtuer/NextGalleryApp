@@ -14,10 +14,10 @@ import net.drehtuer.nextgallery.core.data.media.DefaultMediaRepository
 import net.drehtuer.nextgallery.core.data.media.FolderRepository
 import net.drehtuer.nextgallery.core.data.media.MediaActionsRepository
 import net.drehtuer.nextgallery.core.data.media.MediaRepository
-import net.drehtuer.nextgallery.core.data.rules.DefaultFolderRulesProvider
-import net.drehtuer.nextgallery.core.data.rules.FolderRulesProvider
 import net.drehtuer.nextgallery.core.data.selection.DefaultSelectionRepository
 import net.drehtuer.nextgallery.core.data.selection.SelectionRepository
+import net.drehtuer.nextgallery.core.data.settings.DefaultSettingsRepository
+import net.drehtuer.nextgallery.core.data.settings.SettingsRepository
 import javax.inject.Singleton
 
 /** Binds the `:core:data` interfaces to their default implementations. */
@@ -45,5 +45,5 @@ interface RepositoryModule {
     fun bindMediaAccessRepository(repository: DefaultMediaAccessRepository): MediaAccessRepository
 
     @Binds
-    fun bindFolderRulesProvider(provider: DefaultFolderRulesProvider): FolderRulesProvider
+    fun bindSettingsRepository(repository: DefaultSettingsRepository): SettingsRepository
 }

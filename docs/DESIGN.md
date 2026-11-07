@@ -113,7 +113,7 @@ Counts and times use tabular figures (`FontFeatureSettings("tnum")`).
 | `spacingSmall` | 8 dp | unchanged |
 | `spacingMedium` | 16 dp | unchanged |
 | `gridGap` | 2 dp | unchanged |
-| `gridColumns` | 3 | replaces `mediaCellMinSize`; the default until Appearance sets it (D51) |
+| `gridColumns` | 3 | replaces `mediaCellMinSize`; the Appearance setting, passed to `NextGalleryTheme` (D51) |
 | `folderCellMinSize` | 160 dp | unchanged; folders are 2 columns on the phone |
 | `selectionBorderWidth` | 3 dp | unchanged |
 | `scrollbarThumbWidth` | 6 dp | unchanged |
@@ -123,6 +123,7 @@ Counts and times use tabular figures (`FontFeatureSettings("tnum")`).
 | `badgeSize` (new) | 24 dp | inset 6 dp from the bottom left; 16 dp icon |
 | `clusterMarkerSize` (new) | 60 dp | 3 dp white border, count pill 22 dp high at the top right |
 | `dateRailInset` (new) | 18 dp | distance from the right edge to the date labels |
+| `accentSwatchSize` (new) | 52 dp | Appearance; the chosen one has a 3 dp ring (`selectionBorderWidth`) |
 
 The greyed-out opacity stays 38 %. Edge to edge: backgrounds run behind the system bars; content is padded with
 `WindowInsets.safeDrawing`. Bottom navigation is 80 dp plus the gesture inset; the active item has a 64 × 32 dp pill.
@@ -270,8 +271,9 @@ Rows with an icon, title, secondary line and chevron: "Folders" (Include, exclud
 (Theme, grid columns and accent colour), "Nextcloud" (the account, or "Not connected"), "About & licences".
 
 - Folder rules: "Default shows a folder if it has images. Include always shows it; Exclude always hides it." Each
-  folder has a three-way segmented button Include / Default / Exclude. `.nomedia` folders show a lock chip "Hidden by a
-  .nomedia file; can't be changed here". At the bottom the field "Also exclude folders matching" ("* matches any
+  folder has a three-way segmented button Include / Default / Exclude. `.nomedia` folders cannot be listed (D53), so instead of a lock chip on each
+  the list ends with "Folders with a .nomedia file are hidden by Android, so they aren't listed here and can't be
+  changed.". At the bottom the field "Also exclude folders matching" ("* matches any
   characters. One pattern per line.").
 - Appearance: segmented Theme (System / Light / Dark) with "The photo viewer and the editor stay black in every
   theme.", segmented Grid columns (3 / 4 / 5) with a live two-row preview, and five 52 dp accent swatches (the chosen one
@@ -296,7 +298,7 @@ Icon-only buttons have content descriptions.
 - All values go into `NextGalleryTheme` in `:core:ui` (task 10.0): a light and a dark scheme per accent, the fixed
   roles above, the always-dark colours and the new dimension tokens. Feature modules keep reading only the theme.
 - The viewer and editor wrap their content in a dark scheme built from the always-dark colours, whatever the setting.
-- The accent and theme mode come from `AppSettings` (D34) once Phase 4 adds them; until then the theme follows the
-  system with the blue accent. The column count comes from the Appearance setting, by default 3 (D51).
+- The accent and theme mode come from `UserSettings` (D34) ; by default the theme follows the system with the blue
+  accent. The column count comes from the Appearance setting, by default 3 (D51).
 - The date rail and the map behaviour are specified in TODO Phases 5 and 6; moving and deleting on the server in
   Phase 8.

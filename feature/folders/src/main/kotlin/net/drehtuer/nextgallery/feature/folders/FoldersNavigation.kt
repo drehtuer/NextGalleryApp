@@ -25,11 +25,11 @@ data class FolderGridRoute(val bucketId: Long)
 @Serializable
 data class SelectionOverviewRoute(val bucketId: Long)
 
-fun NavGraphBuilder.folderListScreen(onFolderClick: (bucketId: Long) -> Unit) {
+fun NavGraphBuilder.folderListScreen(onFolderClick: (bucketId: Long) -> Unit, onOpenSettings: () -> Unit) {
     composable<FolderListRoute> {
         val viewModel = hiltViewModel<FolderListViewModel>()
         val state by viewModel.state.collectAsStateWithLifecycle()
-        FolderListScreen(state, onFolderClick)
+        FolderListScreen(state, onFolderClick, onOpenSettings)
     }
 }
 

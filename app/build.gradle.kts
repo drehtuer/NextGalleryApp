@@ -5,6 +5,13 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+android {
+    buildFeatures {
+        // The version shown in About & licences.
+        buildConfig = true
+    }
+}
+
 dependencies {
     implementation(projects.core.ui)
     implementation(projects.core.data)
