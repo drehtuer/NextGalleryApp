@@ -3,7 +3,10 @@
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <application>
+    <!-- Stated here too, because a library's manifest has its own application element; the app's rules are D19 and D42. -->
+    <application
+        android:allowBackup="false"
+        android:usesCleartextTraffic="false">
         <!-- Only for sharing server images (D48): limited to one temporary folder, with read grants per share. -->
         <provider
             android:name="androidx.core.content.FileProvider"

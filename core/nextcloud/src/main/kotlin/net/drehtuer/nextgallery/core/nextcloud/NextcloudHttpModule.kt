@@ -34,7 +34,9 @@ class NextcloudHttpModule(
     platformHostnameVerifier: HostnameVerifier = OkHttpClient().hostnameVerifier,
 ) : ConnectionEvictor {
     private val trustManager = PinningTrustManager(platformTrustManager, pins)
-    private val sslContext = SSLContext.getInstance("TLS").apply { init(null, arrayOf(trustManager), null) }
+
+    /** The newest protocol this context offers; servers with only TLS 1.2 still work (`NextcloudTlsDeviceTest`). */
+    private val sslContext = SSLContext.getInstance("TLSv1.3").apply { init(null, arrayOf(trustManager), null) }
 
     val base: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
