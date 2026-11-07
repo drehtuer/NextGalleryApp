@@ -1,5 +1,7 @@
 package net.drehtuer.nextgallery.core.ui.component
 
+import androidx.compose.material3.Button
+import androidx.compose.material3.Text
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -35,6 +37,18 @@ class StateViewsTest {
         composeRule.setContent { EmptyState("No photos", detail = "Take one") }
 
         composeRule.onNodeWithText("Take one").assertIsDisplayed()
+    }
+
+    @Test
+    fun emptyState_action_isShownAndClickable() {
+        var clicks = 0
+        composeRule.setContent {
+            EmptyState("No photos", action = { Button(onClick = { clicks++ }) { Text("Add folder") } })
+        }
+
+        composeRule.onNodeWithText("Add folder").performClick()
+
+        assertEquals(1, clicks)
     }
 
     @Test

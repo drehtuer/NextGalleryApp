@@ -18,13 +18,22 @@ import net.drehtuer.nextgallery.core.ui.platform.rememberShareHandler
 import net.drehtuer.nextgallery.core.ui.platform.rememberTrashEffectHandler
 import net.drehtuer.nextgallery.core.ui.platform.rememberUploadHandoffHandler
 
-/** Pages through the map cluster [mapBounds] ([GeoBounds.encode]) if set, the folder [bucketId], or the timeline. */
+/**
+ * Pages through the map cluster [mapBounds] ([GeoBounds.encode]) if set, the virtual folder with the members [bucketIds],
+ * the folder [bucketId], or the timeline.
+ */
 @Serializable
-data class ViewerRoute(val mediaId: Long, val bucketId: Long?, val mapBounds: String? = null) {
+data class ViewerRoute(
+    val mediaId: Long,
+    val bucketId: Long?,
+    val mapBounds: String? = null,
+    val bucketIds: List<Long>? = null,
+) {
     internal fun source(): MediaSource {
         val bounds = mapBounds?.let(GeoBounds::decode)
         return when {
             bounds != null -> MediaSource.Map(bounds)
+            bucketIds != null -> MediaSource.VirtualFolder(bucketIds)
             bucketId != null -> MediaSource.Folder(bucketId)
             else -> MediaSource.Timeline
         }

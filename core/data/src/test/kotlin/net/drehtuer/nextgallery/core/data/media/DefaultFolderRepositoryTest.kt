@@ -1,30 +1,30 @@
 package net.drehtuer.nextgallery.core.data.media
 
 import app.cash.turbine.test
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.advanceTimeBy
+import io.mockk.every
+import io.mockk.mockk
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
-import net.drehtuer.nextgallery.core.data.fakes.FakeMediaChangeSource
 import net.drehtuer.nextgallery.core.data.fakes.FakeMediaIndexStore
-import net.drehtuer.nextgallery.core.data.fakes.FakeMediaScanSource
-import net.drehtuer.nextgallery.core.data.fakes.scannedImage
-import net.drehtuer.nextgallery.core.data.index.IndexScheduler
+import net.drehtuer.nextgallery.core.data.settings.SettingsRepository
 import net.drehtuer.nextgallery.core.model.DateSource
-import net.drehtuer.nextgallery.core.model.DeviceFolder
 import net.drehtuer.nextgallery.core.model.Folder
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
+import net.drehtuer.nextgallery.core.model.UserSettings
+import net.drehtuer.nextgallery.core.model.VirtualFolder
+import net.drehtuer.nextgallery.core.model.VirtualFolderSummary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDate
 
-@OptIn(ExperimentalCoroutinesApi::class)
 class DefaultFolderRepositoryTest {
     private val store = FakeMediaIndexStore()
-    private val scanSource = FakeMediaScanSource()
-    private val changeSource = FakeMediaChangeSource()
-    private val repository = DefaultFolderRepository(store, scanSource, changeSource)
+    private val settings = MutableStateFlow(UserSettings())
+    private val settingsRepository = mockk<SettingsRepository> { every { observeSettings() } returns settings }
+    private val repository = DefaultFolderRepository(store, settingsRepository)
+    private val virtualFolder = VirtualFolder("v1", "Everything", listOf(7, 8))
 
     @Test
     fun observeFolders_emitsChangesFromStore() = runTest {
@@ -54,64 +54,65 @@ class DefaultFolderRepositoryTest {
     }
 
     @Test
-    fun observeAllDeviceFolders_countsImagesPerFolderSortedByPath() = runTest {
-        scanSource.images = listOf(
-            scannedImage(1, "Pictures/Holiday/"),
-            scannedImage(2, "DCIM/Camera/"),
-            scannedImage(3, "DCIM/Camera/"),
-        )
+    fun observeVirtualFolders_addsUpTheMembers() = runTest {
+        settings.value = UserSettings(virtualFolders = listOf(virtualFolder))
+        store.folders.value = listOf(folder(7, itemCount = 2), folder(8, itemCount = 3), folder(9, itemCount = 5))
 
-        repository.observeAllDeviceFolders().test {
-            assertEquals(
-                listOf(DeviceFolder("Camera", "DCIM/Camera", 2), DeviceFolder("Holiday", "Pictures/Holiday", 1)),
-                awaitItem(),
-            )
-            cancelAndIgnoreRemainingEvents()
+        repository.observeVirtualFolders().test {
+            assertEquals(5, awaitItem().single().itemCount)
         }
     }
 
     @Test
-    fun observeAllDeviceFolders_sameFolderOnTwoVolumes_isOneFolder() = runTest {
-        scanSource.images = listOf(
-            scannedImage(1, "DCIM/Camera/", volumeName = "external_primary"),
-            scannedImage(2, "dcim/camera/", volumeName = "sdcard"),
-        )
+    fun observeVirtualFolders_coverIsTheNewestImageOfTheMembers() = runTest {
+        settings.value = UserSettings(virtualFolders = listOf(virtualFolder))
+        store.folders.value = listOf(folder(7, coverDate = 10), folder(8, coverDate = 30), folder(9, coverDate = 50))
 
-        repository.observeAllDeviceFolders().test {
+        repository.observeVirtualFolders().test {
+            assertEquals(30L, awaitItem().single().coverItem?.dateTakenMillis)
+        }
+    }
+
+    @Test
+    fun observeVirtualFolders_memberNotIndexed_isIgnored() = runTest {
+        settings.value = UserSettings(virtualFolders = listOf(virtualFolder))
+        store.folders.value = listOf(folder(7, itemCount = 2))
+
+        repository.observeVirtualFolders().test {
             assertEquals(2, awaitItem().single().itemCount)
-            cancelAndIgnoreRemainingEvents()
         }
     }
 
     @Test
-    fun observeAllDeviceFolders_storageRoot_isLeftOut() = runTest {
-        scanSource.images = listOf(scannedImage(1, "/"))
+    fun observeVirtualFolders_noMemberIndexed_staysListedWithoutCover() = runTest {
+        settings.value = UserSettings(virtualFolders = listOf(virtualFolder))
 
-        repository.observeAllDeviceFolders().test {
-            assertEquals(emptyList<DeviceFolder>(), awaitItem())
-            cancelAndIgnoreRemainingEvents()
+        repository.observeVirtualFolders().test {
+            assertEquals(VirtualFolderSummary(virtualFolder, 0, null), awaitItem().single())
         }
     }
 
     @Test
-    fun observeAllDeviceFolders_mediaStoreChange_scansAgain() = runTest {
-        repository.observeAllDeviceFolders().test {
-            assertEquals(emptyList<DeviceFolder>(), awaitItem())
-            scanSource.images = listOf(scannedImage(1, "DCIM/Camera/"))
+    fun observeVirtualFolder_knownId_emitsIt() = runTest {
+        settings.value = UserSettings(virtualFolders = listOf(virtualFolder))
 
-            changeSource.events.emit(Unit)
-            advanceTimeBy(IndexScheduler.CHANGE_DEBOUNCE_MILLIS + 1)
-
-            assertEquals(listOf(DeviceFolder("Camera", "DCIM/Camera", 1)), awaitItem())
-            cancelAndIgnoreRemainingEvents()
+        repository.observeVirtualFolder("v1").test {
+            assertEquals(virtualFolder, awaitItem()?.folder)
         }
     }
 
-    private fun folder(bucketId: Long) = Folder(
+    @Test
+    fun observeVirtualFolder_unknownId_emitsNull() = runTest {
+        repository.observeVirtualFolder("v1").test {
+            assertNull(awaitItem())
+        }
+    }
+
+    private fun folder(bucketId: Long, itemCount: Int = 1, coverDate: Long = 1) = Folder(
         bucketId = bucketId,
         name = "Camera",
         relativePath = "DCIM/Camera/",
-        itemCount = 1,
+        itemCount = itemCount,
         coverItem = MediaItem(
             id = MediaId(1),
             volumeName = "external_primary",
@@ -125,7 +126,7 @@ class DefaultFolderRepositoryTest {
             width = 1,
             height = 1,
             orientation = 0,
-            dateTakenMillis = 1,
+            dateTakenMillis = coverDate,
             dateSource = DateSource.DATE_TAKEN,
             takenLocalDate = LocalDate.of(2024, 3, 15),
             dateModifiedSeconds = 1,

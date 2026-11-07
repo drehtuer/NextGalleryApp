@@ -147,8 +147,12 @@ see the photos you selected." and a text button "Select more".
 ### Folder list
 
 Top bar "Folders" with a settings icon. Two columns of square covers (16 dp corners), the name in `bodyLarge` 500 on one
-line with an ellipsis, the count below ("1,204 images"). Loading: flat `surfaceVariant` blocks in the same layout. No
-photos: photo icon, "No photos yet", "Photos you take or download appear here, sorted by folder."
+line with an ellipsis, the count below ("1,204 images"). Virtual folders with images come first, with a stacked-folder
+icon before the name (content description "Virtual folder"), then the real folders. Loading: flat `surfaceVariant`
+blocks in the same layout. No folder added: photo icon, "No folders added", "You choose which folders NextGallery shows.
+Add a folder to see its photos here.", and an "Add folder" button that opens the Folders settings screen. Folders added
+but no images: photo icon, "No photos in your folders", "The folders you added have no photos, or they are still being
+read.", and a "Manage folders" button to the same screen.
 
 ### Folder grid
 
@@ -202,8 +206,8 @@ photos scroll:
 - Location permission card (when photo locations are not allowed yet): "See where your photos were taken" / "Android
   hides the location in photos until you allow it. NextGallery only reads it to place photos on the map." with "Not
   now" and "Allow".
-- No geotagged images: card at the top "No geotagged images" / "None of your photos has a location saved. Turn on
-  location in your camera app to see new photos here."
+- No geotagged images: card at the top "No geotagged images" / "None of the photos in the folders you added has a location
+  saved. Add more folders in Settings, or turn on location in your camera app to see new photos here."
 
 ### Viewer
 
@@ -268,14 +272,21 @@ Black. Top bar: close, undo, redo (38 % when unavailable) and a filled "Save" th
 
 ### Settings
 
-Rows with an icon, title, secondary line and chevron: "Folders" (Include, exclude and hidden folders), "Appearance"
+Rows with an icon, title, secondary line and chevron: "Folders" (Choose folders and combine them), "Appearance"
 (Theme, grid columns and accent colour), "Map" (Tile server, D23), "Nextcloud" (the account, or "Not connected"), "About & licences".
 
-- Folder rules: "Default shows a folder if it has images. Include always shows it; Exclude always hides it." Each
-  folder has a three-way segmented button Include / Default / Exclude. `.nomedia` folders cannot be listed (D53), so instead of a lock chip on each
-  the list ends with "Folders with a .nomedia file are hidden by Android, so they aren't listed here and can't be
-  changed.". At the bottom the field "Also exclude folders matching" ("* matches any
-  characters. One pattern per line.").
+- Folders: "NextGallery only shows the folders you add here, with their subfolders. Removing a folder only hides it in
+  NextGallery. No file is touched." Each added folder shows its name and path (on an SD card the volume before the
+  path) with a "Remove" text button, without a confirmation. "No folders added." when there are none. The "Add folder"
+  button opens the system folder picker; adding a folder twice does nothing. A folder that cannot be used shows, in the
+  error colour, "This folder can't be added. Choose a folder on the phone's storage or on an SD card, not the top level
+  of the storage." A note says that the picker does not offer every folder, and which folders stay hidden (D55).
+- Virtual folders, on the same screen under a section title: "A virtual folder shows the photos of several folders
+  together, for example Camera, WhatsApp and Signal. It appears in the folder list once it has photos." Each row shows
+  the name and count (also "0 images"), opens the editor on a tap and has a "Delete" text button. "Create virtual
+  folder" is disabled while no folder has photos, with a note saying so. The editor replaces the screen, titled "New
+  virtual folder" or "Edit virtual folder": a "Name" field, "Show photos from" with a checkbox row (name, path) per
+  folder, and "Save", enabled with a name and at least one member. Back leaves it without saving.
 - Appearance: segmented Theme (System / Light / Dark) with "The photo viewer and the editor stay black in every
   theme.", segmented Grid columns (3 / 4 / 5) with a live two-row preview, and five 52 dp accent swatches (the chosen one
   with a check and a 3 dp ring), followed by "<Accent>. Colours buttons, selections and the scrollbar. Warning and error

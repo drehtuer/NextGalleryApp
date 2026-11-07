@@ -20,36 +20,51 @@ import net.drehtuer.nextgallery.core.ui.platform.rememberUploadHandoffHandler
 @Serializable
 data object FolderListRoute
 
+/** Shows the virtual folder [virtualFolderId] if set, otherwise the folder [bucketId]. */
 @Serializable
-data class FolderGridRoute(val bucketId: Long)
+data class FolderGridRoute(val bucketId: Long = 0, val virtualFolderId: String? = null)
 
-/** Opened from the folder [bucketId], with [fromMap] from the map, or otherwise from the timeline. */
+/**
+ * Opened from the virtual folder with the members [bucketIds], from the folder [bucketId], with [fromMap] from the map,
+ * or otherwise from the timeline.
+ */
 @Serializable
-data class SelectionOverviewRoute(val bucketId: Long?, val fromMap: Boolean = false) {
+data class SelectionOverviewRoute(
+    val bucketId: Long?,
+    val fromMap: Boolean = false,
+    val bucketIds: List<Long>? = null,
+) {
     internal fun viewContext(): ViewContext = when {
         fromMap -> ViewContext.Map
+        bucketIds != null -> ViewContext.VirtualFolder(bucketIds)
         bucketId != null -> ViewContext.Folder(bucketId)
         else -> ViewContext.Timeline
     }
 }
 
-fun NavGraphBuilder.folderListScreen(onFolderClick: (bucketId: Long) -> Unit, onOpenSettings: () -> Unit) {
+fun NavGraphBuilder.folderListScreen(
+    onFolderClick: (bucketId: Long) -> Unit,
+    onVirtualFolderClick: (id: String) -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenFolderSettings: () -> Unit,
+) {
     composable<FolderListRoute> {
         val viewModel = hiltViewModel<FolderListViewModel>()
         val state by viewModel.state.collectAsStateWithLifecycle()
-        FolderListScreen(state, onFolderClick, onOpenSettings)
+        FolderListScreen(state, onFolderClick, onVirtualFolderClick, onOpenSettings, onOpenFolderSettings)
     }
 }
 
 fun NavGraphBuilder.folderGridScreen(
     onBack: () -> Unit,
-    onOpenViewer: (id: MediaId, bucketId: Long) -> Unit,
-    onOpenSelectionOverview: (bucketId: Long) -> Unit,
+    onOpenViewer: (id: MediaId, bucketId: Long?, virtualBucketIds: List<Long>?) -> Unit,
+    onOpenSelectionOverview: (bucketId: Long?, virtualBucketIds: List<Long>?) -> Unit,
 ) {
     composable<FolderGridRoute> { entry ->
         val route = entry.toRoute<FolderGridRoute>()
+        val bucketId = route.bucketId.takeIf { route.virtualFolderId == null }
         val viewModel = hiltViewModel<FolderGridViewModel, FolderGridViewModel.Factory>(
-            creationCallback = { factory -> factory.create(route.bucketId) },
+            creationCallback = { factory -> factory.create(route) },
         )
         val state by viewModel.state.collectAsStateWithLifecycle()
         val snackbarHostState = remember { SnackbarHostState() }
@@ -65,7 +80,7 @@ fun NavGraphBuilder.folderGridScreen(
         LaunchedEffect(viewModel) {
             viewModel.effects.collect { effect ->
                 when (effect) {
-                    is FolderGridEffect.OpenViewer -> onOpenViewer(effect.id, route.bucketId)
+                    is FolderGridEffect.OpenViewer -> onOpenViewer(effect.id, bucketId, effect.virtualBucketIds)
                     is FolderGridEffect.Share -> handleShare(effect.spec)
                     is FolderGridEffect.Upload -> handleUpload(effect.handoff)
                     is FolderGridEffect.Trash -> handleTrashEffect(effect.effect)
@@ -77,7 +92,7 @@ fun NavGraphBuilder.folderGridScreen(
             items = viewModel.items.collectAsLazyPagingItems(),
             onEvent = viewModel::onEvent,
             onBack = onBack,
-            onOpenSelectionOverview = { onOpenSelectionOverview(route.bucketId) },
+            onOpenSelectionOverview = { onOpenSelectionOverview(bucketId, state.virtualBucketIds) },
             snackbarHostState = snackbarHostState,
         )
     }

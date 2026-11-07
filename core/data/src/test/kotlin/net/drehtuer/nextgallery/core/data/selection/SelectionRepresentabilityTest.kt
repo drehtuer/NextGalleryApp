@@ -19,6 +19,20 @@ class SelectionRepresentabilityTest {
     }
 
     @Test
+    fun canShow_virtualFolderWithThatMember_isTrue() {
+        assertTrue(
+            SelectionRepresentability.canShow(mediaItem(1, bucketId = 8), ViewContext.VirtualFolder(listOf(7, 8))),
+        )
+    }
+
+    @Test
+    fun canShow_virtualFolderWithoutThatMember_isFalse() {
+        assertFalse(
+            SelectionRepresentability.canShow(mediaItem(1, bucketId = 9), ViewContext.VirtualFolder(listOf(7, 8))),
+        )
+    }
+
+    @Test
     fun canShow_timeline_isTrue() {
         assertTrue(SelectionRepresentability.canShow(mediaItem(1), ViewContext.Timeline))
     }

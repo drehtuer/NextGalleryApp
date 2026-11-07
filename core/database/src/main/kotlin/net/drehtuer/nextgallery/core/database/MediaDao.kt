@@ -22,23 +22,23 @@ interface MediaDao {
     @Query("SELECT * FROM media WHERE id IN (:ids)")
     suspend fun getByIds(ids: List<Long>): List<MediaEntity>
 
-    /** The number of images before this one in [pagingByBucket]. */
+    /** The number of images before this one in [pagingByBuckets]. */
     @Query(
         """
         SELECT COUNT(*) FROM media
         JOIN media AS target ON target.id = :id
-        WHERE media.bucket_id = :bucketId
+        WHERE media.bucket_id IN (:bucketIds)
             AND (
                 media.date_taken_ms > target.date_taken_ms
                 OR (media.date_taken_ms = target.date_taken_ms AND media.id > target.id)
             )
         """,
     )
-    suspend fun indexInBucket(bucketId: Long, id: Long): Int
+    suspend fun indexInBuckets(bucketIds: List<Long>, id: Long): Int
 
-    @Query("SELECT * FROM media WHERE bucket_id = :bucketId ORDER BY date_taken_ms DESC, id DESC")
-    fun pagingByBucket(bucketId: Long): PagingSource<Int, MediaEntity>
+    @Query("SELECT * FROM media WHERE bucket_id IN (:bucketIds) ORDER BY date_taken_ms DESC, id DESC")
+    fun pagingByBuckets(bucketIds: List<Long>): PagingSource<Int, MediaEntity>
 
-    @Query("SELECT id FROM media WHERE bucket_id = :bucketId ORDER BY date_taken_ms DESC, id DESC")
-    suspend fun idsInBucket(bucketId: Long): List<Long>
+    @Query("SELECT id FROM media WHERE bucket_id IN (:bucketIds) ORDER BY date_taken_ms DESC, id DESC")
+    suspend fun idsInBuckets(bucketIds: List<Long>): List<Long>
 }

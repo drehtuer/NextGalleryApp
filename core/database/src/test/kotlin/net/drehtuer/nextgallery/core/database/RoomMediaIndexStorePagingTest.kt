@@ -29,11 +29,11 @@ class RoomMediaIndexStorePagingTest {
     fun tearDown() = database.close()
 
     @Test
-    fun pagedByBucket_emitsMappedModels() = runTest {
+    fun pagedByBuckets_emitsMappedModels() = runTest {
         database.mediaDao().upsertAll(listOf(mediaEntity(1)))
         val store = RoomMediaIndexStore(database.mediaDao(), database.folderDao())
 
-        val snapshot = store.pagedByBucket(7, PagingConfig(pageSize = 10)).asSnapshot()
+        val snapshot = store.pagedByBuckets(listOf(7, 8), PagingConfig(pageSize = 10)).asSnapshot()
 
         assertEquals(listOf(mediaEntity(1).toModel()), snapshot)
     }

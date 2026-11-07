@@ -4,6 +4,9 @@ package net.drehtuer.nextgallery.core.model
 sealed interface MediaSource {
     data class Folder(val bucketId: Long) : MediaSource
 
+    /** The images of several folders together (D55). */
+    data class VirtualFolder(val bucketIds: List<Long>) : MediaSource
+
     /** All indexed images, by local date. */
     data object Timeline : MediaSource
 

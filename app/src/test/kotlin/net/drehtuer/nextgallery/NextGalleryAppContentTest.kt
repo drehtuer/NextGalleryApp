@@ -125,6 +125,37 @@ class NextGalleryAppContentTest {
     }
 
     @Test
+    fun viewerRouteWithVirtualFolder_keepsItsMembersThroughNavigation() {
+        val navController = showSharedStandIns()
+
+        composeRule.runOnIdle {
+            navController.navigate(ViewerRoute(mediaId = 1, bucketId = null, bucketIds = listOf(7, -8)))
+        }
+
+        composeRule.onNodeWithText("Viewer of members [7, -8]").assertIsDisplayed()
+    }
+
+    @Test
+    fun viewerRouteWithoutVirtualFolder_hasNoMembers() {
+        val navController = showSharedStandIns()
+
+        composeRule.runOnIdle { navController.navigate(ViewerRoute(mediaId = 1, bucketId = 7)) }
+
+        composeRule.onNodeWithText("Viewer of members null").assertIsDisplayed()
+    }
+
+    @Test
+    fun selectionOverviewRouteWithVirtualFolder_keepsItsMembersThroughNavigation() {
+        val navController = showSharedStandIns()
+
+        composeRule.runOnIdle {
+            navController.navigate(SelectionOverviewRoute(bucketId = null, bucketIds = listOf(7, 8)))
+        }
+
+        composeRule.onNodeWithText("Overview of members [7, 8]").assertIsDisplayed()
+    }
+
+    @Test
     fun selectionOverviewRouteWithoutBucket_keepsNullThroughNavigation() {
         val navController = showSharedStandIns()
 
@@ -171,9 +202,15 @@ class NextGalleryAppContentTest {
                 navController = navController,
                 folders = { composable<FoldersRoute> { Text("Folders screen") } },
                 shared = {
-                    composable<ViewerRoute> { Text("Viewer of bucket ${it.toRoute<ViewerRoute>().bucketId}") }
+                    composable<ViewerRoute> {
+                        val route = it.toRoute<ViewerRoute>()
+                        Text("Viewer of bucket ${route.bucketId}")
+                        Text("Viewer of members ${route.bucketIds}")
+                    }
                     composable<SelectionOverviewRoute> {
-                        Text("Overview of bucket ${it.toRoute<SelectionOverviewRoute>().bucketId}")
+                        val route = it.toRoute<SelectionOverviewRoute>()
+                        Text("Overview of bucket ${route.bucketId}")
+                        Text("Overview of members ${route.bucketIds}")
                     }
                     composable<EditorRoute> { Text("Editor screen") }
                 },
@@ -198,7 +235,7 @@ class NextGalleryAppContentTest {
 
         composeRule.runOnIdle { navController.navigate(SettingsGraphRoute) }
 
-        composeRule.onNodeWithText("Include, exclude and hidden folders").assertIsDisplayed()
+        composeRule.onNodeWithText("Choose folders and combine them").assertIsDisplayed()
     }
 
     @Test

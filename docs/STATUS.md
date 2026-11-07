@@ -24,9 +24,9 @@ Where the implementation stands against the plan in [TODO.md](TODO.md). TODO.md 
 ## What works now
 
 - The app asks for photo access (full or "select photos"), shows a limited-access banner for partial access, and offers the app settings if access was denied.
-- With access, it indexes all images from MediaStore into Room in the background: a full scan the first time, afterwards incremental syncs via `GENERATION_MODIFIED`, triggered on app start, on MediaStore changes (debounced 2 s) and after the access changed.
-- Dates are resolved as `DATE_TAKEN` → EXIF `DateTimeOriginal` → `DATE_MODIFIED`; default folder rules exclude WhatsApp status images and `Android/data`.
-- The Folders tab lists the folders with cover image and image count. Opening a folder shows a paged thumbnail grid, newest first, with a draggable fast scrollbar.
+- With access, it indexes the images of the folders you added from MediaStore into Room in the background; without an added folder it reads nothing (D55). It uses a full scan the first time, afterwards incremental syncs via `GENERATION_MODIFIED`, triggered on app start, on MediaStore changes (debounced 2 s) and after the access changed.
+- Dates are resolved as `DATE_TAKEN` → EXIF `DateTimeOriginal` → `DATE_MODIFIED`; folders starting with a dot below an added folder are left out, such as WhatsApp's `.Statuses`.
+- The Folders tab lists virtual folders first, then the folders with cover image and image count; with no folder added it offers "Add folder". Opening a folder shows a paged thumbnail grid, newest first, with a draggable fast scrollbar.
 - Tapping an image opens the full-screen viewer: swipe between images, pinch or double-tap to zoom, tap to show or hide the controls, and an info sheet with the date, size, resolution, location and camera values.
 - Long-press selects images, which works across folders. The selection bar shows the total and offers select all, clear, share, delete and an overview of the selection, where images the current folder cannot show are greyed out.
 - Delete moves images to the system trash after the system's confirmation, with an undo option. Share uses the Android share sheet.
@@ -46,9 +46,9 @@ Where the implementation stands against the plan in [TODO.md](TODO.md). TODO.md 
 - "Save as copy" creates `IMG_x_edited.jpg` in the same folder and opens it. "Overwrite original" asks the system first. Saves keep the source format and EXIF, with the orientation reset and new dimensions.
 - Scales and saves that do not fit in memory are refused with the required and available memory. Closing with changes asks first.
 - The Folders top bar opens Settings: Folders, Appearance, Nextcloud ("Not connected") and About & licences.
-- Folder rules offer Include, Default or Exclude per folder, plus exclude patterns; a change re-indexes after about 2 s.
+- Settings > Folders adds folders with the system picker and removes them; a change re-indexes after about 2 s. It also creates, edits and deletes virtual folders, which show the images of several folders together. After updating from an earlier build the app starts with no folders.
 - Appearance sets the theme mode, 3, 4 or 5 grid columns and the accent colour, applied live and kept across restarts.
-- 2211 tests run with the CI command (plain JVM, Robolectric, Compose UI).
+- 2318 tests run with the CI command (plain JVM, Robolectric, Compose UI).
 - About's licence list is generated from the dependencies, with GeoNames and OpenStreetMap kept. Screen readers get names and dates on thumbnails, selection and upload states, and scrollbars that work without dragging; touch targets are at least 48 dp.
 - There is a minified release build, signed if `keystore.properties` exists, with its version from a Git tag. The build refuses proprietary libraries and licences outside the allowed list.
 
@@ -56,7 +56,12 @@ Where the implementation stands against the plan in [TODO.md](TODO.md). TODO.md 
 
 These need the Pixel 10a or an API 37 emulator (`./gradlew connectedDebugAndroidTest`, see [README](../README.md#building)):
 
-- [ ] Install the debug build; grant full access → the folders appear with the right image counts.
+- [ ] Install the debug build; grant full access → "No folders added"; add a folder with the system picker → it and its subfolders appear with the right image counts.
+- [ ] Folder picker: check which folders Android really refuses (volume roots, the Download folder itself, `Android/data`, `Android/obb`; D55 says this from memory). An SD card folder and a subfolder of Download can be added and show images.
+- [ ] Paths in the query work on the real MediaStore, including a folder name with `_` or `%` (`MediaStoreScannerTest` covers plain paths): `connectedDebugAndroidTest`.
+- [ ] Removing a folder takes its images out of all tabs and touches no file; adding it again brings them back, and it comes back in the virtual folders it was in.
+- [ ] Updating over an earlier build: the app starts with no folders and an empty timeline and map.
+- [ ] Virtual folder: create one from Camera and another folder; images are in date order across both; the viewer swipes through all of them; Select All selects all of them; the overview greys out images of other folders. Deleting all members' images hides it in the list but not in Settings. The stacked-folder icon looks right.
 - [ ] Take or delete a photo → the folder's count changes within a few seconds.
 - [ ] Grant "select photos" → only the selected photos are counted; "Select more" updates the count.
 - [ ] Open a folder: thumbnails load, the orientation is correct, and an open grid updates after a change.
@@ -72,10 +77,9 @@ These need the Pixel 10a or an API 37 emulator (`./gradlew connectedDebugAndroid
 - [ ] Selection overview: images of other folders are greyed out; tapping removes an image; actions apply to the whole selection.
 - [ ] "Open with" from a file manager opens the image, also without media permission.
 - [ ] Design: colours and text are readable in light and dark theme; the new icons look right; the selection ring and check are clear over light and dark photos.
-- [ ] Settings: excluding a folder removes it from the folder list after the re-index; Default or Include brings it back; an Include under an excluded parent shows that subfolder.
 - [ ] Settings persist after a force stop; forced Light and Dark look right, including the status bar icons; the viewer stays black.
 - [ ] Columns change in the folder grid and selection overview, also in landscape; accent swatches look right in both themes.
-- [ ] About: the source link opens the browser. Folder rules: the keyboard does not cover the pattern field; a folder with a `.nomedia` file is not listed.
+- [ ] About: the source link opens the browser. Virtual folder editor: the keyboard does not cover the name field; a folder with a `.nomedia` file shows no images when added.
 - [ ] Timeline: dates are correct, including images dated from EXIF or the modified date; "Today" shows on today's photos only; the month header switches correctly at month boundaries.
 - [ ] Timeline: the rail is readable over photos in both themes; dragging it is smooth on 10k+ images, and the thumb does not jitter on small libraries; photos under the rail labels can still be tapped.
 - [ ] Timeline: Back from the viewer returns to the same scroll position; delete with undo works; the overview opened from the timeline greys out nothing.
@@ -98,6 +102,8 @@ These need the Pixel 10a or an API 37 emulator (`./gradlew connectedDebugAndroid
 - [x] Images in a folder with a `.nomedia` file are not returned by the scanner, after a media scan (D6; `MediaStoreScannerTest`).
 
 ## Known workarounds and technical debt
+
+- The benchmark journeys (`Journeys.kt`) assume a populated folder list, but cannot drive the system folder picker. Add a folder with photos by hand before running them, and keep app data between runs; a build step that clears app data makes them fail with "Is a folder with photos added in Settings?". Not run since this change (D55).
 
 - Overwriting an image is not atomic, because MediaStore has no atomic replace: if the process dies during the short write, the image can be incomplete. Failures inside the process restore the original from a backup.
 - If photo location access is denied, GPS is lost from a saved image.

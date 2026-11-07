@@ -5,6 +5,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertAll
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -23,8 +24,15 @@ class FolderListScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private fun show(state: FolderListUiState, onOpenSettings: () -> Unit = {}, onFolderClick: (Long) -> Unit = {}) =
-        composeRule.setContent { FolderListScreen(state, onFolderClick, onOpenSettings) }
+    private fun show(
+        state: FolderListUiState,
+        onOpenSettings: () -> Unit = {},
+        onOpenFolderSettings: () -> Unit = {},
+        onVirtualFolderClick: (String) -> Unit = {},
+        onFolderClick: (Long) -> Unit = {},
+    ) = composeRule.setContent {
+        FolderListScreen(state, onFolderClick, onVirtualFolderClick, onOpenSettings, onOpenFolderSettings)
+    }
 
     @Test
     fun loading_showsLoadingIndicator() {
@@ -34,10 +42,75 @@ class FolderListScreenTest {
     }
 
     @Test
-    fun empty_showsMessage() {
-        show(FolderListUiState.Empty)
+    fun noFolders_showsMessage() {
+        show(FolderListUiState.NoFolders)
 
-        composeRule.onNodeWithText("No photos yet").assertIsDisplayed()
+        composeRule.onNodeWithText("No folders added").assertIsDisplayed()
+    }
+
+    @Test
+    fun noFolders_addFolderClicked_opensFolderSettings() {
+        var clicks = 0
+        show(FolderListUiState.NoFolders, onOpenFolderSettings = { clicks++ })
+
+        composeRule.onNodeWithText("Add folder").performClick()
+
+        assertEquals(1, clicks)
+    }
+
+    @Test
+    fun noImages_showsMessage() {
+        show(FolderListUiState.NoImages)
+
+        composeRule.onNodeWithText("No photos in your folders").assertIsDisplayed()
+    }
+
+    @Test
+    fun noImages_manageFoldersClicked_opensFolderSettings() {
+        var clicks = 0
+        show(FolderListUiState.NoImages, onOpenFolderSettings = { clicks++ })
+
+        composeRule.onNodeWithText("Manage folders").performClick()
+
+        assertEquals(1, clicks)
+    }
+
+    @Test
+    fun virtualFolder_isMarkedAsSuch() {
+        show(FolderListUiState.Content(listOf(folder()), listOf(virtualFolder())))
+
+        composeRule.onNodeWithContentDescription("Virtual folder", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun realFolder_isNotMarkedAsVirtual() {
+        show(FolderListUiState.Content(listOf(folder())))
+
+        composeRule.onNodeWithContentDescription("Virtual folder", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun virtualFolder_comesBeforeRealFolders() {
+        show(FolderListUiState.Content(listOf(folder(name = "Camera")), listOf(virtualFolder(name = "Everything"))))
+
+        val names = composeRule.onAllNodes(hasText("Everything") or hasText("Camera"))
+            .fetchSemanticsNodes()
+            .map { it.config[SemanticsProperties.Text].first().text }
+
+        assertEquals(listOf("Everything", "Camera"), names)
+    }
+
+    @Test
+    fun virtualFolderClicked_reportsItsId() {
+        var clicked: String? = null
+        show(
+            FolderListUiState.Content(listOf(folder()), listOf(virtualFolder(id = "v9"))),
+            onVirtualFolderClick = { clicked = it },
+        )
+
+        composeRule.onNodeWithText("Everything").performClick()
+
+        assertEquals("v9", clicked)
     }
 
     @Test
@@ -67,7 +140,7 @@ class FolderListScreenTest {
     @Test
     fun settingsIconClicked_opensSettings() {
         var clicks = 0
-        show(FolderListUiState.Empty, onOpenSettings = { clicks++ })
+        show(FolderListUiState.NoFolders, onOpenSettings = { clicks++ })
 
         composeRule.onNodeWithContentDescription("Settings").performClick()
 

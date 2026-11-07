@@ -13,7 +13,7 @@ import kotlinx.serialization.Serializable
 data object SettingsRoute
 
 @Serializable
-data object FolderRulesRoute
+data object FoldersSettingsRoute
 
 @Serializable
 data object AppearanceRoute
@@ -65,11 +65,12 @@ fun NavGraphBuilder.mapTilesScreen(onBack: () -> Unit) {
     }
 }
 
-fun NavGraphBuilder.folderRulesScreen(onBack: () -> Unit) {
-    composable<FolderRulesRoute> {
-        val viewModel = hiltViewModel<FolderRulesViewModel>()
+fun NavGraphBuilder.foldersSettingsScreen(onBack: () -> Unit) {
+    composable<FoldersSettingsRoute> {
+        val viewModel = hiltViewModel<FoldersSettingsViewModel>()
         val state by viewModel.state.collectAsStateWithLifecycle()
-        FolderRulesScreen(state, viewModel::onEvent, onBack)
+        val pickFolder = rememberFolderPicker { viewModel.onEvent(FoldersSettingsEvent.FolderPicked(it)) }
+        FoldersSettingsScreen(state, viewModel::onEvent, pickFolder, onBack)
     }
 }
 

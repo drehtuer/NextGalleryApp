@@ -4,6 +4,8 @@ import net.drehtuer.nextgallery.core.model.DateSource
 import net.drehtuer.nextgallery.core.model.Folder
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
+import net.drehtuer.nextgallery.core.model.VirtualFolder
+import net.drehtuer.nextgallery.core.model.VirtualFolderSummary
 import java.time.LocalDate
 
 fun mediaItem(id: Long, bucketId: Long = 7) = MediaItem(
@@ -33,4 +35,10 @@ fun folder(bucketId: Long = 7, name: String = "Camera", itemCount: Int = 1) = Fo
     relativePath = "DCIM/$name/",
     itemCount = itemCount,
     coverItem = mediaItem(1, bucketId),
+)
+
+fun virtualFolder(id: String = "v1", name: String = "Everything", itemCount: Int = 2) = VirtualFolderSummary(
+    folder = VirtualFolder(id, name, listOf(7, 8)),
+    itemCount = itemCount,
+    coverItem = mediaItem(1),
 )

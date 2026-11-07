@@ -25,6 +25,8 @@ interface MediaRepository {
 
     suspend fun folderItemIds(bucketId: Long): List<MediaId>
 
+    suspend fun virtualFolderItemIds(bucketIds: List<Long>): List<MediaId>
+
     suspend fun timelineItemIds(): List<MediaId>
 
     /** Returns null if the image is not in the index. Reads the EXIF data from the file. */
@@ -41,18 +43,22 @@ class DefaultMediaRepository @Inject constructor(
     override suspend fun getItem(id: MediaId): MediaItem? = indexStore.getById(id)
 
     override fun pagedItems(source: MediaSource): Flow<PagingData<MediaItem>> = when (source) {
-        is MediaSource.Folder -> indexStore.pagedByBucket(source.bucketId, GRID_PAGING_CONFIG)
+        is MediaSource.Folder -> indexStore.pagedByBuckets(listOf(source.bucketId), GRID_PAGING_CONFIG)
+        is MediaSource.VirtualFolder -> indexStore.pagedByBuckets(source.bucketIds, GRID_PAGING_CONFIG)
         MediaSource.Timeline -> timelineStore.paged(GRID_PAGING_CONFIG)
         is MediaSource.Map -> geoStore.pagedInBounds(source.bounds, GRID_PAGING_CONFIG)
     }
 
     override suspend fun indexOf(source: MediaSource, id: MediaId): Int = when (source) {
-        is MediaSource.Folder -> indexStore.indexInBucket(source.bucketId, id)
+        is MediaSource.Folder -> indexStore.indexInBuckets(listOf(source.bucketId), id)
+        is MediaSource.VirtualFolder -> indexStore.indexInBuckets(source.bucketIds, id)
         MediaSource.Timeline -> timelineStore.indexOf(id)
         is MediaSource.Map -> geoStore.indexInBounds(source.bounds, id)
     }
 
-    override suspend fun folderItemIds(bucketId: Long): List<MediaId> = indexStore.idsInBucket(bucketId)
+    override suspend fun folderItemIds(bucketId: Long): List<MediaId> = indexStore.idsInBuckets(listOf(bucketId))
+
+    override suspend fun virtualFolderItemIds(bucketIds: List<Long>): List<MediaId> = indexStore.idsInBuckets(bucketIds)
 
     override suspend fun timelineItemIds(): List<MediaId> = timelineStore.ids()
 

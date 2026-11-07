@@ -10,17 +10,17 @@ import net.drehtuer.nextgallery.core.data.index.WorkScheduler
 import javax.inject.Inject
 
 /**
- * Rebuilds the index when the folder rules change. It has to be a full scan: a rule change can bring back images that
- * an incremental sync would not look at. The debounce turns several quick changes into one scan.
+ * Rebuilds the index when the added folders change. It has to be a full scan: a newly added folder has images that an
+ * incremental sync would not look at. The debounce turns several quick changes into one scan.
  */
-class RuleChangeObserver @Inject constructor(
+class AddedFolderObserver @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val workScheduler: WorkScheduler,
 ) {
     @OptIn(FlowPreview::class)
     suspend fun observe() {
         settingsRepository.observeSettings()
-            .map { it.folderRules to it.excludePatterns }
+            .map { it.addedFolders }
             .distinctUntilChanged()
             .drop(1)
             .debounce(DEBOUNCE_MILLIS)

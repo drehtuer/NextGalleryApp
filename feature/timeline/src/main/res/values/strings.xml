@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="feature_timeline_title">Timeline</string>
-    <string name="feature_timeline_empty">No photos yet</string>
-    <string name="feature_timeline_empty_detail">Photos you take or download appear here, sorted by date.</string>
+    <string name="feature_timeline_empty">No photos to show</string>
+    <string name="feature_timeline_empty_detail">You choose which folders NextGallery shows. Add folders in Settings to see their photos here, sorted by date.</string>
     <string name="feature_timeline_load_failed">Couldn\'t load the timeline</string>
     <string name="feature_timeline_load_failed_detail">Android didn\'t return its images. Try again; if it keeps failing, restart the phone.</string>
     <string name="feature_timeline_today">Today · %1$s</string>

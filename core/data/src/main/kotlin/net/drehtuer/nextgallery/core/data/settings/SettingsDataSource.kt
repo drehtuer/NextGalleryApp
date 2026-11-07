@@ -34,9 +34,12 @@ class SettingsDataSource(private val dataStore: DataStore<Preferences>) {
     }
 
     private fun read(preferences: Preferences) = UserSettings(
-        folderRules = preferences[FOLDER_RULES]?.mapNotNull(FolderRuleCodec::decode)?.sortedBy { it.relativePath }
-            ?: UserSettings.DEFAULT_FOLDER_RULES,
-        excludePatterns = preferences[EXCLUDE_PATTERNS]?.lines()?.filter { it.isNotEmpty() }.orEmpty(),
+        addedFolders = preferences[ADDED_FOLDERS].orEmpty()
+            .mapNotNull(AddedFolderCodec::decode)
+            .sortedWith(compareBy({ it.relativePath.lowercase() }, { it.volumeName })),
+        virtualFolders = preferences[VIRTUAL_FOLDERS].orEmpty()
+            .mapNotNull(VirtualFolderCodec::decode)
+            .sortedWith(compareBy({ it.name.lowercase() }, { it.id })),
         gridColumns = preferences[GRID_COLUMNS]?.takeIf { it in UserSettings.GRID_COLUMN_OPTIONS }
             ?: UserSettings.DEFAULT_GRID_COLUMNS,
         themeMode = ThemeMode.entries.find { it.name == preferences[THEME_MODE] } ?: ThemeMode.SYSTEM,
@@ -47,8 +50,8 @@ class SettingsDataSource(private val dataStore: DataStore<Preferences>) {
     )
 
     private fun write(preferences: MutablePreferences, settings: UserSettings) {
-        preferences[FOLDER_RULES] = settings.folderRules.map(FolderRuleCodec::encode).toSet()
-        preferences[EXCLUDE_PATTERNS] = settings.excludePatterns.joinToString("\n")
+        preferences[ADDED_FOLDERS] = settings.addedFolders.map(AddedFolderCodec::encode).toSet()
+        preferences[VIRTUAL_FOLDERS] = settings.virtualFolders.map(VirtualFolderCodec::encode).toSet()
         preferences[GRID_COLUMNS] = settings.gridColumns
         preferences[THEME_MODE] = settings.themeMode.name
         preferences[ACCENT_COLOR] = settings.accentColor.name
@@ -58,8 +61,8 @@ class SettingsDataSource(private val dataStore: DataStore<Preferences>) {
     }
 
     companion object {
-        private val FOLDER_RULES = stringSetPreferencesKey("folder_rules")
-        private val EXCLUDE_PATTERNS = stringPreferencesKey("exclude_patterns")
+        private val ADDED_FOLDERS = stringSetPreferencesKey("added_folders")
+        private val VIRTUAL_FOLDERS = stringSetPreferencesKey("virtual_folders")
         private val GRID_COLUMNS = intPreferencesKey("grid_columns")
         private val THEME_MODE = stringPreferencesKey("theme_mode")
         private val ACCENT_COLOR = stringPreferencesKey("accent_color")

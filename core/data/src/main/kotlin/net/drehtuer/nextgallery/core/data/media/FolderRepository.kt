@@ -1,19 +1,14 @@
 package net.drehtuer.nextgallery.core.data.media
 
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.mapLatest
-import kotlinx.coroutines.flow.onStart
-import net.drehtuer.nextgallery.core.common.RelativePaths
-import net.drehtuer.nextgallery.core.data.index.IndexScheduler
-import net.drehtuer.nextgallery.core.data.index.MediaChangeSource
 import net.drehtuer.nextgallery.core.data.index.MediaIndexStore
-import net.drehtuer.nextgallery.core.data.index.MediaScanSource
-import net.drehtuer.nextgallery.core.model.DeviceFolder
+import net.drehtuer.nextgallery.core.data.settings.SettingsRepository
 import net.drehtuer.nextgallery.core.model.Folder
+import net.drehtuer.nextgallery.core.model.VirtualFolder
+import net.drehtuer.nextgallery.core.model.VirtualFolderSummary
 import javax.inject.Inject
 
 interface FolderRepository {
@@ -22,45 +17,37 @@ interface FolderRepository {
     /** Emits null when the folder has no indexed images. */
     fun observeFolder(bucketId: Long): Flow<Folder?>
 
-    /**
-     * The folders MediaStore has images in, regardless of the folder rules, sorted by path. Folders with a `.nomedia`
-     * file are not among them, because MediaStore hides their images (D6). Images in the storage root are left out: a
-     * rule on the root would also apply to every other folder.
-     */
-    fun observeAllDeviceFolders(): Flow<List<DeviceFolder>>
+    /** All virtual folders, also those without an image right now (D55). */
+    fun observeVirtualFolders(): Flow<List<VirtualFolderSummary>>
+
+    /** Emits null when there is no such virtual folder. */
+    fun observeVirtualFolder(id: String): Flow<VirtualFolderSummary?>
 }
 
 class DefaultFolderRepository @Inject constructor(
     private val indexStore: MediaIndexStore,
-    private val scanSource: MediaScanSource,
-    private val mediaChangeSource: MediaChangeSource,
+    private val settingsRepository: SettingsRepository,
 ) : FolderRepository {
     override fun observeFolders(): Flow<List<Folder>> = indexStore.observeFolders()
 
     override fun observeFolder(bucketId: Long): Flow<Folder?> =
         indexStore.observeFolders().map { folders -> folders.find { it.bucketId == bucketId } }
 
-    @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
-    override fun observeAllDeviceFolders(): Flow<List<DeviceFolder>> = mediaChangeSource.changes()
-        .debounce(IndexScheduler.CHANGE_DEBOUNCE_MILLIS)
-        .onStart { emit(Unit) }
-        .mapLatest { scanDeviceFolders() }
+    override fun observeVirtualFolders(): Flow<List<VirtualFolderSummary>> = combine(
+        settingsRepository.observeSettings().map { it.virtualFolders }.distinctUntilChanged(),
+        indexStore.observeFolders(),
+    ) { virtualFolders, folders -> virtualFolders.map { it.summary(folders) } }
 
-    private suspend fun scanDeviceFolders(): List<DeviceFolder> {
-        val folders = HashMap<String, DeviceFolder>()
-        scanSource.volumes().forEach { volume ->
-            scanSource.fullScan(volume).collect { batch ->
-                batch.groupingBy { RelativePaths.normalize(it.relativePath) }.eachCount().forEach { (path, count) ->
-                    if (path.isNotEmpty()) folders.addImages(path, count)
-                }
-            }
-        }
-        return folders.values.sortedBy { it.relativePath.lowercase() }
-    }
+    override fun observeVirtualFolder(id: String): Flow<VirtualFolderSummary?> =
+        observeVirtualFolders().map { summaries -> summaries.find { it.folder.id == id } }
 
-    /** Paths are compared without case, because shared storage is case-insensitive. */
-    private fun MutableMap<String, DeviceFolder>.addImages(path: String, count: Int) {
-        val folder = getOrPut(path.lowercase()) { DeviceFolder(path.substringAfterLast('/'), path, 0) }
-        put(path.lowercase(), folder.copy(itemCount = folder.itemCount + count))
+    private fun VirtualFolder.summary(folders: List<Folder>): VirtualFolderSummary {
+        val members = folders.filter { it.bucketId in bucketIds }
+        return VirtualFolderSummary(
+            folder = this,
+            itemCount = members.sumOf { it.itemCount },
+            // The same order as the images in the grid: newest first, the higher id first on the same date.
+            coverItem = members.map { it.coverItem }.maxWithOrNull(compareBy({ it.dateTakenMillis }, { it.id.value })),
+        )
     }
 }

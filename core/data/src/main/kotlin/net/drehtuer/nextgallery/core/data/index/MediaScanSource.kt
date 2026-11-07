@@ -12,9 +12,13 @@ interface MediaScanSource {
 
     suspend fun currentGeneration(volume: String): Long
 
-    fun fullScan(volume: String): Flow<List<ScannedImage>>
+    /**
+     * [folders] are relative paths and must not be empty: only images in them and below them are read (D55), for
+     * this and for the two functions after it.
+     */
+    fun fullScan(volume: String, folders: List<String>): Flow<List<ScannedImage>>
 
-    fun changesSince(volume: String, generation: Long): Flow<List<ScannedImage>>
+    fun changesSince(volume: String, generation: Long, folders: List<String>): Flow<List<ScannedImage>>
 
-    suspend fun allIds(volume: String): Set<Long>
+    suspend fun allIds(volume: String, folders: List<String>): Set<Long>
 }

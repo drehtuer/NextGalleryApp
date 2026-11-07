@@ -9,9 +9,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.runTest
 import net.drehtuer.nextgallery.core.model.AccentColor
-import net.drehtuer.nextgallery.core.model.FolderRule
+import net.drehtuer.nextgallery.core.model.AddedFolder
 import net.drehtuer.nextgallery.core.model.ThemeMode
 import net.drehtuer.nextgallery.core.model.UserSettings
+import net.drehtuer.nextgallery.core.model.VirtualFolder
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -86,31 +87,23 @@ class SettingsDataSourceTest {
     }
 
     @Test
-    fun update_folderRules_areReadBackSortedByPath() = runTest {
-        val rules = listOf(FolderRule("Pictures", FolderRule.Type.EXCLUDE), FolderRule("DCIM", FolderRule.Type.INCLUDE))
+    fun update_addedFolders_areReadBackSortedByPath() = runTest {
+        val folders = listOf(AddedFolder("external_primary", "Pictures"), AddedFolder("external_primary", "DCIM"))
         val dataSource = dataSource()
 
-        dataSource.update { it.copy(folderRules = rules) }
+        dataSource.update { it.copy(addedFolders = folders) }
 
-        assertEquals(rules.reversed(), dataSource.settings.first().folderRules)
+        assertEquals(folders.reversed(), dataSource.settings.first().addedFolders)
     }
 
     @Test
-    fun update_noRulesLeft_doesNotBringBackTheDefaults() = runTest {
+    fun update_virtualFolders_areReadBackSortedByName() = runTest {
+        val folders = listOf(VirtualFolder("v1", "Trips", listOf(7, 8)), VirtualFolder("v2", "All", listOf(9)))
         val dataSource = dataSource()
 
-        dataSource.update { it.copy(folderRules = emptyList()) }
+        dataSource.update { it.copy(virtualFolders = folders) }
 
-        assertEquals(emptyList<FolderRule>(), dataSource.settings.first().folderRules)
-    }
-
-    @Test
-    fun update_excludePatterns_areReadBack() = runTest {
-        val dataSource = dataSource()
-
-        dataSource.update { it.copy(excludePatterns = listOf("*/Thumbs", "Old*")) }
-
-        assertEquals(listOf("*/Thumbs", "Old*"), dataSource.settings.first().excludePatterns)
+        assertEquals(folders.reversed(), dataSource.settings.first().virtualFolders)
     }
 
     @Test

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="feature_settings_folders">Folders</string>
-    <string name="feature_settings_folders_detail">Include, exclude and hidden folders</string>
+    <string name="feature_settings_folders_detail">Choose folders and combine them</string>
     <string name="feature_settings_appearance">Appearance</string>
     <string name="feature_settings_appearance_detail">Theme, grid columns and accent colour</string>
     <string name="feature_settings_map_tiles">Map</string>
@@ -32,16 +32,28 @@
     <string name="feature_settings_certificates_empty">You haven\'t accepted any certificates.</string>
     <string name="feature_settings_certificate_remove">Remove</string>
 
-    <string name="feature_settings_rules_intro">Default shows a folder if it has images. Include always shows it; Exclude always hides it.</string>
-    <string name="feature_settings_rule_include">Include</string>
-    <string name="feature_settings_rule_default">Default</string>
-    <string name="feature_settings_rule_exclude">Exclude</string>
-    <string name="feature_settings_rules_nomedia_note">Folders with a .nomedia file are hidden by Android, so they aren\'t listed here and can\'t be changed.</string>
-    <string name="feature_settings_patterns_label">Also exclude folders matching</string>
-    <string name="feature_settings_patterns_hint">* matches any characters. One pattern per line.</string>
-    <plurals name="feature_settings_folder_detail">
-        <item quantity="one">%1$s · %2$,d image</item>
-        <item quantity="other">%1$s · %2$,d images</item>
+    <string name="feature_settings_folders_intro">NextGallery only shows the folders you add here, with their subfolders. Removing a folder only hides it in NextGallery. No file is touched.</string>
+    <string name="feature_settings_folders_none">No folders added.</string>
+    <string name="feature_settings_folder_add">Add folder</string>
+    <string name="feature_settings_folder_add_failed">This folder can\'t be added. Choose a folder on the phone\'s storage or on an SD card, not the top level of the storage.</string>
+    <string name="feature_settings_folder_remove">Remove</string>
+    <string name="feature_settings_folder_remove_description">Remove %1$s</string>
+    <string name="feature_settings_folder_on_volume">%1$s · %2$s</string>
+    <string name="feature_settings_folders_note">Android\'s folder picker doesn\'t offer every folder, such as the top level of the storage or the Download folder itself. Inside an added folder, Android hides folders with a .nomedia file, and NextGallery hides folders whose name starts with a dot.</string>
+    <string name="feature_settings_virtual_folders">Virtual folders</string>
+    <string name="feature_settings_virtual_folders_intro">A virtual folder shows the photos of several folders together, for example Camera, WhatsApp and Signal. It appears in the folder list once it has photos.</string>
+    <string name="feature_settings_virtual_folders_needs_folder">Virtual folders combine folders that have photos, so you need one of those first.</string>
+    <string name="feature_settings_virtual_folder_create">Create virtual folder</string>
+    <string name="feature_settings_virtual_folder_new">New virtual folder</string>
+    <string name="feature_settings_virtual_folder_edit">Edit virtual folder</string>
+    <string name="feature_settings_virtual_folder_delete">Delete</string>
+    <string name="feature_settings_virtual_folder_delete_description">Delete %1$s</string>
+    <string name="feature_settings_virtual_folder_name">Name</string>
+    <string name="feature_settings_virtual_folder_members">Show photos from</string>
+    <string name="feature_settings_virtual_folder_save">Save</string>
+    <plurals name="feature_settings_virtual_folder_count">
+        <item quantity="one">%1$,d image</item>
+        <item quantity="other">%1$,d images</item>
     </plurals>
 
     <string name="feature_settings_theme">Theme</string>

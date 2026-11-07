@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="feature_folders_title">Folders</string>
-    <string name="feature_folders_empty">No photos yet</string>
-    <string name="feature_folders_empty_detail">Photos you take or download appear here, sorted by folder.</string>
+    <string name="feature_folders_no_folders">No folders added</string>
+    <string name="feature_folders_no_folders_detail">You choose which folders NextGallery shows. Add a folder to see its photos here.</string>
+    <string name="feature_folders_add_folder">Add folder</string>
+    <string name="feature_folders_no_images">No photos in your folders</string>
+    <string name="feature_folders_no_images_detail">The folders you added have no photos, or they are still being read.</string>
+    <string name="feature_folders_manage_folders">Manage folders</string>
+    <string name="feature_folders_virtual_folder">Virtual folder</string>
     <string name="feature_folders_folder_empty">This folder is empty</string>
     <string name="feature_folders_folder_empty_detail">Its images were moved or deleted.</string>
     <string name="feature_folders_load_failed">Couldn\'t load this folder</string>

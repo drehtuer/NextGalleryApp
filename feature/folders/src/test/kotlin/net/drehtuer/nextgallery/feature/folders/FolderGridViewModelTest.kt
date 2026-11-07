@@ -1,5 +1,6 @@
 package net.drehtuer.nextgallery.feature.folders
 
+import androidx.paging.PagingData
 import app.cash.turbine.test
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -45,9 +46,12 @@ class FolderGridViewModelTest {
     private val mediaRepository = mockk<MediaRepository> {
         every { pagedItems(MediaSource.Folder(7)) } returns emptyFlow()
         coEvery { folderItemIds(7) } returns listOf(MediaId(1), MediaId(2))
+        every { pagedItems(MediaSource.VirtualFolder(listOf(7, 8))) } returns flowOf(PagingData.empty())
+        coEvery { virtualFolderItemIds(listOf(7, 8)) } returns listOf(MediaId(1), MediaId(3))
     }
     private val folderRepository = mockk<FolderRepository> {
         every { observeFolder(7) } returns flowOf(folder(name = "Camera"))
+        every { observeVirtualFolder("v1") } returns flowOf(virtualFolder())
     }
     private val selectionRepository = mockk<SelectionRepository>(relaxed = true) {
         every { observe() } returns selectedIds
@@ -73,8 +77,10 @@ class FolderGridViewModelTest {
     @After
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun viewModel() = FolderGridViewModel(
-        7,
+    private fun virtualViewModel() = viewModel(FolderGridRoute(virtualFolderId = "v1"))
+
+    private fun viewModel(route: FolderGridRoute = FolderGridRoute(7)) = FolderGridViewModel(
+        route,
         mediaRepository,
         folderRepository,
         selectionRepository,
@@ -129,6 +135,44 @@ class FolderGridViewModelTest {
         viewModel().onEvent(FolderGridEvent.Resumed)
 
         verify { uploadHandoff.onAppResumed() }
+    }
+
+    @Test
+    fun virtualFolder_usesItsNameAsTitle() = runTest {
+        assertEquals("Everything", virtualViewModel().state.first { it.title.isNotEmpty() }.title)
+    }
+
+    @Test
+    fun virtualFolder_stateHasItsMembers() = runTest {
+        assertEquals(
+            listOf(7L, 8L),
+            virtualViewModel().state.first { it.virtualBucketIds != null }.virtualBucketIds,
+        )
+    }
+
+    @Test
+    fun virtualFolder_loadsItemsOfItsMembers() = runTest {
+        virtualViewModel().items.first()
+
+        verify { mediaRepository.pagedItems(MediaSource.VirtualFolder(listOf(7, 8))) }
+    }
+
+    @Test
+    fun virtualFolder_selectAll_selectsImagesOfItsMembers() {
+        virtualViewModel().onEvent(FolderGridEvent.SelectAll)
+
+        verify { selectionRepository.selectAll(listOf(MediaId(1), MediaId(3))) }
+    }
+
+    @Test
+    fun virtualFolder_itemClicked_opensViewerWithItsMembers() = runTest {
+        val viewModel = virtualViewModel()
+
+        viewModel.onEvent(FolderGridEvent.ItemClicked(MediaId(1)))
+
+        viewModel.effects.test {
+            assertEquals(FolderGridEffect.OpenViewer(MediaId(1), listOf(7, 8)), awaitItem())
+        }
     }
 
     @Test

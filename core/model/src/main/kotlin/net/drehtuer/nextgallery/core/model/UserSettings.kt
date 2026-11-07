@@ -5,8 +5,9 @@ package net.drehtuer.nextgallery.core.model
  * `SettingsRepository`.
  */
 data class UserSettings(
-    val folderRules: List<FolderRule> = DEFAULT_FOLDER_RULES,
-    val excludePatterns: List<String> = emptyList(),
+    /** Only these folders are shown; a new installation has none (D55). */
+    val addedFolders: List<AddedFolder> = emptyList(),
+    val virtualFolders: List<VirtualFolder> = emptyList(),
     val gridColumns: Int = DEFAULT_GRID_COLUMNS,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val accentColor: AccentColor = AccentColor.BLUE,
@@ -23,11 +24,5 @@ data class UserSettings(
 
         /** The choices in Appearance (D51). */
         val GRID_COLUMN_OPTIONS = listOf(DEFAULT_GRID_COLUMNS, 4, 5)
-
-        /** The rules of a new installation. They are ordinary rules, so the user can remove them. */
-        val DEFAULT_FOLDER_RULES = listOf(
-            FolderRule("Android/data", FolderRule.Type.EXCLUDE),
-            FolderRule("Android/media/com.whatsapp/WhatsApp/Media/.Statuses", FolderRule.Type.EXCLUDE),
-        )
     }
 }
