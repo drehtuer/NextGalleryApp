@@ -1,6 +1,6 @@
 package net.drehtuer.nextgallery.feature.settings
 
-import androidx.compose.ui.test.assertHasNoClickAction
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -19,14 +19,17 @@ class SettingsScreenTest {
     val composeRule = createComposeRule()
 
     private var opened: String? = null
+    private val accountLabel = mutableStateOf<String?>(null)
 
     @Before
     fun setUp() {
         composeRule.setContent {
             SettingsScreen(
+                accountLabel = accountLabel.value,
                 onBack = { opened = "back" },
                 onOpenFolders = { opened = "folders" },
                 onOpenAppearance = { opened = "appearance" },
+                onOpenNextcloud = { opened = "nextcloud" },
                 onOpenAbout = { opened = "about" },
             )
         }
@@ -39,8 +42,22 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun nextcloudRow_showsNotConnectedAndCannotBeOpened() {
-        composeRule.onNodeWithText("Not connected").assertIsDisplayed().assertHasNoClickAction()
+    fun nextcloudRow_withoutAccount_showsNotConnected() {
+        composeRule.onNodeWithText("Not connected").assertIsDisplayed()
+    }
+
+    @Test
+    fun nextcloudRow_withAccount_showsTheAccount() {
+        accountLabel.value = "anna@cloud.example.com"
+
+        composeRule.onNodeWithText("anna@cloud.example.com").assertIsDisplayed()
+    }
+
+    @Test
+    fun nextcloudRowClicked_opensTheAccount() {
+        composeRule.onNodeWithText("Not connected").performClick()
+
+        assertEquals("nextcloud", opened)
     }
 
     @Test

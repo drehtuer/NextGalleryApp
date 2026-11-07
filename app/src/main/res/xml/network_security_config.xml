@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- D19: no cleartext traffic. User-installed CAs are trusted in addition to the system's (D32).
+     The debug build replaces this file to allow cleartext for local test servers. -->
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+            <!-- Deliberate: people with their own CA are a main audience of self-hosting (D32). -->
+            <certificates src="user" tools:ignore="AcceptsUserCertificates" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

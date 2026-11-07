@@ -5,6 +5,7 @@ import net.drehtuer.nextgallery.core.model.Folder
 import net.drehtuer.nextgallery.core.model.GeoPoint
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
+import net.drehtuer.nextgallery.core.model.RemoteItem
 import java.time.LocalDate
 
 internal fun MediaEntity.toModel() = MediaItem(
@@ -64,3 +65,35 @@ internal fun FolderRow.toModel() = Folder(
 internal fun SyncStateEntity.toModel() = SyncState(volumeName, lastGeneration, mediaStoreVersion, lastFullScanMillis)
 
 internal fun SyncState.toEntity() = SyncStateEntity(volumeName, lastGeneration, mediaStoreVersion, lastFullScanMillis)
+
+internal fun RemoteItem.toEntity(fetchedAtMillis: Long) = RemoteCacheEntity(
+    path = path,
+    parentPath = parentPath,
+    name = name,
+    isDirectory = isDirectory,
+    sizeBytes = size,
+    contentType = mime,
+    etag = etag,
+    fileId = fileId,
+    checksums = checksums,
+    permissions = permissions,
+    hasPreview = hasPreview,
+    childCount = childCount,
+    lastModifiedMillis = lastModifiedMillis,
+    fetchedAtMillis = fetchedAtMillis,
+)
+
+internal fun RemoteCacheEntity.toModel() = RemoteItem(
+    path = path,
+    name = name,
+    isDirectory = isDirectory,
+    size = sizeBytes,
+    mime = contentType,
+    etag = etag,
+    lastModifiedMillis = lastModifiedMillis,
+    fileId = fileId,
+    checksums = checksums,
+    permissions = permissions,
+    hasPreview = hasPreview,
+    childCount = childCount,
+)

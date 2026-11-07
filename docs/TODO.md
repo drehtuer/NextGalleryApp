@@ -325,45 +325,46 @@ _Depends on: Phase 3 (viewer entry point, write/delete request helpers)._
 **Goal:** sign in with Login Flow v2 and browse/view Nextcloud images via WebDAV and the preview API.
 _Depends on: Phases 3 (viewer), 4 (settings)._
 
-- [ ] **8.1 Model (`:core:model`)**
-  - [ ] `NextcloudAccount(serverUrl, loginName, userId, appPassword)` (password never logged; `toString` redacted). Test: redaction.
-  - [ ] `RemoteItem(path, name, isDirectory, size, mime, etag, lastModified, fileId, checksums?)`. 
-- [ ] **8.2 Credentials**
-  - [ ] `SecretCipher` port and `AccountStore` in `:core:data` (DataStore-core + `SecretCipher`): `observeAccount()`, `save()`, `clear()`. JVM tests per function with a fake cipher; undecryptable data → null.
-  - [ ] `KeystoreSecretCipher` in `:core:platform`: Tink `AndroidKeysetManager` with Android Keystore master key (`android-keystore://nextgallery_master`). Test: encrypt/decrypt round-trip, instrumented (Robolectric has no `AndroidKeyStore`).
-- [ ] **8.3 `:core:nextcloud` client**
-  - [ ] `:app` manifest: `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_LOCAL_NETWORK` (D39). (`:core:nextcloud` is a JVM module and has no manifest.)
-  - [ ] Request `ACCESS_LOCAL_NETWORK` at the start of the login with an explanation; map blocked LAN connections to a clear `AppError` instead of a timeout. Tests: permission state → request shown; blocked connection → error. On-device check: LAN IP, `.local` name, VPN/Tailscale address, login page in Custom Tabs (D39).
-  - [ ] On-device check that an accepted self-signed certificate still works with Certificate Transparency on by default (D40).
-  - [ ] XML parsing on the XmlPullParser API: `compileOnly` dependency, provided by Android at runtime; kxml2 on the JVM test classpath.
-  - [ ] `NextcloudHttpModule`: base `OkHttpClient` (timeouts, user agent), `AuthInterceptor` (Basic auth from account, OCS-APIRequest header). Test with MockWebServer: header present.
-  - [ ] `LoginFlowV2Client`: `start(serverUrl)` → `{loginUrl, pollEndpoint, token}`; `poll()` until 200 or timeout. Tests (MockWebServer): start, 404 pending, success, expiry.
-  - [ ] `ServerUrlNormalizer` (add https, strip `/index.php`, trailing slash). Tests per case.
-  - [ ] `PropfindRequestBuilder` (depth 1, props: resourcetype, getcontentlength, getcontenttype, getetag, getlastmodified, oc:fileid, oc:checksums, oc:permissions). Test: XML body.
-  - [ ] `MultistatusParser` (XmlPullParser) → `List<RemoteItem>`. Tests with fixture XML: files, folders, missing props, URL-encoded names.
-  - [ ] `WebDavClient`: `list(path)`, `download(path, sink)`, and (D46) `move(from, to, overwrite = false)`, `createFolder(path)`, `delete(path)`; trash-bin `restore(item)`. Uploading stays with the Nextcloud app (D31). Tests (MockWebServer) per method incl. 401/404, 412 on an existing target, 403 on a read-only folder.
-  - [ ] `PinningTrustManager` + `HostnameVerifier` (D32): platform trust first, then pinned SHA-256 per host, else `UntrustedCertificateException(chain)`. JVM tests with `okhttp-tls` `HeldCertificate`: CA-signed accepted, unknown self-signed rejected, pinned accepted, pinned but changed rejected with `changedFromPinned`, pinned with hostname mismatch accepted.
-  - [ ] `CertificateInfoMapper`. Test: fields and fingerprint of a fixture certificate.
-  - [ ] `RemotePathMapper`: `davUrl(account, path)` (`/remote.php/dav/files/<userId>/…`, segment encoding), `previewUrl(fileId, size)` (`/index.php/core/preview?fileId=…&x=…&y=…&a=1`). Tests.
-- [ ] **8.4 Coil integration (`:core:ui` / `:app`)**
-  - [ ] Separate authenticated Coil `ImageLoader` (or `OkHttpNetworkFetcherFactory` with auth client) qualified `@RemoteImageLoader`; disk-cache key by fileId+etag+size. Tests: keyer.
-- [ ] **8.5 Repository (`:core:data`)**
-  - [ ] `NextcloudAccountRepository`: `login(serverUrl): Flow<LoginState>` (Started(loginUrl) → Polling → Success/Failed), `logout()` (revoke via `DELETE /ocs/v2.php/core/apppassword` best effort, clear store, remote cache and upload states; D35). Tests per state.
-  - [ ] Logged-out guard: every remote call returns `AppError.NotLoggedIn` without network access. Test.
-  - [ ] `TrustedCertificateRepository` + `TrustedCertificateStore` port (DataStore): `accept(info)`, `remove(host)`, `observe()`. JVM tests per function.
-  - [ ] `RemoteBrowseRepository.list(path): Flow<RemoteListing>` (Room `remote_cache` per path, so offline browsing shows what was loaded before; filter supported image mimes + folders). Tests.
-  - [ ] `RemoteShareRepository.prepare(items)` (D48): downloads to a temporary cache folder with progress, returns a `ShareSpec`; `FileProvider` limited to that folder; old files removed at the next share and at app start. Tests: progress, failure, offline, cleanup; Robolectric: URIs and read grants.
-  - [ ] `RemoteFileOperations` (D46): `move(items, targetFolder, conflictPolicy)` → per-item result (moved, renamed, replaced, skipped, failed), `undoMove`, `delete(items)` / `undoDelete` via the trash bin, `canWrite(folder)` from `oc:permissions`, `nextFreeName("IMG_1.jpg")` → "IMG_1 (2).jpg". Tests per function and per conflict policy.
-- [ ] **8.6 `:feature:remote` and settings**
-  - [ ] `NextcloudSettingsViewModel` / `NextcloudSettingsScreen` in `:feature:settings`: server URL input, "Sign in" opens Custom Tab with `loginUrl`, shows polling/progress, account info, logout, remote root folder picker (used in Phase 9). Tests per event; Compose tests per state.
-  - [ ] `RemoteBrowserViewModel` (current path, listing, breadcrumbs, `LoginRequired` state) / `RemoteBrowserScreen` (folder list + thumbnail grid with previews, pull-to-refresh, offline/error state; login-required hint with a login button, D35). Tests per event; Compose tests.
-  - [ ] Remote selection and context menu (D47): Select action, selection bar (Select all, Move), long-press menu (Move to folder…, Share, Delete) for one image or the whole selection. ViewModel tests per event; Compose test: long-press opens the menu.
-  - [ ] Move sheet (D46): folder picker with breadcrumbs, read-only folders disabled, "New folder", "Move here" disabled in the source folder; conflict dialog (keep both, replace, skip, apply to all); snackbars with Undo; offline hint. Tests per event; Compose tests per state.
-  - [ ] `CertificateWarningDialog` in `:core:ui` and the accept-and-retry flow in the login and remote ViewModels (D32). Tests: untrusted → dialog effect, accept → pinned and retried, cancel → error state; Compose test: details shown.
-  - [ ] `TrustedCertificatesScreen` in `:feature:settings` (list, remove). Tests.
-  - [ ] `RemoteViewerViewModel` / `RemoteViewerScreen`: pager over folder's images, Telephoto zoom loading full image via authenticated loader (download to cache), info sheet from `RemoteItem`. Tests.
-  - [ ] Nextcloud tab and settings entries wired in `:app`.
-- [ ] **8.7 Update docs** – ARCHITECTURE.md (Nextcloud client, credential storage), README (login, permissions: INTERNET) match code.
+- [x] **8.1 Model (`:core:model`)**
+  - [x] `NextcloudAccount(serverUrl, loginName, userId, appPassword)` (password never logged; `toString` redacted). Test: redaction.
+  - [x] `RemoteItem(path, name, isDirectory, size, mime, etag, lastModified, fileId, checksums?)`. _Also `permissions`, `hasPreview` and `childCount` (`nc:contained-file-count`, for the folder rows' counts; servers that don't send it show no count)._
+- [x] **8.2 Credentials**
+  - [x] `SecretCipher` port and `AccountStore` in `:core:data` (DataStore-core + `SecretCipher`): `observeAccount()`, `save()`, `clear()`. JVM tests per function with a fake cipher; undecryptable data → null.
+  - [x] `KeystoreSecretCipher` in `:core:platform`: Tink `AndroidKeysetManager` with Android Keystore master key (`android-keystore://nextgallery_master`). Test: encrypt/decrypt round-trip, instrumented (Robolectric has no `AndroidKeyStore`). _`KeystoreSecretCipherTest` is written and compiles; it has not run on a device yet._
+- [x] **8.3 `:core:nextcloud` client**
+  - [x] `:app` manifest: `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_LOCAL_NETWORK` (D39). (`:core:nextcloud` is a JVM module and has no manifest.)
+  - [x] Request `ACCESS_LOCAL_NETWORK` at the start of the login with an explanation; map blocked LAN connections to a clear `AppError` instead of a timeout. Tests: permission state → request shown; blocked connection → error.
+  - [ ] On-device check: LAN IP, `.local` name, VPN/Tailscale address, login page in Custom Tabs (D39). _Open: needs a server and the device. Also check how a blocked connection actually fails; the mapping turns any network failure on a local address without the permission into the clear error._
+  - [ ] On-device check that an accepted self-signed certificate still works with Certificate Transparency on by default (D40). _Open: needs a server and the device. Also check there that a rejected certificate reaches the dialog (`UntrustedCertificateException` as cause under Conscrypt; if the cause were lost, the connection still fails, with a network error instead of the dialog)._
+  - [x] XML parsing on the XmlPullParser API: `compileOnly` dependency, provided by Android at runtime; kxml2 on the JVM test classpath.
+  - [x] `NextcloudHttpModule`: base `OkHttpClient` (timeouts, user agent), `AuthInterceptor` (Basic auth from account, OCS-APIRequest header). Test with MockWebServer: header present. _Network interceptor, for the account's scheme, host and port only; tests cover redirects to another host and plain http being refused. `OcsClient` holds the user-id and revoke calls: the app-password login needs the user id before the account is stored, so the architecture's "PROPFIND to fetch userId" became `ocs/v2.php/cloud/user`._
+  - [x] `LoginFlowV2Client`: `start(serverUrl)` → `{loginUrl, pollEndpoint, token}`; `poll()` until 200 or timeout. Tests (MockWebServer): start, 404 pending, success, expiry.
+  - [x] `ServerUrlNormalizer` (add https, strip `/index.php`, trailing slash). Tests per case.
+  - [x] `PropfindRequestBuilder` (depth 1, props: resourcetype, getcontentlength, getcontenttype, getetag, getlastmodified, oc:fileid, oc:checksums, oc:permissions). Test: XML body.
+  - [x] `MultistatusParser` (XmlPullParser) → `List<RemoteItem>`. Tests with fixture XML: files, folders, missing props, URL-encoded names.
+  - [x] `WebDavClient`: `list(path)`, `download(path, sink)`, and (D46) `move(from, to, overwrite = false)`, `createFolder(path)`, `delete(path)`; trash-bin `restore(item)`. Uploading stays with the Nextcloud app (D31). Tests (MockWebServer) per method incl. 401/404, 412 on an existing target, 403 on a read-only folder.
+  - [x] `PinningTrustManager` + `HostnameVerifier` (D32): platform trust first, then pinned SHA-256 per host, else `UntrustedCertificateException(chain)`. JVM tests with `okhttp-tls` `HeldCertificate`: CA-signed accepted, unknown self-signed rejected, pinned accepted, pinned but changed rejected with `changedFromPinned`, pinned with hostname mismatch accepted. _Tested with real TLS handshakes against MockWebServer, also: expired CA-signed, CA-signed hostname mismatch (dialog, D32), pin of another host, removed pin, nothing sent to the server after a rejection._
+  - [x] `CertificateInfoMapper`. Test: fields and fingerprint of a fixture certificate.
+  - [x] `RemotePathMapper`: `davUrl(account, path)` (`/remote.php/dav/files/<userId>/…`, segment encoding), `previewUrl(fileId, size)` (`/index.php/core/preview?fileId=…&x=…&y=…&a=1`). Tests.
+- [x] **8.4 Coil integration (`:core:ui` / `:app`)**
+  - [x] Separate authenticated Coil `ImageLoader` (or `OkHttpNetworkFetcherFactory` with auth client) qualified `@RemoteImageLoader`; disk-cache key by fileId+etag+size. Tests: keyer. _Coil applies keyers after mapping to the URL, so the key is set on each request (`remoteImageCacheKey`). Own disk cache of 500 MB (D37), which logging out can wipe separately; `LocalRemoteImageLoader` hands the loader to the screens._
+- [x] **8.5 Repository (`:core:data`)**
+  - [x] `NextcloudAccountRepository`: `login(serverUrl): Flow<LoginState>` (Started(loginUrl) → Polling → Success/Failed), `logout()` (revoke via `DELETE /ocs/v2.php/core/apppassword` best effort, clear store, remote cache and upload states; D35). Tests per state. _Upload states don't exist yet: Phase 9 has to add its table to `RemoteDataWiper`._
+  - [x] Logged-out guard: every remote call returns `AppError.NotLoggedIn` without network access. Test.
+  - [x] `TrustedCertificateRepository` + `TrustedCertificateStore` port (DataStore): `accept(info)`, `remove(host)`, `observe()`. JVM tests per function.
+  - [x] `RemoteBrowseRepository.list(path): Flow<RemoteListing>` (Room `remote_cache` per path, so offline browsing shows what was loaded before; filter supported image mimes + folders). Tests.
+  - [x] `RemoteShareRepository.prepare(items)` (D48): downloads to a temporary cache folder with progress, returns a `ShareSpec`; `FileProvider` limited to that folder; old files removed at the next share and at app start. Tests: progress, failure, offline, cleanup; Robolectric: URIs and read grants. _Offline, sharing is refused for all images, also those in the image cache: the JVM repository can't see Coil's cache. Read grants are set by the existing `ShareIntentFactory`, which has its test._
+  - [x] `RemoteFileOperations` (D46): `move(items, targetFolder, conflictPolicy)` → per-item result (moved, renamed, replaced, skipped, failed), `undoMove`, `delete(items)` / `undoDelete` via the trash bin, `canWrite(folder)` from `oc:permissions`, `nextFreeName("IMG_1.jpg")` → "IMG_1 (2).jpg". Tests per function and per conflict policy. _`RemoteMoveFlow` holds the per-file questions. Replace refuses to overwrite a folder. Undo after Replace moves the image back, but the replaced file stays in the Nextcloud trash bin. Restoring has only run against MockWebServer: check it on a real server._
+- [x] **8.6 `:feature:remote` and settings**
+  - [x] `NextcloudSettingsViewModel` / `NextcloudSettingsScreen` in `:feature:settings`: server URL input, "Sign in" opens Custom Tab with `loginUrl`, shows polling/progress, account info, logout, remote root folder picker (used in Phase 9). Tests per event; Compose tests per state. _This is where the signed-out form of DESIGN.md lives; the tab shows the same texts with a button that opens it (D35). It also opens again with the server filled in after a 401._
+  - [x] `RemoteBrowserViewModel` (current path, listing, breadcrumbs, `LoginRequired` state) / `RemoteBrowserScreen` (folder list + thumbnail grid with previews, pull-to-refresh, offline/error state; login-required hint with a login button, D35). Tests per event; Compose tests. _Path changes stay in one route, with Up and breadcrumbs; the selection survives changing folders._
+  - [x] Remote selection and context menu (D47): Select action, selection bar (Select all, Move), long-press menu (Move to folder…, Share, Delete) for one image or the whole selection. ViewModel tests per event; Compose test: long-press opens the menu.
+  - [x] Move sheet (D46): folder picker with breadcrumbs, read-only folders disabled, "New folder", "Move here" disabled in the source folder; conflict dialog (keep both, replace, skip, apply to all); snackbars with Undo; offline hint. Tests per event; Compose tests per state.
+  - [x] `CertificateWarningDialog` in `:core:ui` and the accept-and-retry flow in the login and remote ViewModels (D32). Tests: untrusted → dialog effect, accept → pinned and retried, cancel → error state; Compose test: details shown.
+  - [x] `TrustedCertificatesScreen` in `:feature:settings` (list, remove). Tests.
+  - [x] `RemoteViewerViewModel` / `RemoteViewerScreen`: pager over folder's images, Telephoto zoom loading full image via authenticated loader (download to cache), info sheet from `RemoteItem`. Tests. _Telephoto itself is not exercised in a JVM test (`pageContent` is replaced); the real page needs a device and a server._
+  - [x] Nextcloud tab and settings entries wired in `:app`.
+- [x] **8.7 Update docs** – ARCHITECTURE.md (Nextcloud client, credential storage), README (login, permissions: INTERNET) match code.
 
 **Definition of done:** user signs in via browser without entering password in-app; app password stored encrypted; remote folders browse with server previews; full image opens only on view; logout revokes the app password and leaves no remote access, with a login hint shown; a self-signed server can be used after accepting the warning; tests for every function; CI green.
 

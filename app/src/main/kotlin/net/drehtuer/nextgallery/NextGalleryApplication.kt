@@ -12,6 +12,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import net.drehtuer.nextgallery.core.data.nextcloud.RemoteShareCache
 import net.drehtuer.nextgallery.core.data.settings.RuleChangeObserver
 import javax.inject.Inject
 
@@ -30,12 +31,17 @@ class NextGalleryApplication :
     @Inject
     lateinit var ruleChangeObserver: Lazy<RuleChangeObserver>
 
+    @Inject
+    lateinit var remoteShareCache: Lazy<RemoteShareCache>
+
     /** Not tied to an activity, so a rule change still reaches the index if the user leaves the app right after it. */
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
         super.onCreate()
         applicationScope.launch { ruleChangeObserver.get().observe() }
+        // Shared server images only live until the next share or app start (D48).
+        applicationScope.launch(Dispatchers.IO) { remoteShareCache.get().clear() }
     }
 
     override val workManagerConfiguration: Configuration

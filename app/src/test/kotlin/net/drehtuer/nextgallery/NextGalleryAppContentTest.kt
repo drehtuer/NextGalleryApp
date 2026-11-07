@@ -15,9 +15,11 @@ import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import net.drehtuer.nextgallery.core.model.MediaAccess
 import net.drehtuer.nextgallery.core.ui.component.ScreenBanner
+import net.drehtuer.nextgallery.feature.remote.RemoteViewerRoute
 import net.drehtuer.nextgallery.feature.viewer.ViewerRoute
 import net.drehtuer.nextgallery.navigation.FoldersRoute
 import net.drehtuer.nextgallery.navigation.SettingsGraphRoute
+import net.drehtuer.nextgallery.navigation.settingsGraph
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -97,6 +99,26 @@ class NextGalleryAppContentTest {
     }
 
     @Test
+    fun remoteViewerOpen_hidesBottomNavigation() {
+        lateinit var navController: NavHostController
+        composeRule.setContent {
+            navController = rememberNavController()
+            NextGalleryAppContent(
+                state = MainUiState(MediaAccess.FULL),
+                onRequestAccess = {},
+                onOpenSettings = {},
+                navController = navController,
+                folders = { composable<FoldersRoute> { Text("Folders screen") } },
+                remote = { composable<RemoteViewerRoute> { Text("Remote viewer") } },
+            )
+        }
+
+        composeRule.runOnIdle { navController.navigate(RemoteViewerRoute("/a.jpg")) }
+
+        composeRule.onNodeWithText("Timeline").assertDoesNotExist()
+    }
+
+    @Test
     fun settingsOpen_hidesBottomNavigation() {
         val navController = showSettingsGraph()
 
@@ -146,6 +168,7 @@ class NextGalleryAppContentTest {
                 onOpenSettings = {},
                 navController = navController,
                 folders = { composable<FoldersRoute> { Text("Folders screen") } },
+                settings = { settingsGraph(it, accountLabel = { null }) },
             )
         }
         return navController

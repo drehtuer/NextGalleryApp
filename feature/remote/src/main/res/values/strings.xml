@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="feature_remote_title">Nextcloud</string>
+    <string name="feature_remote_login_title">Connect your Nextcloud</string>
+    <string name="feature_remote_login_message" tools:ignore="Typos">Browse the photos on your own server. You sign in in the browser, so NextGallery never sees your password.</string>
+    <string name="feature_remote_sign_in">Sign in</string>
+    <string name="feature_remote_select">Select</string>
+    <string name="feature_remote_select_all">Select all</string>
+    <string name="feature_remote_refresh">Refresh</string>
+    <string name="feature_remote_move">Move</string>
+    <string name="feature_remote_offline">You\'re offline. Showing what was loaded before.</string>
+    <string name="feature_remote_session_ended">Your Nextcloud session ended. Sign in again to see new photos.</string>
+    <string name="feature_remote_empty">Nothing here</string>
+    <string name="feature_remote_empty_detail">This folder has no images or subfolders.</string>
+    <string name="feature_remote_load_failed">Couldn\'t load this folder</string>
+    <plurals name="feature_remote_folder_count">
+        <item quantity="one">%,d item</item>
+        <item quantity="other">%,d items</item>
+    </plurals>
+
+    <string name="feature_remote_menu_move">Move to folder…</string>
+    <string name="feature_remote_menu_share">Share</string>
+    <string name="feature_remote_menu_delete">Delete</string>
+    <plurals name="feature_remote_menu_selected">
+        <item quantity="one">%d selected image</item>
+        <item quantity="other">%d selected images</item>
+    </plurals>
+
+    <plurals name="feature_remote_move_title">
+        <item quantity="one">Move %d image</item>
+        <item quantity="other">Move %d images</item>
+    </plurals>
+    <string name="feature_remote_move_intro">Choose a folder on your Nextcloud. The images are moved on the server, without downloading them.</string>
+    <string name="feature_remote_move_read_only">Read-only share: you can\'t add files here</string>
+    <string name="feature_remote_move_new_folder">New folder</string>
+    <string name="feature_remote_move_folder_name">Folder name</string>
+    <string name="feature_remote_move_create">Create</string>
+    <string name="feature_remote_move_to">To: %1$s</string>
+    <string name="feature_remote_move_here">Move here</string>
+    <string name="feature_remote_move_already_here">The images are already in this folder.</string>
+    <string name="feature_remote_move_cannot_write">You can\'t add files to this folder.</string>
+    <plurals name="feature_remote_moved">
+        <item quantity="one">%1$d image moved to %2$s</item>
+        <item quantity="other">%1$d images moved to %2$s</item>
+    </plurals>
+
+    <string name="feature_remote_conflict_title">%1$s is already in %2$s</string>
+    <string name="feature_remote_conflict_moved_file">This image: %1$s, %2$s</string>
+    <string name="feature_remote_conflict_existing_file">In %1$s: %2$s, %3$s</string>
+    <plurals name="feature_remote_conflict_apply_to_all">
+        <item quantity="one">Do the same for the other conflict</item>
+        <item quantity="other">Do the same for the other conflicts</item>
+    </plurals>
+    <string name="feature_remote_conflict_keep_both">Keep both</string>
+    <string name="feature_remote_conflict_replace">Replace the one in %1$s</string>
+    <string name="feature_remote_conflict_skip">Skip this image</string>
+
+    <string name="feature_remote_share_progress">Downloading %1$d of %2$d…</string>
+    <string name="feature_remote_offline_share">You\'re offline. Sharing needs a connection to your server.</string>
+    <string name="feature_remote_offline_move">You\'re offline. Moving needs a connection to your server.</string>
+    <string name="feature_remote_offline_delete">You\'re offline. Deleting needs a connection to your server.</string>
+    <plurals name="feature_remote_deleted">
+        <item quantity="one">%d image moved to the Nextcloud trash bin</item>
+        <item quantity="other">%d images moved to the Nextcloud trash bin</item>
+    </plurals>
+
+    <string name="feature_remote_details">Details</string>
+    <string name="feature_remote_loading_full">Loading full image · %1$.1f of %2$.1f MB</string>
+    <string name="feature_remote_info_name">Name</string>
+    <string name="feature_remote_info_date">Date</string>
+    <string name="feature_remote_info_size">Size</string>
+    <string name="feature_remote_info_type">Type</string>
+    <string name="feature_remote_info_folder">Folder</string>
+</resources>
