@@ -43,7 +43,7 @@ jobs:
       # CodeQL has to watch the Kotlin compiler, so this build runs on the runner, not in the devcontainer, and with
       # the build cache, configuration cache and Kotlin daemon off: every source file must really be compiled.
       - if: matrix.build-mode == 'manual'
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
@@ -78,7 +78,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-java@v5
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
