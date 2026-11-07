@@ -269,7 +269,7 @@ Black. Top bar: close, undo, redo (38 % when unavailable) and a filled "Save" th
 ### Settings
 
 Rows with an icon, title, secondary line and chevron: "Folders" (Include, exclude and hidden folders), "Appearance"
-(Theme, grid columns and accent colour), "Nextcloud" (the account, or "Not connected"), "About & licences".
+(Theme, grid columns and accent colour), "Map" (Tile server, D23), "Nextcloud" (the account, or "Not connected"), "About & licences".
 
 - Folder rules: "Default shows a folder if it has images. Include always shows it; Exclude always hides it." Each
   folder has a three-way segmented button Include / Default / Exclude. `.nomedia` folders cannot be listed (D53), so instead of a lock chip on each

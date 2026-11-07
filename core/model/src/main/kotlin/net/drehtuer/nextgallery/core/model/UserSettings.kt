@@ -11,9 +11,15 @@ data class UserSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val accentColor: AccentColor = AccentColor.BLUE,
     val remoteRoot: String = RemotePaths.ROOT,
+    val tileUrl: String = DEFAULT_TILE_URL,
+    /** Android's location prompt is shown once, the first time the map opens (D44). */
+    val currentLocationAsked: Boolean = false,
 ) {
     companion object {
         const val DEFAULT_GRID_COLUMNS = 3
+
+        /** The OpenStreetMap tile server (D23). */
+        const val DEFAULT_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
 
         /** The choices in Appearance (D51). */
         val GRID_COLUMN_OPTIONS = listOf(DEFAULT_GRID_COLUMNS, 4, 5)

@@ -15,4 +15,5 @@ data class ImageDetails(
     val aperture: String?,
     val iso: String?,
     val focalLength: String?,
+    val place: Place? = null,
 )

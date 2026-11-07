@@ -4,8 +4,10 @@ import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import kotlinx.coroutines.flow.Flow
 import net.drehtuer.nextgallery.core.data.index.ExifSource
+import net.drehtuer.nextgallery.core.data.index.GeoIndexStore
 import net.drehtuer.nextgallery.core.data.index.MediaIndexStore
 import net.drehtuer.nextgallery.core.data.index.TimelineStore
+import net.drehtuer.nextgallery.core.data.map.PlaceNamer
 import net.drehtuer.nextgallery.core.model.ImageDetails
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
@@ -32,18 +34,22 @@ interface MediaRepository {
 class DefaultMediaRepository @Inject constructor(
     private val indexStore: MediaIndexStore,
     private val timelineStore: TimelineStore,
+    private val geoStore: GeoIndexStore,
     private val exifSource: ExifSource,
+    private val placeNamer: PlaceNamer,
 ) : MediaRepository {
     override suspend fun getItem(id: MediaId): MediaItem? = indexStore.getById(id)
 
     override fun pagedItems(source: MediaSource): Flow<PagingData<MediaItem>> = when (source) {
         is MediaSource.Folder -> indexStore.pagedByBucket(source.bucketId, GRID_PAGING_CONFIG)
         MediaSource.Timeline -> timelineStore.paged(GRID_PAGING_CONFIG)
+        is MediaSource.Map -> geoStore.pagedInBounds(source.bounds, GRID_PAGING_CONFIG)
     }
 
     override suspend fun indexOf(source: MediaSource, id: MediaId): Int = when (source) {
         is MediaSource.Folder -> indexStore.indexInBucket(source.bucketId, id)
         MediaSource.Timeline -> timelineStore.indexOf(id)
+        is MediaSource.Map -> geoStore.indexInBounds(source.bounds, id)
     }
 
     override suspend fun folderItemIds(bucketId: Long): List<MediaId> = indexStore.idsInBucket(bucketId)
@@ -52,7 +58,8 @@ class DefaultMediaRepository @Inject constructor(
 
     override suspend fun imageDetails(id: MediaId): ImageDetails? {
         val item = indexStore.getById(id) ?: return null
-        return ImageDetailsMapper.from(exifSource.read(item.contentUri), item)
+        val details = ImageDetailsMapper.from(exifSource.read(item.contentUri), item)
+        return details.copy(place = details.location?.let { placeNamer.nearest(it) })
     }
 
     internal companion object {

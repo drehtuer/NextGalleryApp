@@ -44,24 +44,22 @@ sealed interface SelectionOverviewEffect {
     data class Trash(val effect: TrashEffect) : SelectionOverviewEffect
 }
 
-/** All selected images (D33); those the calling view cannot show are greyed out. A null [bucketId] is the timeline. */
+/** All selected images (D33); those the calling view cannot show are greyed out. */
 @HiltViewModel(assistedFactory = SelectionOverviewViewModel.Factory::class)
 class SelectionOverviewViewModel @AssistedInject constructor(
-    @Assisted bucketId: Long?,
+    @Assisted context: ViewContext,
     private val selectionRepository: SelectionRepository,
     private val actions: MediaActionsRepository,
     private val trashFlow: TrashFlow,
 ) : ViewModel() {
     @AssistedFactory
     interface Factory {
-        fun create(bucketId: Long?): SelectionOverviewViewModel
+        fun create(context: ViewContext): SelectionOverviewViewModel
     }
 
     private val effectChannel = Channel<SelectionOverviewEffect>(Channel.BUFFERED)
 
     val effects: Flow<SelectionOverviewEffect> = effectChannel.receiveAsFlow()
-
-    private val context = bucketId?.let { ViewContext.Folder(it) } ?: ViewContext.Timeline
 
     val state: StateFlow<SelectionOverviewUiState> = selectionRepository.observeOverview(context)
         .map { SelectionOverviewUiState(it) }

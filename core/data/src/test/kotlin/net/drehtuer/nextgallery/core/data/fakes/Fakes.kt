@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.TestDispatcher
 import net.drehtuer.nextgallery.core.common.Clock
 import net.drehtuer.nextgallery.core.common.DispatcherProvider
 import net.drehtuer.nextgallery.core.data.index.ExifSource
+import net.drehtuer.nextgallery.core.data.index.GeoIndexStore
 import net.drehtuer.nextgallery.core.data.index.IndexMode
 import net.drehtuer.nextgallery.core.data.index.MediaChangeSource
 import net.drehtuer.nextgallery.core.data.index.MediaIndexStore
@@ -21,6 +22,9 @@ import net.drehtuer.nextgallery.core.data.index.WorkScheduler
 import net.drehtuer.nextgallery.core.model.DateSource
 import net.drehtuer.nextgallery.core.model.DayCount
 import net.drehtuer.nextgallery.core.model.Folder
+import net.drehtuer.nextgallery.core.model.GeoBounds
+import net.drehtuer.nextgallery.core.model.GeoPoint
+import net.drehtuer.nextgallery.core.model.GeotaggedImage
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
 import net.drehtuer.nextgallery.core.model.RawExif
@@ -108,6 +112,30 @@ class FakeTimelineStore : TimelineStore {
     override suspend fun indexOf(id: MediaId): Int = items.indexOfFirst { it.id == id }
 
     override fun observeDayCounts(): Flow<List<DayCount>> = dayCounts
+}
+
+class FakeGeoIndexStore : GeoIndexStore {
+    val geotagged = MutableStateFlow<List<GeotaggedImage>>(emptyList())
+    val unscannedItems = mutableListOf<MediaItem>()
+    val saved = mutableMapOf<MediaId, GeoPoint?>()
+    val pagedBounds = mutableListOf<GeoBounds>()
+
+    override fun observeGeotagged(): Flow<List<GeotaggedImage>> = geotagged
+
+    override suspend fun unscanned(limit: Int): List<MediaItem> = unscannedItems.take(limit)
+
+    override suspend fun saveLocations(locations: Map<MediaId, GeoPoint?>) {
+        saved += locations
+        unscannedItems.removeAll { it.id in locations }
+    }
+
+    override fun pagedInBounds(bounds: GeoBounds, config: PagingConfig): Flow<PagingData<MediaItem>> {
+        pagedBounds += bounds
+        return flowOf(PagingData.empty())
+    }
+
+    override suspend fun indexInBounds(bounds: GeoBounds, id: MediaId): Int =
+        geotagged.value.filter { bounds.contains(it.location) }.indexOfFirst { it.id == id }
 }
 
 class FakeSyncStateStore(vararg initial: SyncState) : SyncStateStore {

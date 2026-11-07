@@ -18,6 +18,9 @@ data object FolderRulesRoute
 data object AppearanceRoute
 
 @Serializable
+data object MapTilesRoute
+
+@Serializable
 data object AboutRoute
 
 @Serializable
@@ -36,11 +39,28 @@ fun NavGraphBuilder.settingsScreen(
     onOpenFolders: () -> Unit,
     onOpenAppearance: () -> Unit,
     onOpenNextcloud: () -> Unit,
+    onOpenMapTiles: () -> Unit,
     onOpenAbout: () -> Unit,
     accountLabel: @Composable () -> String? = { accountLabelFromViewModel() },
 ) {
     composable<SettingsRoute> {
-        SettingsScreen(accountLabel(), onBack, onOpenFolders, onOpenAppearance, onOpenNextcloud, onOpenAbout)
+        SettingsScreen(
+            accountLabel(),
+            onBack,
+            onOpenFolders,
+            onOpenAppearance,
+            onOpenNextcloud,
+            onOpenMapTiles,
+            onOpenAbout,
+        )
+    }
+}
+
+fun NavGraphBuilder.mapTilesScreen(onBack: () -> Unit) {
+    composable<MapTilesRoute> {
+        val viewModel = hiltViewModel<MapTilesViewModel>()
+        val state by viewModel.state.collectAsStateWithLifecycle()
+        MapTilesScreen(state, viewModel::onEvent, onBack)
     }
 }
 

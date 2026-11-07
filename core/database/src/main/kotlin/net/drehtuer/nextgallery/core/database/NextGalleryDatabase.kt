@@ -15,6 +15,8 @@ abstract class NextGalleryDatabase : RoomDatabase() {
 
     abstract fun timelineDao(): TimelineDao
 
+    abstract fun geoDao(): GeoDao
+
     abstract fun syncStateDao(): SyncStateDao
 
     abstract fun remoteCacheDao(): RemoteCacheDao

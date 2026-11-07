@@ -8,6 +8,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import net.drehtuer.nextgallery.core.data.index.GeoIndexStore
 import net.drehtuer.nextgallery.core.data.index.MediaIndexStore
 import net.drehtuer.nextgallery.core.data.index.SyncStateStore
 import net.drehtuer.nextgallery.core.data.index.TimelineStore
@@ -25,7 +26,13 @@ abstract class DatabaseModule {
     @Binds
     abstract fun bindSyncStateStore(store: RoomSyncStateStore): SyncStateStore
 
+    @Binds
+    abstract fun bindGeoIndexStore(store: RoomGeoIndexStore): GeoIndexStore
+
     companion object {
+        @Provides
+        fun provideGeoDao(database: NextGalleryDatabase): GeoDao = database.geoDao()
+
         @Provides
         @Singleton
         fun provideDatabase(@ApplicationContext context: Context): NextGalleryDatabase =

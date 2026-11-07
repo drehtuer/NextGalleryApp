@@ -36,6 +36,7 @@ import net.drehtuer.nextgallery.navigation.NextGalleryNavHost
 import net.drehtuer.nextgallery.navigation.SettingsGraphRoute
 import net.drehtuer.nextgallery.navigation.TopLevelDestination
 import net.drehtuer.nextgallery.navigation.foldersGraph
+import net.drehtuer.nextgallery.navigation.mapGraph
 import net.drehtuer.nextgallery.navigation.remoteGraph
 import net.drehtuer.nextgallery.navigation.settingsGraph
 import net.drehtuer.nextgallery.navigation.sharedScreens
@@ -52,6 +53,7 @@ fun NextGalleryAppContent(
     settings: NavGraphBuilder.(NavHostController) -> Unit = { settingsGraph(it) },
     shared: NavGraphBuilder.(NavHostController) -> Unit = { sharedScreens(it) },
     remote: NavGraphBuilder.(NavHostController) -> Unit = { remoteGraph(it) },
+    map: NavGraphBuilder.(NavHostController) -> Unit = { mapGraph(it) },
 ) {
     when (state.access) {
         null -> LoadingIndicator()
@@ -73,7 +75,7 @@ fun NextGalleryAppContent(
                 }
                 Column(if (fullScreen) Modifier else Modifier.padding(padding).consumeWindowInsets(padding)) {
                     CompositionLocalProvider(LocalScreenBanner provides banner) {
-                        NextGalleryNavHost(navController, folders, timeline, settings, shared, remote)
+                        NextGalleryNavHost(navController, folders, timeline, settings, shared, remote, map)
                     }
                 }
             }

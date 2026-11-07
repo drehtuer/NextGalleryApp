@@ -5,9 +5,11 @@
         <item>AndroidX and Jetpack Compose|Apache-2.0</item>
         <item>Coil|Apache-2.0</item>
         <item>Dagger and Hilt|Apache-2.0</item>
+        <item>GeoNames place data|CC BY 4.0</item>
         <item>Kotlin and KotlinX|Apache-2.0</item>
         <item>OkHttp|Apache-2.0</item>
         <item>Okio|Apache-2.0</item>
+        <item>osmdroid|Apache-2.0</item>
         <item>Telephoto|Apache-2.0</item>
         <item>Tink|Apache-2.0</item>
     </string-array>

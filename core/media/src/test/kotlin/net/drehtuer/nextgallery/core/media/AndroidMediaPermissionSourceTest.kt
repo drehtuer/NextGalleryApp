@@ -19,6 +19,16 @@ class AndroidMediaPermissionSourceTest {
     }
 
     @Test
+    fun grantedPermissions_coarseLocationGranted_containsIt() {
+        shadowOf(application).grantPermissions(Manifest.permission.ACCESS_COARSE_LOCATION)
+
+        assertEquals(
+            setOf(Manifest.permission.ACCESS_COARSE_LOCATION),
+            AndroidMediaPermissionSource(application).grantedPermissions(),
+        )
+    }
+
+    @Test
     fun grantedPermissions_readMediaImagesGranted_containsIt() {
         shadowOf(application).grantPermissions(Manifest.permission.READ_MEDIA_IMAGES)
 

@@ -79,7 +79,7 @@ class ViewerViewModel @AssistedInject constructor(
         fun create(route: ViewerRoute): ViewerViewModel
     }
 
-    private val source = route.bucketId?.let { MediaSource.Folder(it) } ?: MediaSource.Timeline
+    private val source = route.source()
     private val mutableState = MutableStateFlow(ViewerUiState())
     private val effectChannel = Channel<ViewerEffect>(Channel.BUFFERED)
 

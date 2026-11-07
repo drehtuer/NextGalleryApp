@@ -32,6 +32,27 @@ class DefaultSettingsRepositoryTest {
     }
 
     @Test
+    fun setTileUrl_validUrl_isStored() = runTest {
+        val url = "https://tiles.example.org/{z}/{x}/{y}.png"
+
+        repository.setTileUrl(url)
+
+        assertEquals(url, stored.tileUrl)
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun setTileUrl_invalidUrl_throws() = runTest {
+        repository.setTileUrl("http://tiles.example.org/{z}/{x}/{y}.png")
+    }
+
+    @Test
+    fun setCurrentLocationAsked_isStored() = runTest {
+        repository.setCurrentLocationAsked()
+
+        assertTrue(stored.currentLocationAsked)
+    }
+
+    @Test
     fun observeSettings_comesFromDataSource() {
         val settings = flowOf(UserSettings())
         every { dataSource.settings } returns settings

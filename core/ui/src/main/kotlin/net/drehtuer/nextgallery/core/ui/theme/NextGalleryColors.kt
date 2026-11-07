@@ -6,6 +6,7 @@ package net.drehtuer.nextgallery.core.ui.theme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import net.drehtuer.nextgallery.core.model.AccentColor
 
@@ -128,6 +129,16 @@ private fun darkScheme(accent: AccentColor): ColorScheme {
 
 /** The always-dark scheme of the viewer and the editor. It keeps its own blue, whatever accent is chosen. */
 fun viewerColorScheme(): ColorScheme = darkScheme(AccentColor.BLUE).copy(background = Color.Black)
+
+/** The empty map while tiles load and the attribution's backing; tiles keep their own colours. */
+@Immutable
+data class NextGalleryMapColors(val land: Color, val water: Color)
+
+fun nextGalleryMapColors(darkTheme: Boolean) = if (darkTheme) {
+    NextGalleryMapColors(land = Color(0xFF202326), water = Color(0xFF1C3442))
+} else {
+    NextGalleryMapColors(land = Color(0xFFECE9E1), water = Color(0xFFAFCBDB))
+}
 
 /** Colours over photos, the same in every theme. */
 object NextGalleryOverlayColors {

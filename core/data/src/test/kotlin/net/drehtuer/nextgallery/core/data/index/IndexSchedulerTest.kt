@@ -21,6 +21,13 @@ class IndexSchedulerTest {
         IndexScheduler(syncStateStore, changes, workScheduler)
 
     @Test
+    fun onPhotoLocationsAllowed_enqueuesSyncWithItsLocationPass() {
+        scheduler().onPhotoLocationsAllowed()
+
+        assertEquals(listOf(IndexMode.INCREMENTAL), workScheduler.enqueued)
+    }
+
+    @Test
     fun onAppStart_accessDenied_enqueuesNothing() = runTest {
         scheduler().onAppStart(MediaAccess.DENIED)
 

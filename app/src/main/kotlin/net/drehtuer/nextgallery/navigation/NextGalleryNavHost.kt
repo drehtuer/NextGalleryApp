@@ -24,6 +24,8 @@ import net.drehtuer.nextgallery.feature.folders.SelectionOverviewRoute
 import net.drehtuer.nextgallery.feature.folders.folderGridScreen
 import net.drehtuer.nextgallery.feature.folders.folderListScreen
 import net.drehtuer.nextgallery.feature.folders.selectionOverviewScreen
+import net.drehtuer.nextgallery.feature.map.MapScreenRoute
+import net.drehtuer.nextgallery.feature.map.mapScreen
 import net.drehtuer.nextgallery.feature.remote.RemoteBrowserRoute
 import net.drehtuer.nextgallery.feature.remote.RemoteViewerRoute
 import net.drehtuer.nextgallery.feature.remote.remoteBrowserScreen
@@ -33,6 +35,7 @@ import net.drehtuer.nextgallery.feature.settings.AboutRoute
 import net.drehtuer.nextgallery.feature.settings.AppearanceRoute
 import net.drehtuer.nextgallery.feature.settings.FolderRulesRoute
 import net.drehtuer.nextgallery.feature.settings.LicencesRoute
+import net.drehtuer.nextgallery.feature.settings.MapTilesRoute
 import net.drehtuer.nextgallery.feature.settings.NextcloudAccountRoute
 import net.drehtuer.nextgallery.feature.settings.SettingsRoute
 import net.drehtuer.nextgallery.feature.settings.TrustedCertificatesRoute
@@ -41,6 +44,7 @@ import net.drehtuer.nextgallery.feature.settings.accountLabelFromViewModel
 import net.drehtuer.nextgallery.feature.settings.appearanceScreen
 import net.drehtuer.nextgallery.feature.settings.folderRulesScreen
 import net.drehtuer.nextgallery.feature.settings.licencesScreen
+import net.drehtuer.nextgallery.feature.settings.mapTilesScreen
 import net.drehtuer.nextgallery.feature.settings.nextcloudAccountScreen
 import net.drehtuer.nextgallery.feature.settings.settingsScreen
 import net.drehtuer.nextgallery.feature.settings.trustedCertificatesScreen
@@ -50,7 +54,7 @@ import net.drehtuer.nextgallery.feature.viewer.viewerScreen
 
 /**
  * Navigation graph. The feature screens replace the placeholders in the following phases.
- * [folders], [timeline], [settings], [shared] and [remote] build those destinations; tests replace them,
+ * [folders], [timeline], [settings], [shared], [remote] and [map] build those destinations; tests replace them,
  * because the real screens need Hilt.
  */
 @Composable
@@ -61,6 +65,7 @@ fun NextGalleryNavHost(
     settings: NavGraphBuilder.(NavHostController) -> Unit,
     shared: NavGraphBuilder.(NavHostController) -> Unit,
     remote: NavGraphBuilder.(NavHostController) -> Unit,
+    map: NavGraphBuilder.(NavHostController) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     NavHost(navController = navController, startDestination = FoldersRoute, modifier = modifier) {
@@ -69,7 +74,7 @@ fun NextGalleryNavHost(
         settings(navController)
         shared(navController)
         remote(navController)
-        composable<MapRoute> { PlaceholderScreen(stringResource(R.string.destination_map)) }
+        map(navController)
     }
 }
 
@@ -125,6 +130,18 @@ fun NavGraphBuilder.remoteGraph(navController: NavHostController) {
     }
 }
 
+/** A nested graph, like the folders. The viewer and the selection overview are in [sharedScreens]. */
+fun NavGraphBuilder.mapGraph(navController: NavHostController) {
+    navigation<MapRoute>(startDestination = MapScreenRoute) {
+        mapScreen(
+            onOpenViewer = { id, bounds ->
+                navController.navigate(ViewerRoute(id.value, bucketId = null, mapBounds = bounds.encode()))
+            },
+            onOpenSelectionOverview = { navController.navigate(SelectionOverviewRoute(bucketId = null, fromMap = true)) },
+        )
+    }
+}
+
 fun NavGraphBuilder.settingsGraph(
     navController: NavHostController,
     accountLabel: @Composable () -> String? = { accountLabelFromViewModel() },
@@ -135,6 +152,7 @@ fun NavGraphBuilder.settingsGraph(
             onOpenFolders = { navController.navigate(FolderRulesRoute) },
             onOpenAppearance = { navController.navigate(AppearanceRoute) },
             onOpenNextcloud = { navController.navigate(NextcloudAccountRoute()) },
+            onOpenMapTiles = { navController.navigate(MapTilesRoute) },
             onOpenAbout = { navController.navigate(AboutRoute) },
             accountLabel = accountLabel,
         )
@@ -145,6 +163,7 @@ fun NavGraphBuilder.settingsGraph(
         trustedCertificatesScreen(onBack = navController::popBackStack)
         folderRulesScreen(onBack = navController::popBackStack)
         appearanceScreen(onBack = navController::popBackStack)
+        mapTilesScreen(onBack = navController::popBackStack)
         aboutScreen(
             info = AboutInfo(
                 versionName = BuildConfig.VERSION_NAME,

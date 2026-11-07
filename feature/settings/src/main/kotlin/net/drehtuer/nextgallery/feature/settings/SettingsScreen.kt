@@ -16,6 +16,7 @@ fun SettingsScreen(
     onOpenFolders: () -> Unit,
     onOpenAppearance: () -> Unit,
     onOpenNextcloud: () -> Unit,
+    onOpenMapTiles: () -> Unit,
     onOpenAbout: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -32,6 +33,12 @@ fun SettingsScreen(
                 detail = stringResource(R.string.feature_settings_appearance_detail),
                 icon = R.drawable.feature_settings_ic_palette,
                 onClick = onOpenAppearance,
+            )
+            SettingsRow(
+                title = stringResource(R.string.feature_settings_map_tiles),
+                detail = stringResource(R.string.feature_settings_map_tiles_detail),
+                icon = R.drawable.feature_settings_ic_map,
+                onClick = onOpenMapTiles,
             )
             SettingsRow(
                 title = stringResource(R.string.feature_settings_nextcloud),

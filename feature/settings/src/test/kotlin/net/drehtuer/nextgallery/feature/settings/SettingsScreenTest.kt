@@ -6,6 +6,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -30,6 +31,7 @@ class SettingsScreenTest {
                 onOpenFolders = { opened = "folders" },
                 onOpenAppearance = { opened = "appearance" },
                 onOpenNextcloud = { opened = "nextcloud" },
+                onOpenMapTiles = { opened = "map" },
                 onOpenAbout = { opened = "about" },
             )
         }
@@ -61,6 +63,13 @@ class SettingsScreenTest {
     }
 
     @Test
+    fun mapRowClicked_opensMapTiles() {
+        composeRule.onNodeWithText("Map").performClick()
+
+        assertEquals("map", opened)
+    }
+
+    @Test
     fun foldersRowClicked_opensFolders() {
         composeRule.onNodeWithText("Folders").performClick()
 
@@ -76,7 +85,7 @@ class SettingsScreenTest {
 
     @Test
     fun aboutRowClicked_opensAbout() {
-        composeRule.onNodeWithText("About & licences").performClick()
+        composeRule.onNodeWithText("About & licences").performScrollTo().performClick()
 
         assertEquals("about", opened)
     }
