@@ -21,7 +21,7 @@ Where the implementation stands against the plan in [TODO.md](TODO.md). TODO.md 
 | 9 | Upload status and hand-off to the Nextcloud app | Done in code (PR #20), CI green. Open: checks on the device with a real server and the Nextcloud app. |
 | – | Login in the default browser (D54) | Done in code (PR #23), CI green. Open: checks on the device with a real server. |
 | – | Added folders and virtual folders (D55) | Done in code (PR #24), CI green. Open: checks on the device. |
-| 10 | Hardening and release | What could be done without a person is done. Open: benchmarks, profile, accessibility on the device, a signed build and the full manual pass. |
+| 10 | Hardening and release | What could be done without a person is done. The release workflow signs and publishes tagged versions (D61); 0.1.0 is prepared. Open: benchmarks, profile, accessibility on the device, the signing key in the `release` environment and the full manual pass. |
 
 ## What works now
 

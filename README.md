@@ -145,7 +145,7 @@ devcontainer exec --workspace-folder . ./gradlew assembleDebug
 Install on a connected device from the host (the container has no USB access):
 
 ```bash
-adb install app/build/outputs/apk/debug/app-debug.apk
+adb install app/build/outputs/nextgallery/debug/NextGallery-debug-*.apk
 ```
 
 Before opening a pull request, run the checks CI runs (`ktlintFormat` fixes what CI's `ktlintCheck` would report):
@@ -166,7 +166,9 @@ Benchmarks and the Baseline Profile need a real device with photos and an unlock
 
 ### Release build
 
-`./gradlew :app:assembleRelease` builds a minified APK. Without a keystore it is unsigned (`app-release-unsigned.apk`) and Android won't install it. To sign it, create a keystore and put a `keystore.properties` next to `settings.gradle.kts`; Git ignores both, so never force-add them:
+Builds name their APK after the version and write it to `app/build/outputs/nextgallery/<variant>/`, next to AGP's own output: `assembleDebug` writes `NextGallery-debug-<version>-<timestamp>.apk` (build time in UTC, `yyyyMMdd-HHmmss`), and `assembleRelease` writes `NextGallery-<version>.apk`. Only the latest APK of each variant is kept there.
+
+`./gradlew :app:assembleRelease` builds a minified APK. Without a keystore it is unsigned (`NextGallery-<version>-unsigned.apk`) and Android won't install it. To sign it, create a keystore and put a `keystore.properties` next to `settings.gradle.kts`; Git ignores both, so never force-add them:
 
 ```properties
 storeFile=/path/to/release.jks
@@ -178,12 +180,35 @@ keyPassword=...
 ```bash
 keytool -genkeypair -v -keystore /path/to/release.jks -alias nextgallery -keyalg RSA -keysize 4096 -validity 10000
 ./gradlew :app:assembleRelease
-adb install app/build/outputs/apk/release/app-release.apk
+adb install app/build/outputs/nextgallery/release/NextGallery-*.apk
 ```
 
 Keep the keystore safe: an installed app only accepts updates signed with the same key. A relative `storeFile` counts from the repository root, and the path must be visible inside the devcontainer.
 
 The version comes from the nearest Git tag of the form `vMAJOR.MINOR.PATCH`: `v1.2.3` gives the name 1.2.3 and the code 1002003. Tags with a suffix such as `-rc1` stop the build, because their code would equal the final version's. Without a tag, or where Git can't run, the build calls itself 0.1.0; `-PversionTag=v1.2.3` overrides both. Record changes in [CHANGELOG.md](docs/CHANGELOG.md) before tagging.
+
+### Publishing a release
+
+Pushing a tag `vMAJOR.MINOR.PATCH` runs [.github/workflows/release.yml](.github/workflows/release.yml) (D61 in [DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md)). In the devcontainer image it builds the release APK, signed with the key from the `release` environment, and checks the signature with `apksigner`. It then attaches the APK, R8's mapping file and a `SHA256SUMS` file to a draft release, using the changelog section of that version as the release notes. Publishing the release is the last step, and then the documentation site is deployed. Releases are immutable once published, so a mistake needs a new version: a published release can't be changed and its tag can't be moved.
+
+1. Turn "Unreleased" in [CHANGELOG.md](docs/CHANGELOG.md) into a section `## <version>` and merge that to `main`.
+2. Tag the merge commit and push the tag:
+
+   ```bash
+   git tag -a v0.1.0 -m "NextGallery 0.1.0"
+   git push origin v0.1.0
+   ```
+
+The signing key is stored as four secrets of the `release` environment (Settings → Environments → release), which only accepts `v*` tags:
+
+| Secret | Value |
+|---|---|
+| `RELEASE_KEYSTORE_BASE64` | The keystore file, base64-encoded: `base64 -w0 release.jks` |
+| `RELEASE_KEYSTORE_PASSWORD` | The keystore password (`storePassword`) |
+| `RELEASE_KEY_ALIAS` | The key alias, for example `nextgallery` |
+| `RELEASE_KEY_PASSWORD` | The key password (`keyPassword`) |
+
+If a run fails before publishing, fix the cause and re-run the workflow; it replaces the draft it left. If the fix needs a code change, delete the tag and push it again on the new commit. This only works while the release is still a draft.
 
 ### Documentation site
 

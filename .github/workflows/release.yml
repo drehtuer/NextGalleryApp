@@ -1,0 +1,120 @@
+name: Release
+
+# Pushing a tag vMAJOR.MINOR.PATCH builds the signed APK and publishes it as a GitHub release (D61).
+# Releases are immutable once published: their assets cannot be changed and their tag cannot be moved. So everything is
+# built, checked and attached to a draft first, and publishing is the very last step of the job.
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    # The signing secrets live in this environment, which only accepts v* tags.
+    environment: release
+    permissions:
+      contents: write
+    env:
+      TAG: ${{ github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check the tag, the changelog and earlier releases
+        run: |
+          if ! [[ "$TAG" =~ ^v[0-9]{1,4}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+            echo "::error::The tag $TAG is not of the form vMAJOR.MINOR.PATCH."
+            exit 1
+          fi
+          version="${TAG#v}"
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          # The release notes are the changelog section "## <version>", up to the next section.
+          awk -v head="## $version" '$0 == head || index($0, head " ") == 1 { found = 1; next } /^## / { if (found) exit } found' \
+            docs/CHANGELOG.md > release-notes.md
+          if ! grep -q '[^[:space:]]' release-notes.md; then
+            echo "::error::docs/CHANGELOG.md has no section \"## $version\"."
+            exit 1
+          fi
+          if [ "$(gh release view "$TAG" --json isDraft -q .isDraft 2>/dev/null)" = "false" ]; then
+            echo "::error::$TAG is already published. Releases are immutable; tag a new version instead."
+            exit 1
+          fi
+
+      # The keystore and its passwords come from the environment's secrets. They are written into the workspace only
+      # for the build, readable by the build user alone, and removed again in the last step.
+      - name: Write the signing configuration
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          for name in RELEASE_KEYSTORE_BASE64 RELEASE_KEYSTORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::The secret $name is missing in the release environment."
+              exit 1
+            fi
+          done
+          umask 077
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > release.jks
+          # keystore.properties is a Java properties file: backslashes in a value must be doubled.
+          {
+            echo "storeFile=release.jks"
+            echo "storePassword=${RELEASE_KEYSTORE_PASSWORD//\\/\\\\}"
+            echo "keyAlias=${RELEASE_KEY_ALIAS//\\/\\\\}"
+            echo "keyPassword=${RELEASE_KEY_PASSWORD//\\/\\\\}"
+          } > keystore.properties
+
+      # Same image as CI and local builds (D38). The version comes from the tag; apksigner fails the step if the APK
+      # is not signed.
+      - name: Build and verify the signed APK in devcontainer
+        uses: devcontainers/ci@513af61f4de4f75d37e4438f184ba4358f0fc1ca # v0.3
+        env:
+          VERSION_TAG: ${{ github.ref_name }}
+        with:
+          push: never
+          env: VERSION_TAG
+          runCmd: >-
+            ./gradlew --stacktrace -PversionTag="$VERSION_TAG" :app:assembleRelease
+            && "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs
+            "app/build/outputs/nextgallery/release/NextGallery-${VERSION_TAG#v}.apk"
+
+      - name: Remove the signing configuration
+        if: always()
+        run: rm -f release.jks keystore.properties
+
+      # The APK, R8's mapping file (to read stack traces of the minified app) and their checksums.
+      - name: Collect the release files
+        run: |
+          mkdir dist
+          cp "app/build/outputs/nextgallery/release/NextGallery-$VERSION.apk" dist/
+          cp app/build/outputs/mapping/release/mapping.txt "dist/NextGallery-$VERSION-mapping.txt"
+          (cd dist && sha256sum -- * > SHA256SUMS)
+          cat dist/SHA256SUMS
+
+      - name: Attach the files to a draft release
+        run: |
+          # A draft left by an earlier, failed run of this tag is replaced; the tag itself stays.
+          if [ "$(gh release view "$TAG" --json isDraft -q .isDraft 2>/dev/null)" = "true" ]; then
+            gh release delete "$TAG" --yes
+          fi
+          gh release create "$TAG" dist/* --draft --verify-tag --title "NextGallery $VERSION" --notes-file release-notes.md
+
+      - name: Publish the release
+        run: gh release edit "$TAG" --draft=false --latest
+
+  # A release published with GITHUB_TOKEN starts no other workflow, so the documentation site is deployed from here.
+  documentation:
+    needs: release
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages.yml
