@@ -13,6 +13,7 @@ import androidx.navigation.toRoute
 import androidx.paging.compose.collectAsLazyPagingItems
 import kotlinx.serialization.Serializable
 import net.drehtuer.nextgallery.core.model.MediaId
+import net.drehtuer.nextgallery.core.model.ViewContext
 import net.drehtuer.nextgallery.core.ui.platform.rememberTrashEffectHandler
 import net.drehtuer.nextgallery.core.ui.platform.shareImages
 
@@ -22,8 +23,11 @@ data object FolderListRoute
 @Serializable
 data class FolderGridRoute(val bucketId: Long)
 
+/** Opened from the folder [bucketId] or, with [fromMap], from the map. */
 @Serializable
-data class SelectionOverviewRoute(val bucketId: Long)
+data class SelectionOverviewRoute(val bucketId: Long, val fromMap: Boolean = false) {
+    internal fun viewContext(): ViewContext = if (fromMap) ViewContext.Map else ViewContext.Folder(bucketId)
+}
 
 fun NavGraphBuilder.folderListScreen(onFolderClick: (bucketId: Long) -> Unit, onOpenSettings: () -> Unit) {
     composable<FolderListRoute> {
@@ -75,7 +79,7 @@ fun NavGraphBuilder.selectionOverviewScreen(onBack: () -> Unit) {
     composable<SelectionOverviewRoute> { entry ->
         val route = entry.toRoute<SelectionOverviewRoute>()
         val viewModel = hiltViewModel<SelectionOverviewViewModel, SelectionOverviewViewModel.Factory>(
-            creationCallback = { factory -> factory.create(route.bucketId) },
+            creationCallback = { factory -> factory.create(route.viewContext()) },
         )
         val state by viewModel.state.collectAsStateWithLifecycle()
         val context = LocalContext.current

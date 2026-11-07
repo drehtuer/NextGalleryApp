@@ -119,7 +119,7 @@ class NextGalleryAppContentTest {
         val navController = showSettingsGraph()
         composeRule.runOnIdle { navController.navigate(SettingsGraphRoute) }
 
-        composeRule.onNodeWithText("About & licences").performClick()
+        composeRule.onNodeWithText("About & licences").performScrollTo().performClick()
 
         composeRule.onNodeWithText("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})").assertIsDisplayed()
     }
@@ -128,7 +128,7 @@ class NextGalleryAppContentTest {
     fun settingsGraph_licencesOpenFromAbout() {
         val navController = showSettingsGraph()
         composeRule.runOnIdle { navController.navigate(SettingsGraphRoute) }
-        composeRule.onNodeWithText("About & licences").performClick()
+        composeRule.onNodeWithText("About & licences").performScrollTo().performClick()
 
         composeRule.onNodeWithText("Open-source licences").performScrollTo().performClick()
 

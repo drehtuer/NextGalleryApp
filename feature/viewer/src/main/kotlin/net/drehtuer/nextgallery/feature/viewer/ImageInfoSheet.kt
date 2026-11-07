@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import net.drehtuer.nextgallery.core.data.map.label
 import net.drehtuer.nextgallery.core.model.ImageDetails
 import net.drehtuer.nextgallery.core.ui.theme.NextGalleryTheme
 import java.time.Instant
@@ -51,13 +52,22 @@ internal fun ImageInfoContent(details: ImageDetails, modifier: Modifier = Modifi
         )
         InfoRow(R.string.feature_viewer_info_type, details.mimeType)
         InfoRow(R.string.feature_viewer_info_folder, details.relativePath)
-        InfoRow(R.string.feature_viewer_info_location, details.location?.let { "${it.latitude}, ${it.longitude}" })
+        InfoRow(R.string.feature_viewer_info_location, locationText(details))
         InfoRow(R.string.feature_viewer_info_camera, details.camera)
         InfoRow(R.string.feature_viewer_info_exposure, details.exposureTime)
         InfoRow(R.string.feature_viewer_info_aperture, details.aperture)
         InfoRow(R.string.feature_viewer_info_iso, details.iso)
         InfoRow(R.string.feature_viewer_info_focal_length, details.focalLength)
     }
+}
+
+/** "near Desenzano del Garda, Italy · 45.62° N, 10.68° E"; only the coordinates without a town nearby (D45). */
+@Composable
+private fun locationText(details: ImageDetails): String? {
+    val coordinates = details.location?.formatted()
+    return details.place?.takeIf { coordinates != null }?.let {
+        stringResource(R.string.feature_viewer_info_location_near, it.label(), coordinates.orEmpty())
+    } ?: coordinates
 }
 
 @Composable

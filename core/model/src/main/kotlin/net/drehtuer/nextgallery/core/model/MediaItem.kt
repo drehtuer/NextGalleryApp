@@ -22,4 +22,6 @@ data class MediaItem(
     val dateModifiedSeconds: Long,
     val generationModified: Long,
     val location: GeoPoint?,
+    /** Whether the second indexing pass has read the location from this file (ARCHITECTURE.md §5.1). */
+    val exifScanned: Boolean = false,
 )

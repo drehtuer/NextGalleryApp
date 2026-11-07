@@ -26,6 +26,11 @@ interface SettingsRepository {
     suspend fun setThemeMode(mode: ThemeMode): AppResult<Unit>
 
     suspend fun setAccentColor(color: AccentColor): AppResult<Unit>
+
+    /** [url] must pass [TileUrls.isValid]. */
+    suspend fun setTileUrl(url: String): AppResult<Unit>
+
+    suspend fun setCurrentLocationAsked(): AppResult<Unit>
 }
 
 class DefaultSettingsRepository @Inject constructor(private val dataSource: SettingsDataSource) : SettingsRepository {
@@ -52,10 +57,17 @@ class DefaultSettingsRepository @Inject constructor(private val dataSource: Sett
 
     override suspend fun setAccentColor(color: AccentColor): AppResult<Unit> = update { it.copy(accentColor = color) }
 
+    override suspend fun setTileUrl(url: String): AppResult<Unit> {
+        require(TileUrls.isValid(url)) { "Unsupported tile URL: $url" }
+        return update { it.copy(tileUrl = url) }
+    }
+
+    override suspend fun setCurrentLocationAsked(): AppResult<Unit> = update { it.copy(currentLocationAsked = true) }
+
     private suspend fun update(transform: (UserSettings) -> UserSettings): AppResult<Unit> =
         runCatchingCancellable { dataSource.update(transform) }
+}
 
-    private fun List<FolderRule>.withoutPath(path: String) = filterNot {
-        RelativePaths.isUnder(it.relativePath, path) && RelativePaths.isUnder(path, it.relativePath)
-    }
+private fun List<FolderRule>.withoutPath(path: String) = filterNot {
+    RelativePaths.isUnder(it.relativePath, path) && RelativePaths.isUnder(path, it.relativePath)
 }

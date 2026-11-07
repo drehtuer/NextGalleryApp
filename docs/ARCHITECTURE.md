@@ -208,22 +208,27 @@ Package root and application ID: `net.drehtuer.nextgallery` (D26). Class names b
 | `Folder` | `bucketId`, `name`, `relativePath`, `itemCount`, `coverItem: MediaItem` (newest image). |
 | `FolderRule` | `relativePath`, `type: Type { INCLUDE, EXCLUDE }`. Covers the folder and its subfolders. |
 | `DeviceFolder` | `name`, `relativePath`, `itemCount`: a folder MediaStore has images in, whether indexed or not. |
-| `GeoPoint` | `latitude`, `longitude` (validated ranges). |
+| `GeoPoint` | `latitude`, `longitude` (validated ranges); `formatted()` gives "45.62° N, 10.68° E". |
+| `GeoBounds` | `south`, `west`, `north`, `east`; `west > east` crosses the antimeridian. `encode()` / `decode()` for route arguments. |
+| `MapCamera`, `Viewport` | What the map should show (centre, zoom), and what it shows right now (with bounds). |
+| `GeotaggedImage` | `id`, `location`, `dateTakenMillis`: the light form of an image for clustering. |
+| `Cluster` | `center`, `items`; derives `count`, `coverId` (newest image) and `bounds` (holds exactly its images, because they come from one grid cell). |
+| `Place`, `ClusterTitle`, `MapCluster` | A place from the bundled list; a cluster's name (largest place, number of other places); a cluster as the map shows it (with title and cover). |
 | `RemoteFile` | `path`, `name`, `isDirectory`, `sizeBytes`, `contentType`, `etag`, `fileId`, `lastModifiedMillis`, `checksums: Map<ChecksumType, String>`, `hasPreview`. |
 | `UploadState` | sealed: `Unknown`, `NotUploaded`, `Uploaded(verifiedByChecksum: Boolean)`. |
 | `CertificateInfo` | `host`, `subject`, `issuer`, `notBefore`, `notAfter`, `sha256Fingerprint`, `changedFromPinned: Boolean`. |
-| `MediaSource` | The list a viewer pages through: `Folder(bucketId)`; the timeline and map add theirs in Phases 5 and 6. |
+| `MediaSource` | The list a viewer pages through: `Folder(bucketId)`, `Map(bounds)`; the timeline adds its own in Phase 5. |
 | `ImageDetails` | What the image info sheet shows: file values plus formatted EXIF values. |
 | `ShareSpec` | Content URIs and MIME type to share; `:core:ui` turns it into an intent. |
 | `TrashEffect` | The next UI step when moving images to the trash: confirmation, message with undo, or failure. |
-| `ViewContext` | `Folder(bucketId)`, `Timeline`, `Map` (Phase 6) – used by the selection overview to decide which selected items the current view can show. |
+| `ViewContext` | `Folder(bucketId)`, `Timeline`, `Map` – used by the selection overview to decide which selected items the current view can show. |
 | `EditOperation` | sealed: `Rotate(quarterTurns)`, `Crop(rect: NormalizedRect, aspect)`, `Scale(targetWidth, targetHeight)`, `PenStroke(points: List<NormalizedPoint>, colorArgb, widthFraction)`. Coordinates are normalized (0..1) relative to the image *after* previous operations, so they are resolution independent. |
 | `AspectRatio` | `Free`, `Original`, `Square`, `FourThree`, `SixteenNine`. |
 | `NextcloudAccount` | `serverUrl`, `loginName`, `userId` (no secret). |
 | `TimelineSection` | `year`, `month`, `day`, `firstIndex`, `count` (for headers and fast-scroll index). |
 | `MediaAccess` | `Full`, `Partial`, `Denied`. |
 | `PlatformConfirmation` | Opaque wrapper (`handle: Any`) around a system confirmation request. The `:core:media` adapter puts an `IntentSender` inside; `:core:ui` launches it. Core and ViewModels only pass it through, and tests use any placeholder object. |
-| `UserSettings`, `ThemeMode` | User preferences: `folderRules`, `excludePatterns`, `gridColumns`, `themeMode`, `accentColor`, with their defaults. |
+| `UserSettings`, `ThemeMode` | User preferences: `folderRules`, `excludePatterns`, `gridColumns`, `themeMode`, `accentColor`, `tileUrl`, `currentLocationAsked`, with their defaults. |
 
 #### `:core:common` (pure Kotlin)
 
@@ -247,7 +252,10 @@ Ports (implemented by adapters):
 | `MediaWriteSink` | `:core:media` | Insert pending copy / open for overwrite / publish; returns `PlatformConfirmation` when the system must confirm. |
 | `MediaDeleteSource` | `:core:media` | Trash, restore and permanent delete requests as `PlatformConfirmation`. |
 | `ImageRenderer` | `:core:media` | Decode at a max size, apply a list of `RenderStep`s (matrices, crops, strokes computed by `EditGeometry`), encode. |
-| `MediaPermissionSource` | `:core:media` | Currently granted media permissions as strings. |
+| `MediaPermissionSource` | `:core:media` | Currently granted media and location permissions as strings. |
+| `GeoIndexStore` | `:core:database` | The locations in the index: `observeGeotagged()`, `unscanned(limit)`, `saveLocations(locations)`, `pagedInBounds(bounds, config)`, `indexInBounds(bounds, id)`. |
+| `PlaceSource` | `:core:platform` | The bundled GeoNames list (D45); empty if the app ships without it. |
+| `LocationProvider` | `:core:platform` | The device's position from the platform `LocationManager` (D44). |
 | `MediaIndexStore` | `:core:database` | Index reads/writes, folder list; paged queries returned as `Flow<PagingData<MediaItem>>` (the repository decides the `PagingConfig`; the Room adapter builds the `Pager` and maps entities). |
 | `UploadStateStore`, `RemoteCacheStore`, `SyncStateStore` | `:core:database` | Room tables behind model-typed interfaces. |
 | `WorkScheduler` | `:core:platform` | `enqueueIndex(mode)`, `scheduleUploadStateSync()`, `requestUploadStateSync()`. |
@@ -259,7 +267,8 @@ Repositories (interfaces + `Default…` implementations with `@Inject` construct
 
 | Repository | Responsibility |
 | --- | --- |
-| `MediaRepository` | Paged lists per `MediaSource` (grid and viewer), position of an image in a list, item lookup, location items for map, image details (EXIF on demand). |
+| `MediaRepository` | Paged lists per `MediaSource` (grid and viewer), position of an image in a list, item lookup, image details (EXIF on demand, with the place name). |
+| `MapRepository` | `observeClusters(viewport)` (debounced, computed on `Default`, with titles and covers), `observeHasGeotagged()`, `startCamera(location)` (D44). |
 | `FolderRepository` | Folder list with counts/covers from the index; `observeAllDeviceFolders()` lists the folders in MediaStore regardless of the rules, for the folder rules screen. |
 | `IndexRepository` | Full scan, incremental sync, deletion detection (`MediaIndexer`); publishes `IndexStatus` flow. |
 | `MediaActionsRepository` | Delete/trash and restore requests, removes rows and deselects after a confirmed result, `ShareSpec` for images. `TrashFlow` (one instance per ViewModel) holds the steps of request, confirmation and undo. |
@@ -276,6 +285,8 @@ Pure logic (each class unit-tested on the JVM):
 
 - `IndexScheduler` – decides full vs incremental, debounces `MediaChangeSource`, calls `WorkScheduler`.
 - `MediaIndexer` – full/incremental sync algorithm, batching, deletion detection.
+- `LocationBackfill` – the second indexing pass (see 5.1). `GpsParser` – raw GPS tags → `GeoPoint`.
+- `MapPermissions` – granted permissions → may the app read photo locations, and the device's position.
 - `DateResolver`, `ExifDateParser` – `DATE_TAKEN` → EXIF `DateTimeOriginal` (+ offset) → `DATE_MODIFIED`.
 - `FolderRuleMatcher` – is a relative path indexed? The nearest rule decides; without one the folder is indexed unless an exclude pattern matches (D52). (`.nomedia` folders are already hidden by MediaStore, so there is no own `.nomedia` handling.)
 - `ExcludePatterns` – the "Also exclude folders matching" field: text to patterns, pattern to `Regex` (`*` matches any characters, case-insensitive).
@@ -285,7 +296,10 @@ Pure logic (each class unit-tested on the JVM):
 - `UploadStateMatcher`, `ChecksumCalculator` (streams SHA-1 / MD5 of an `InputStream`), `ChecksumParser`.
 - `SelectionRepresentability` – can a view context show an item (Map: has GPS; Folder: same bucket; Timeline: always, since every item has a resolved date).
 - `EditSession` / `EditHistory`, `CropMath`, `ScaleMath`, `EditGeometry` (operations → output size and `RenderStep`s), `MemoryBudget` (fits / refuse with required vs available bytes), `EditableFormats` (JPEG, PNG).
-- `GridClusterer`, `SectionIndexBuilder`.
+- `GridClusterer` – images → clusters: square cells of a grid fixed to the world (Web Mercator), so a cluster only changes with the zoom, not when the map pans. Keeps the clusters whose centre is in the viewport.
+- `PlaceNamer`, `PlaceIndex`, `PlaceFileParser` – offline reverse lookup (D45): the nearest place within 30 km, from a grid of one-degree cells; a merged cluster is named after its largest place. The list is read once, on first use.
+- `TileUrls` – what a tile server address must look like (`https://`, `{z}`, `{x}`, `{y}`).
+- `SectionIndexBuilder`.
 
 #### `:core:nextcloud` (pure Kotlin/JVM)
 
@@ -307,6 +321,7 @@ Pure logic (each class unit-tested on the JVM):
 - Entities: `MediaEntity`, `UploadStateEntity`, `RemoteFileCacheEntity`, `SyncStateEntity`.
 - DAOs:
   - `MediaDao` – `upsertAll`, `deleteByIds`, `deleteNotIn(generation)`, `pagingByBucket(bucketId): PagingSource<Int, MediaEntity>`, `pagingTimeline(): PagingSource`, `observeWithLocation(bounds)`, `getById`, `observeIdsInBucket` (viewer pager), `timelineSections(tzOffset...)`.
+  - `GeoDao` – the location side of the `media` table: `observeGeotagged()`, `unscanned(limit)`, `setLocations(rows)`, `pagingInBounds(...)`, `indexInBounds(...)`.
   - `FolderDao` – `observeFolders()`: `FolderRow` (the folder's newest image plus the image count), sorted by name.
   - `UploadStateDao` – `observeForMedia(ids)`, `upsertAll`, `deleteForFolder`.
   - `RemoteFileCacheDao` – `replaceFolder(parentPath, files)`, `observeFolder(parentPath)`.
@@ -319,12 +334,12 @@ Pure logic (each class unit-tested on the JVM):
 | --- | --- | --- |
 | `MediaStoreScanner` | `MediaScanSource` | Queries `MediaStore.Images.Media` per external volume in batches of 500, using `GENERATION_MODIFIED` for incremental scans. |
 | `MediaStoreChangeObserver` | `MediaChangeSource` | `ContentObserver` on `MediaStore.Images.Media.EXTERNAL_CONTENT_URI` as `callbackFlow`. |
-| `AndroidExifSource` | `ExifSource` | `androidx.exifinterface` on `MediaStore.setRequireOriginal(uri)` streams; returns raw tag values, parsing happens in `ExifDateParser`. |
+| `AndroidExifSource` | `ExifSource` | `androidx.exifinterface` on content URI streams, with `MediaStore.setRequireOriginal(uri)` when `ACCESS_MEDIA_LOCATION` is granted (D16); returns raw tag values, parsing happens in `ExifDateParser` and `GpsParser`. |
 | `ContentResolverContentSource` | `MediaContentSource` | Opens content URIs. |
 | `MediaStoreWriter` | `MediaWriteSink` | Inserts a pending copy (`IS_PENDING`), overwrites via `createWriteRequest`, copies EXIF (`ExifWriter`). |
 | `MediaStoreDeleter` | `MediaDeleteSource` | `createTrashRequest` / `createDeleteRequest` wrapped in `PlatformConfirmation`. |
 | `BitmapImageRenderer` | `ImageRenderer` | `ImageDecoder` decode, applies `RenderStep`s with `Matrix`/`Canvas`/`Path`, encodes JPEG/PNG. |
-| `AndroidMediaPermissionSource` | `MediaPermissionSource` | `checkSelfPermission` for the media permissions. |
+| `AndroidMediaPermissionSource` | `MediaPermissionSource` | `checkSelfPermission` for the media and location permissions. |
 
 #### `:core:platform` (Android adapter and wiring)
 
@@ -332,6 +347,8 @@ Pure logic (each class unit-tested on the JVM):
 - `WorkManagerScheduler` implements `WorkScheduler` (unique work names, constraints, backoff).
 - `KeystoreSecretCipher` implements `SecretCipher` (Tink AEAD, keyset wrapped by an Android Keystore master key).
 - `ActivityManagerMemoryInfo` implements `MemoryInfoSource`.
+- `AssetPlaceSource` implements `PlaceSource`: reads `assets/geonames/cities15000.tsv` (name, country code, latitude, longitude, population; CC BY 4.0). `tools/build-places-asset.sh` rebuilds it from the GeoNames dump; the app build downloads nothing.
+- `AndroidLocationProvider` implements `LocationProvider`: last known position, else one fresh fix with a 5 s limit.
 - `PackageManagerNextcloudAppSource` implements `NextcloudAppSource` (manifest `<queries>` entry for `com.nextcloud.client`).
 - Hilt modules: `DispatchersModule`, `DataStoreModule` (file locations), `RepositoryModule` (binds `:core:data` interfaces to `Default…` implementations), `NextcloudModule`. Implemented so far: `PlatformModule` (dispatchers, clock, WorkManager, `WorkScheduler`) and `RepositoryModule`; `:core:database` and `:core:media` bind their own adapters (`DatabaseModule`, `MediaModule`).
 
@@ -355,11 +372,11 @@ Each feature contains: `XxxRoute` (serializable route object/class), `XxxScreen`
 | --- | --- | --- |
 | `:feature:folders` | Folder list, folder grid, selection overview | Default start destination. The selection overview (D33) lists all selected images and greys out those the calling view (`ViewContext`) cannot show; other features open it through `:app` navigation. |
 | `:feature:timeline` | Timeline grid | Sticky year/month/day headers; scrollbar label = month/year. |
-| `:feature:map` | Map | `MapRenderer` interface + `OsmdroidMapRenderer` (AndroidView); clusters come from `GridClusterer` in `:core:data`; tapping a cluster opens a grid of its items. |
+| `:feature:map` | Map, cluster sheet | `MapRenderer` interface + `OsmdroidMapRenderer` (AndroidView), so that the map library can be replaced (D23). `MapRendererBinding` connects any renderer to the state; `OsmdroidSetup` (user agent, cache, zoom range, repetition) and the marker drawing are separate, so they can be tested without a map. Clusters come from `MapRepository`; tapping a cluster opens a sheet with a grid of its items, and tapping an image opens the viewer with `MediaSource.Map(cluster.bounds)`. Selecting works as elsewhere (D33). |
 | `:feature:viewer` | Full-screen pager, info sheet | `HorizontalPager` + Telephoto `ZoomableAsyncImage`; also used for remote images through a different source argument. |
 | `:feature:editor` | Editor | Crop overlay, pen canvas, save dialog; `EditSession` from `:core:data`. |
 | `:feature:remote` | Nextcloud login, remote folder browser | Remote grid uses preview API thumbnails. |
-| `:feature:settings` | Settings root, folder rules, appearance (theme, grid columns, accent colour), About & licences; later Nextcloud account, remote root, accepted certificates | The screens open from the Folders top bar in a navigation graph of their own, without the bottom navigation. The Nextcloud row is a placeholder until Phase 8. The version comes from `:app`'s `BuildConfig` through `AboutInfo`. |
+| `:feature:settings` | Settings root, folder rules, appearance (theme, grid columns, accent colour), map tile server (D23), About & licences; later Nextcloud account, remote root, accepted certificates | The screens open from the Folders top bar in a navigation graph of their own, without the bottom navigation. The Nextcloud row is a placeholder until Phase 8. The version comes from `:app`'s `BuildConfig` through `AboutInfo`. |
 
 ## 4. Data model
 
@@ -440,7 +457,7 @@ Notes:
 
 | Store | Content |
 | --- | --- |
-| `settings.preferences_pb` | Folder rules (default: exclude `Android/data` and WhatsApp's `.Statuses`, removable like any rule), exclude patterns, grid columns, theme mode, accent colour; later phases add the tile URL, remote root, save-copy-vs-overwrite default and pen colour/width. A corrupt file is replaced by the defaults. |
+| `settings.preferences_pb` | Folder rules (default: exclude `Android/data` and WhatsApp's `.Statuses`, removable like any rule), exclude patterns, grid columns, theme mode, accent colour, tile server address, whether the location prompt was shown; later phases add the tile URL, remote root, save-copy-vs-overwrite default and pen colour/width. A corrupt file is replaced by the defaults. |
 | `trusted_certs.preferences_pb` | Pinned certificates: host → SHA-256 fingerprint and the details shown when it was accepted. |
 | `credentials.pb` | Tink-encrypted blob: server URL, login name, user id, app password. |
 
@@ -492,12 +509,12 @@ sequenceDiagram
 Details:
 
 - Deletions are not reported by generation queries, so each sync compares ID sets (`allIds()` is a projection-only cursor; ~fast even at 50k rows). Rows are removed in chunks of 900 (SQLite variable limit).
-- EXIF reading is the expensive part. GPS is read only for JPEG/HEIF/WebP during the scan, and in a **second pass** (`exif_scanned = false` rows) after the grid-relevant data is committed, so folders appear quickly on first launch. Date fallback order: `DATE_TAKEN` → EXIF `DateTimeOriginal` (with `OffsetTimeOriginal` when present) → `DATE_MODIFIED`.
-- Without `ACCESS_MEDIA_LOCATION`, `setRequireOriginal` throws / GPS is redacted; location is then left null and the map shows a hint.
+- EXIF reading is the expensive part. GPS is read only for JPEG/HEIF/WebP, in a **second pass** (`LocationBackfill`, on `exif_scanned = false` rows, 200 at a time) at the end of every sync, after the grid-relevant data is committed, so folders appear quickly on first launch. An interrupted pass continues at the next sync. A later scan keeps the stored location unless the file's size or modification date changed. Date fallback order: `DATE_TAKEN` → EXIF `DateTimeOriginal` (with `OffsetTimeOriginal` when present) → `DATE_MODIFIED`.
+- Without `ACCESS_MEDIA_LOCATION` Android hides the GPS tags, so the second pass does nothing and the rows stay unscanned, and the map shows a card asking for the permission. When it is granted, `IndexScheduler.onPhotoLocationsAllowed()` queues a sync, which runs the pass.
 - With partial access, the scan only sees user-selected images. The selection cannot be read from the permission state, so the index is rebuilt (full scan) whenever the permission dialog or photo selection closes (`MainEvent.AccessRequestFinished`) and whenever the access level changes.
 - `.nomedia`: MediaStore already excludes folders that contain a `.nomedia` file from the image collection, so the indexer does not check for it, and the folder rules screen cannot list these folders (D53) (confirmed on the Pixel 10a by the instrumented `MediaStoreScannerTest`). MediaStore applies it when it scans, so the image disappears after the next scan of that folder, not at the moment the `.nomedia` file is created.
 - Rule changes: `RuleChangeObserver` runs from `NextGalleryApplication`, so a change still reaches the index when the user leaves the app right after it. Only killing the process within the 2 s debounce loses the rescan, until the next full scan.
-- Phase 1 status: dates are resolved (incl. the EXIF fallback); GPS and the second EXIF pass come in Phase 6, and `IndexWorker` does not report progress yet.
+- `IndexWorker` does not report progress yet.
 - `IndexWorker` is expedited for the first scan, runs as normal work otherwise, and reports progress through `setProgress` for the UI's indexing indicator.
 
 ### 5.2 Opening a folder grid with paging
@@ -806,7 +823,7 @@ flowchart LR
 
 Rules:
 
-- Route arguments carry only IDs/paths, never full objects. Large ID lists (map clusters) are passed via a short-lived `SavedStateHandle`-backed holder in the repository keyed by a token, not through the route.
+- Route arguments carry only IDs/paths, never full objects. A map cluster is passed as its bounds (`GeoBounds.encode()`), which hold exactly its images, so no list of IDs has to travel.
 - Feature screens receive navigation lambdas (`onOpenItem: (Long, ViewerSource) -> Unit`) instead of a `NavController`.
 - `ACTION_VIEW` of an image opens `ExternalImageScreen` instead of the navigation graph (see 5.3).
 
@@ -867,7 +884,7 @@ Other screens (abbreviated):
 | --- | --- |
 | Folders | `folders: List<Folder>`, `access: MediaAccess`, `isIndexing`, `indexProgress` |
 | Timeline | `sectionIndex` (year/month labels), `selectionCount`, `isIndexing` (+ separate paging flow with `GridItem.Header`) |
-| Map | `clusters: List<MapCluster>` for current viewport + zoom, `itemsWithoutLocation: Int`, `locationPermissionMissing: Boolean` |
+| Map | `clusters: List<MapCluster>` for current viewport + zoom, `camera`, `currentLocation`, `openCluster`, `showPhotoLocationCard`, `showNoGeotaggedCard`, `tileUrl`, `selectedIds` (+ separate paging flow for the open cluster) |
 | Viewer | `ids: List<Long>`, `currentIndex`, `current: MediaItem?`, `details: ImageDetails?`, `chromeVisible`, `infoSheetVisible` |
 | Editor | `preview: PreviewImage?`, `tool: EditTool`, `cropRect`, `aspect`, `penColor`, `penWidth`, `canUndo`, `canRedo`, `isSaving`, `saveMode` |
 | Remote browser | `path`, `entries: List<RemoteFile>`, `isRefreshing`, `isOffline` (shows cached `remote_cache` data), `error` |
@@ -941,7 +958,7 @@ Rules:
 - No backup (D42): `android:allowBackup="false"` stops cloud backup, and `data_extraction_rules.xml` also excludes all app data from device transfer, so credentials can never leave the device this way.
 - **TLS**: platform defaults via OkHttp; `network_security_config.xml` disallows cleartext traffic, so v1 accepts `https://` servers only (cleartext for debug builds only, via a debug-only config). User-installed CAs (`<certificates src="user"/>`) are trusted in addition to system CAs. Any other certificate is only trusted after the user accepts it in a warning dialog; it is then pinned per host by SHA-256 fingerprint (`PinningTrustManager`, D32). A changed certificate triggers the warning again. The same OkHttp client is used for WebDAV, the preview API and Coil, so all remote traffic follows the same rule.
 - Authorization header added only for requests to the configured server host (interceptor checks host), so redirects to other hosts never leak credentials.
-- **No tracking**: no analytics, no crash reporting SDKs, no Google Play Services. osmdroid tile requests go to OSM tile servers with a proper user agent (required by OSM tile usage policy); this is the only third-party network traffic and is triggered only by opening the map.
+- **No tracking**: no analytics, no crash reporting SDKs, no Google Play Services. osmdroid tile requests go over HTTPS to the OSM tile server (or the one set in Settings) with the user agent `NextGalleryApp (Android, osmdroid)`, which names the app, as the OSM tile usage policy requires, and carries no personal data. This is the only third-party network traffic and is triggered only by opening the map. Place names are looked up on the phone (D45), and tiles are cached in the app's cache folder.
 - **Least privilege**: only `READ_MEDIA_IMAGES`, `READ_MEDIA_VISUAL_USER_SELECTED`, `ACCESS_MEDIA_LOCATION`, `ACCESS_COARSE_LOCATION` (optional, D44), `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_LOCAL_NETWORK` (D39), plus a `<queries>` entry for `com.nextcloud.client`. No foreground service or notification permission (uploads are done by the Nextcloud app). Destructive actions go through system dialogs.
 - Shared local images use MediaStore content URIs with temporary read grants. Server images are downloaded first and shared through a `FileProvider` limited to one temporary cache folder (D48); the rest of the app's storage stays private.
 
@@ -992,10 +1009,10 @@ Robolectric's shadows do not reproduce some platform behaviour. These parts are 
 | --- | --- | --- |
 | MediaStore queries (`MediaStoreScanner`) | The shadow `ContentResolver` has no real MediaStore provider (`GENERATION_MODIFIED`, `IS_TRASHED`, `.nomedia` handling). `MediaStoreScannerTest` (`:core:media`). | Insert test images through `MediaStore`, assert the scanner's results, delete them afterwards. |
 | `ContentResolver.loadThumbnail` (Coil fetcher) | Not backed by the system thumbnail cache. | Thumbnail returned at the requested size bucket. |
-| EXIF GPS with `setRequireOriginal` | Location redaction depends on the real permission and provider. | GPS read with `ACCESS_MEDIA_LOCATION` granted, null without. |
+| EXIF GPS with `setRequireOriginal` | Location redaction depends on the real permission and provider. | `AndroidExifSourceGpsTest`: GPS read with `ACCESS_MEDIA_LOCATION` granted. Without the permission is a manual check, because a test app that owns the file sees its location anyway. |
 | Android Keystore (`KeystoreSecretCipher`) | Robolectric has no `AndroidKeyStore` provider. | Encrypt/decrypt round trip with a Keystore-wrapped keyset. |
 | HEIC display (viewer, thumbnails) | Native graphics in Robolectric may not include the platform HEIF codec. | A HEIC fixture decodes and displays. |
 | Trash, delete and write requests | The system confirmation dialogs only exist on a device. | Intent sender launches; confirmation itself is a manual check. |
-| osmdroid map | `MapView` rendering and tile loading need a real view hierarchy and network. | Map screen shows clusters for geotagged fixtures (emulator: needs network). |
+| osmdroid map | `MapView` rendering and tile loading need a real view hierarchy and network. | `OsmdroidMapRendererDeviceTest`: clusters appear as markers on a laid-out map, and the first layout reports the viewport. Tiles are a manual check. |
 
 A behaviour tested on the device is not tested again in Robolectric (no overlap); the JVM tests cover the logic around it with fakes.

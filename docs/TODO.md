@@ -259,27 +259,27 @@ _Depends on: Phases 2 (grid), 3 (viewer)._
 **Goal:** images with GPS shown as clustered markers on an OpenStreetMap map.
 _Depends on: Phases 1 (GPS in index, ACCESS_MEDIA_LOCATION), 3 (viewer)._
 
-- [ ] **6.1 Location data**
-  - [ ] `MediaIndexer` fills lat/long from `ExifSource` (`GpsParser` in `:core:data` turns raw GPS tags into `GeoPoint`); re-index when `ACCESS_MEDIA_LOCATION` is granted later. JVM tests: valid GPS, missing GPS, permission missing → null, permission granted → re-index.
-  - [ ] Lazy GPS backfill: a `LocationBackfill` step in `:core:data` run after the main sync (via `IndexRepository`) for rows with `exif_scanned = false` (column exists since schema v1, see ARCHITECTURE.md §4.1). Tests: backfill only unscanned rows, flag set afterwards.
-  - [ ] `MediaDao.observeGeotagged(bounds?)` (id, lat, lon). Test.
-- [ ] **6.2 Clustering (`:core:data`, JVM)**
-  - [ ] `GeoPoint`, `GeoBounds`, `Cluster(center, count, coverId, ids)` in `:core:model`.
-  - [ ] `GridClusterer.cluster(points, bounds, zoom, cellPx)` (pure Kotlin, grid-based). Tests: single point, merge within cell, split at higher zoom, antimeridian handling.
-  - [ ] `MapRepository.observeClusters(viewport: Flow<Viewport>)` (debounced, computed on `Dispatchers.Default`). Test with Turbine.
-  - [ ] `PlaceNamer` (D45): loads the bundled GeoNames `cities15000` extract (name, country, lat, lon) into a spatial grid; `nearest(point, maxKm = 30)` → place or null; `clusterTitle(cluster)` → "near X", "near X and N more places" or null (count only). JVM tests: within/outside 30 km, merged cluster named after its largest place with a town, no town.
-  - [ ] Build step that turns the GeoNames dump into the bundled asset (only the needed columns), plus the attribution in About. Test: asset parses and has the expected row count.
-- [ ] **6.3 `:feature:map`**
-  - [ ] `MapRenderer` interface (`setClusters`, `setViewport`, `onViewportChanged`, `onClusterClick`) + `OsmdroidMapRenderer` in `AndroidView` (user agent set, tile cache in app cache dir, no Play Services). Test: `FakeMapRenderer` used in ViewModel tests; osmdroid config (user agent, tile URL) in Robolectric; instrumented test (local) that the map renders clusters.
-  - [ ] Tile source setting (default OSM tile server, configurable URL; D23) in `SettingsRepository`, read by `OsmdroidMapRenderer`. Tests: default value, custom URL applied.
-  - [ ] Cluster marker drawable with thumbnail + count (Coil-loaded bitmap). Test: count text formatting (`999+`).
-  - [ ] Viewport (D44): zoom 0–19, horizontal world repetition, multi-touch pinch and two-finger drag (osmdroid), zoom buttons and a "my location" button. Robolectric test: min/max zoom and repetition configured.
-  - [ ] Current location (D44): `ACCESS_COARSE_LOCATION` in the manifest; `LocationProvider` port with a `LocationManager` adapter (last known or one fresh fix, no Play Services); start viewport = current location at zoom 8, else the bounds of the largest cluster. Tests: permission granted/denied → start viewport; Compose test: location dot shown.
-  - [ ] `MapViewModel` → `MapUiState(clusters, viewport, permissionNeeded)`; events `ViewportChanged`, `ClusterClicked`. Tests per event.
-  - [ ] `MapScreen`: map, permission prompts for `ACCESS_MEDIA_LOCATION` and `ACCESS_COARSE_LOCATION`, empty state "no geotagged images". Compose UI test: states.
-  - [ ] Map rule in `SelectionRepresentability` (item has GPS) and selection overview entry from the map. JVM test: item without GPS greyed out for `ViewContext.Map`.
-  - [ ] Cluster tap → bottom-sheet grid of cluster items (title from `PlaceNamer`, else count and coordinates; own fast scrollbar) or viewer with `MediaSource.Map(ids/bounds)`. Test.
-- [ ] **6.4 Update docs** – ARCHITECTURE.md (MapRenderer abstraction, clustering) and README match code.
+- [x] **6.1 Location data**
+  - [x] `MediaIndexer` fills lat/long from `ExifSource` (`GpsParser` in `:core:data` turns raw GPS tags into `GeoPoint`); re-index when `ACCESS_MEDIA_LOCATION` is granted later. JVM tests: valid GPS, missing GPS, permission missing → null, permission granted → re-index. _`MediaIndexer` itself only keeps the location of unchanged files; the reading is all in `LocationBackfill`. A grant queues a sync, which ends with that pass (`IndexScheduler.onPhotoLocationsAllowed`)._
+  - [x] Lazy GPS backfill: a `LocationBackfill` step in `:core:data` run after the main sync (via `IndexRepository`) for rows with `exif_scanned = false` (column exists since schema v1, see ARCHITECTURE.md §4.1). Tests: backfill only unscanned rows, flag set afterwards.
+  - [x] `MediaDao.observeGeotagged(bounds?)` (id, lat, lon). Test. _`GeoDao.observeGeotagged()` without bounds: clustering needs every image of a cell, so `GridClusterer` filters by viewport. Behind a new `GeoIndexStore` port; no schema change._
+- [x] **6.2 Clustering (`:core:data`, JVM)**
+  - [x] `GeoPoint`, `GeoBounds`, `Cluster(center, count, coverId, ids)` in `:core:model`. _`Cluster(center, items)`; count, cover and bounds derive from the items._
+  - [x] `GridClusterer.cluster(points, bounds, zoom, cellPx)` (pure Kotlin, grid-based). Tests: single point, merge within cell, split at higher zoom, antimeridian handling.
+  - [x] `MapRepository.observeClusters(viewport: Flow<Viewport>)` (debounced, computed on `Dispatchers.Default`). Test with Turbine.
+  - [x] `PlaceNamer` (D45): loads the bundled GeoNames `cities15000` extract (name, country, lat, lon) into a spatial grid; `nearest(point, maxKm = 30)` → place or null; `clusterTitle(cluster)` → "near X", "near X and N more places" or null (count only). JVM tests: within/outside 30 km, merged cluster named after its largest place with a town, no town. _Returns `ClusterTitle(place, morePlaces)`; the wording is in `:feature:map`. The extract also has the population, to find the largest place. The search is in `PlaceIndex`._
+  - [x] Build step that turns the GeoNames dump into the bundled asset (only the needed columns), plus the attribution in About. Test: asset parses and has the expected row count. _`core/platform/tools/build-places-asset.sh`, run by hand; the result is committed (`core/platform/src/main/assets/geonames/cities15000.tsv`, 34,204 places). Without the file the app shows coordinates only._
+- [x] **6.3 `:feature:map`**
+  - [x] `MapRenderer` interface (`setClusters`, `setViewport`, `onViewportChanged`, `onClusterClick`) + `OsmdroidMapRenderer` in `AndroidView` (user agent set, tile cache in app cache dir, no Play Services). Test: `FakeMapRenderer` used in ViewModel tests; osmdroid config (user agent, tile URL) in Robolectric; instrumented test (local) that the map renders clusters. _`setViewport` is `setCamera`. `OsmdroidMapRendererDeviceTest` is written and compiled, but has not run on a device yet. `FakeMapRenderer` is used for `MapRendererBinding`; the ViewModel only sends effects._
+  - [x] Tile source setting (default OSM tile server, configurable URL; D23) in `SettingsRepository`, read by `OsmdroidMapRenderer`. Tests: default value, custom URL applied. _Plus a "Map" row in Settings to change it; only `https://` addresses with `{z}`, `{x}` and `{y}` are accepted (D19)._
+  - [x] Cluster marker drawable with thumbnail + count (Coil-loaded bitmap). Test: count text formatting (`999+`).
+  - [x] Viewport (D44): zoom 0–19, horizontal world repetition, multi-touch pinch and two-finger drag (osmdroid), zoom buttons and a "my location" button. Robolectric test: min/max zoom and repetition configured.
+  - [x] Current location (D44): `ACCESS_COARSE_LOCATION` in the manifest; `LocationProvider` port with a `LocationManager` adapter (last known or one fresh fix, no Play Services); start viewport = current location at zoom 8, else the bounds of the largest cluster. Tests: permission granted/denied → start viewport; Compose test: location dot shown. _Without a location it opens on the centre of the largest cluster at zoom 8. The dot is drawn by osmdroid, so the test checks that it reaches the renderer (`MapRendererBindingTest`) and how it is drawn (`MarkerStyleTest`)._
+  - [x] `MapViewModel` → `MapUiState(clusters, viewport, permissionNeeded)`; events `ViewportChanged`, `ClusterClicked`. Tests per event.
+  - [x] `MapScreen`: map, permission prompts for `ACCESS_MEDIA_LOCATION` and `ACCESS_COARSE_LOCATION`, empty state "no geotagged images". Compose UI test: states.
+  - [x] Map rule in `SelectionRepresentability` (item has GPS) and selection overview entry from the map. JVM test: item without GPS greyed out for `ViewContext.Map`.
+  - [x] Cluster tap → bottom-sheet grid of cluster items (title from `PlaceNamer`, else count and coordinates; own fast scrollbar) or viewer with `MediaSource.Map(ids/bounds)`. Test. _`MediaSource.Map(bounds)`: the smallest rectangle around a cluster's images holds exactly those images, because they all come from one grid cell. So no list of ids has to be passed around._
+- [x] **6.4 Update docs** – ARCHITECTURE.md (MapRenderer abstraction, clustering) and README match code.
 
 **Definition of done:** geotagged images appear as clusters that split on zoom; tapping opens images; images without GPS are absent; works without Play Services; tests for every function; CI green.
 

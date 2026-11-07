@@ -1,6 +1,7 @@
 package net.drehtuer.nextgallery.core.data.media
 
 import net.drehtuer.nextgallery.core.data.fakes.mediaItem
+import net.drehtuer.nextgallery.core.model.GeoPoint
 import net.drehtuer.nextgallery.core.model.ImageDetails
 import net.drehtuer.nextgallery.core.model.RawExif
 import org.junit.Assert.assertEquals
@@ -18,6 +19,28 @@ class ImageDetailsMapperTest {
         iso: String? = null,
         focalLength: String? = null,
     ) = RawExif(null, null, null, make, model, exposureTime, fNumber, iso, focalLength)
+
+    @Test
+    fun from_itemHasLocation_usesIt() {
+        val location = GeoPoint(45.5, 10.5)
+
+        assertEquals(location, ImageDetailsMapper.from(null, mediaItem(1).copy(location = location)).location)
+    }
+
+    @Test
+    fun from_itemWithoutLocation_readsItFromExif() {
+        val exif = RawExif(
+            null,
+            null,
+            null,
+            gpsLatitude = "45/1,30/1,0/1",
+            gpsLatitudeRef = "N",
+            gpsLongitude = "10/1,30/1,0/1",
+            gpsLongitudeRef = "E",
+        )
+
+        assertEquals(GeoPoint(45.5, 10.5), details(exif).location)
+    }
 
     @Test
     fun from_takesFileFieldsFromItem() {

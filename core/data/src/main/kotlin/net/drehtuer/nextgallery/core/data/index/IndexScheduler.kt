@@ -22,6 +22,11 @@ class IndexScheduler @Inject constructor(
         workScheduler.enqueueIndex(IndexMode.FULL)
     }
 
+    /** Every sync ends with the location pass, which could not read anything before this grant. */
+    fun onPhotoLocationsAllowed() {
+        workScheduler.enqueueIndex(IndexMode.INCREMENTAL)
+    }
+
     @OptIn(FlowPreview::class)
     suspend fun observeMediaChanges() {
         mediaChangeSource.changes()

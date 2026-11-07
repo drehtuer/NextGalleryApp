@@ -9,6 +9,8 @@ abstract class NextGalleryDatabase : RoomDatabase() {
 
     abstract fun folderDao(): FolderDao
 
+    abstract fun geoDao(): GeoDao
+
     abstract fun syncStateDao(): SyncStateDao
 
     companion object {

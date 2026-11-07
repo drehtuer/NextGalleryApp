@@ -10,10 +10,12 @@ import net.drehtuer.nextgallery.core.data.fakes.FakeMediaIndexStore
 import net.drehtuer.nextgallery.core.data.fakes.FakeMediaScanSource
 import net.drehtuer.nextgallery.core.data.fakes.FakeMediaScanSource.Companion.VOLUME
 import net.drehtuer.nextgallery.core.data.fakes.FakeSyncStateStore
+import net.drehtuer.nextgallery.core.data.fakes.mediaItem
 import net.drehtuer.nextgallery.core.data.fakes.scannedImage
 import net.drehtuer.nextgallery.core.data.settings.SettingsRepository
 import net.drehtuer.nextgallery.core.model.DateSource
 import net.drehtuer.nextgallery.core.model.FolderRule
+import net.drehtuer.nextgallery.core.model.GeoPoint
 import net.drehtuer.nextgallery.core.model.RawExif
 import net.drehtuer.nextgallery.core.model.UserSettings
 import org.junit.Assert.assertEquals
@@ -54,6 +56,89 @@ class MediaIndexerTest {
 
     private fun previousState(generation: Long = 5, version: String = "v1") =
         SyncState(VOLUME, lastGeneration = generation, mediaStoreVersion = version, lastFullScanMillis = 100)
+
+    @Test
+    fun sync_newImage_hasNoLocationYet() = runTest {
+        scanSource.images = listOf(scannedImage(1))
+
+        indexer().sync(IndexMode.FULL)
+
+        assertEquals(null to false, store.items.value.getValue(1).let { it.location to it.exifScanned })
+    }
+
+    @Test
+    fun sync_unchangedScannedImage_keepsItsLocation() = runTest {
+        val image = scannedImage(1)
+        val location = GeoPoint(45.5, 10.5)
+        store.upsertAll(
+            listOf(
+                mediaItem(1).copy(
+                    sizeBytes = image.sizeBytes,
+                    dateModifiedSeconds = image.dateModifiedSeconds,
+                    location = location,
+                    exifScanned = true,
+                ),
+            ),
+        )
+        scanSource.images = listOf(image)
+
+        indexer().sync(IndexMode.FULL)
+
+        assertEquals(location to true, store.items.value.getValue(1).let { it.location to it.exifScanned })
+    }
+
+    @Test
+    fun sync_changedScannedImage_isScannedAgain() = runTest {
+        val image = scannedImage(1)
+        store.upsertAll(
+            listOf(
+                mediaItem(1).copy(
+                    sizeBytes = image.sizeBytes + 1,
+                    dateModifiedSeconds = image.dateModifiedSeconds,
+                    location = GeoPoint(45.5, 10.5),
+                    exifScanned = true,
+                ),
+            ),
+        )
+        scanSource.images = listOf(image)
+
+        indexer().sync(IndexMode.FULL)
+
+        assertEquals(null to false, store.items.value.getValue(1).let { it.location to it.exifScanned })
+    }
+
+    @Test
+    fun sync_rewrittenWithSameSize_isScannedAgain() = runTest {
+        val image = scannedImage(1)
+        store.upsertAll(
+            listOf(
+                mediaItem(1).copy(
+                    sizeBytes = image.sizeBytes,
+                    dateModifiedSeconds = image.dateModifiedSeconds + 1,
+                    location = GeoPoint(45.5, 10.5),
+                    exifScanned = true,
+                ),
+            ),
+        )
+        scanSource.images = listOf(image)
+
+        indexer().sync(IndexMode.FULL)
+
+        assertEquals(false, store.items.value.getValue(1).exifScanned)
+    }
+
+    @Test
+    fun sync_unscannedImage_staysUnscanned() = runTest {
+        val image = scannedImage(1)
+        store.upsertAll(
+            listOf(mediaItem(1).copy(sizeBytes = image.sizeBytes, dateModifiedSeconds = image.dateModifiedSeconds)),
+        )
+        scanSource.images = listOf(image)
+
+        indexer().sync(IndexMode.FULL)
+
+        assertEquals(false, store.items.value.getValue(1).exifScanned)
+    }
 
     @Test
     fun sync_firstRun_insertsAllImages() = runTest {

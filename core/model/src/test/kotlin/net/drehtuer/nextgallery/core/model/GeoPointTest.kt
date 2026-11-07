@@ -20,4 +20,14 @@ class GeoPointTest {
     fun init_longitudeOutOfRange_throws() {
         GeoPoint(latitude = 0.0, longitude = -180.1)
     }
+
+    @Test
+    fun formatted_northEast_matchesDesign() {
+        assertEquals("45.62° N, 10.68° E", GeoPoint(45.6214, 10.6849).formatted())
+    }
+
+    @Test
+    fun formatted_southWest_usesPositiveNumbers() {
+        assertEquals("72.50° S, 40.00° W", GeoPoint(-72.5, -40.0).formatted())
+    }
 }

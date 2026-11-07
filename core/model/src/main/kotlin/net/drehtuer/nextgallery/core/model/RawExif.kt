@@ -11,4 +11,8 @@ data class RawExif(
     val fNumber: String? = null,
     val iso: String? = null,
     val focalLength: String? = null,
+    val gpsLatitude: String? = null,
+    val gpsLatitudeRef: String? = null,
+    val gpsLongitude: String? = null,
+    val gpsLongitudeRef: String? = null,
 )

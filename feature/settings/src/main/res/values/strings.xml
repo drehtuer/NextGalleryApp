@@ -4,6 +4,13 @@
     <string name="feature_settings_folders_detail">Include, exclude and hidden folders</string>
     <string name="feature_settings_appearance">Appearance</string>
     <string name="feature_settings_appearance_detail">Theme, grid columns and accent colour</string>
+    <string name="feature_settings_map_tiles">Map</string>
+    <string name="feature_settings_map_tiles_detail">Tile server</string>
+    <string name="feature_settings_map_tiles_label">Tile server address</string>
+    <string name="feature_settings_map_tiles_hint">An https:// address with {z}, {x} and {y}. The server sees which map areas you look at. Follow its usage policy.</string>
+    <string name="feature_settings_map_tiles_invalid">The address must start with https:// and contain {z}, {x} and {y}.</string>
+    <string name="feature_settings_map_tiles_save">Save</string>
+    <string name="feature_settings_map_tiles_reset">Use OpenStreetMap</string>
     <string name="feature_settings_nextcloud">Nextcloud</string>
     <string name="feature_settings_not_connected">Not connected</string>
     <string name="feature_settings_about">About &amp; licences</string>

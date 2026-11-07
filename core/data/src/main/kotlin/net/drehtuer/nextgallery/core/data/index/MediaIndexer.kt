@@ -51,7 +51,8 @@ class MediaIndexer @Inject constructor(
         batches.collect { batch ->
             currentCoroutineContext().ensureActive()
             val (indexed, skipped) = batch.partition { matcher.isIndexed(it.relativePath) }
-            indexStore.upsertAll(indexed.map { it.toMediaItem() })
+            val known = indexStore.getByIds(indexed.map { it.id }).associateBy { it.id }
+            indexStore.upsertAll(indexed.map { it.toMediaItem(known[it.id]) })
             indexed.mapTo(seen) { it.id.value }
             skipped.mapTo(excluded) { it.id.value }
             upserted += indexed.size
@@ -66,7 +67,11 @@ class MediaIndexer @Inject constructor(
         return IndexStats(upserted = upserted, deleted = toDelete.size)
     }
 
-    private suspend fun ScannedImage.toMediaItem(): MediaItem {
+    /** The location comes from [LocationBackfill]. It is only looked for again if the file changed since [known]. */
+    private suspend fun ScannedImage.toMediaItem(known: MediaItem?): MediaItem {
+        val scanned = known?.takeIf {
+            it.exifScanned && it.sizeBytes == sizeBytes && it.dateModifiedSeconds == dateModifiedSeconds
+        }
         val dateTaken = dateTakenMillis
         val exif = if (dateTaken == null || dateTaken <= 0) {
             exifSource.read(contentUri)?.let(exifDateParser::parse)
@@ -92,7 +97,8 @@ class MediaIndexer @Inject constructor(
             takenLocalDate = date.localDate,
             dateModifiedSeconds = dateModifiedSeconds,
             generationModified = generationModified,
-            location = null,
+            location = scanned?.location,
+            exifScanned = scanned != null,
         )
     }
 }

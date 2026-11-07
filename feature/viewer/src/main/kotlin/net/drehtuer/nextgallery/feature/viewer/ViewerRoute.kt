@@ -12,12 +12,20 @@ import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import androidx.paging.compose.collectAsLazyPagingItems
 import kotlinx.serialization.Serializable
+import net.drehtuer.nextgallery.core.model.GeoBounds
+import net.drehtuer.nextgallery.core.model.MediaSource
 import net.drehtuer.nextgallery.core.ui.platform.rememberTrashEffectHandler
 import net.drehtuer.nextgallery.core.ui.platform.shareImages
 
-/** Pages through the folder [bucketId]. The timeline and the map add their own sources in Phases 5 and 6. */
+/**
+ * Pages through the folder [bucketId] or, if set, the map cluster [mapBounds] (from [GeoBounds.encode]).
+ * The timeline adds its own source in Phase 5.
+ */
 @Serializable
-data class ViewerRoute(val mediaId: Long, val bucketId: Long)
+data class ViewerRoute(val mediaId: Long, val bucketId: Long, val mapBounds: String? = null) {
+    internal fun source(): MediaSource =
+        mapBounds?.let(GeoBounds::decode)?.let { MediaSource.Map(it) } ?: MediaSource.Folder(bucketId)
+}
 
 fun NavGraphBuilder.viewerScreen(onBack: () -> Unit) {
     composable<ViewerRoute> { entry ->

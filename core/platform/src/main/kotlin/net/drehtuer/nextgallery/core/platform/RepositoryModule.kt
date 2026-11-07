@@ -8,6 +8,10 @@ import net.drehtuer.nextgallery.core.data.access.DefaultMediaAccessRepository
 import net.drehtuer.nextgallery.core.data.access.MediaAccessRepository
 import net.drehtuer.nextgallery.core.data.index.DefaultIndexRepository
 import net.drehtuer.nextgallery.core.data.index.IndexRepository
+import net.drehtuer.nextgallery.core.data.map.DefaultMapPermissions
+import net.drehtuer.nextgallery.core.data.map.DefaultMapRepository
+import net.drehtuer.nextgallery.core.data.map.MapPermissions
+import net.drehtuer.nextgallery.core.data.map.MapRepository
 import net.drehtuer.nextgallery.core.data.media.DefaultFolderRepository
 import net.drehtuer.nextgallery.core.data.media.DefaultMediaActionsRepository
 import net.drehtuer.nextgallery.core.data.media.DefaultMediaRepository
@@ -46,4 +50,10 @@ interface RepositoryModule {
 
     @Binds
     fun bindSettingsRepository(repository: DefaultSettingsRepository): SettingsRepository
+
+    @Binds
+    fun bindMapRepository(repository: DefaultMapRepository): MapRepository
+
+    @Binds
+    fun bindMapPermissions(permissions: DefaultMapPermissions): MapPermissions
 }

@@ -93,6 +93,7 @@ NextGalleryApp does not duplicate what the official Nextcloud Android app alread
 - `READ_MEDIA_IMAGES` – read photos; `READ_MEDIA_VISUAL_USER_SELECTED` – limited access to selected photos only.
 - `ACCESS_MEDIA_LOCATION` – read GPS data from EXIF for the map view.
 - `ACCESS_COARSE_LOCATION` – optional; opens the map at your current location. Without it, the map opens where most of your photos are.
+- `INTERNET` – map tiles; the map is the only feature that uses the network until the Nextcloud phase.
 - `INTERNET` – Nextcloud only.
 - Package visibility for `com.nextcloud.client` (`<queries>`) – to hand uploads to the Nextcloud app.
 - Deleting and overwriting originals goes through the system confirmation dialogs (`MediaStore.createDeleteRequest` / `createWriteRequest`), so no broad storage permission is required.

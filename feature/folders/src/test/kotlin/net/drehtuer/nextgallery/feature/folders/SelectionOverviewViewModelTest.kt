@@ -46,7 +46,7 @@ class SelectionOverviewViewModelTest {
     @After
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun viewModel() = SelectionOverviewViewModel(7, selectionRepository, actions, trashFlow)
+    private fun viewModel() = SelectionOverviewViewModel(ViewContext.Folder(7), selectionRepository, actions, trashFlow)
 
     @Test
     fun state_containsOverviewForCallingFolder() = runTest {

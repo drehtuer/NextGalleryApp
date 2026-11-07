@@ -26,6 +26,7 @@ internal fun MediaEntity.toModel() = MediaItem(
     dateModifiedSeconds = dateModifiedSeconds,
     generationModified = generationModified,
     location = if (latitude != null && longitude != null) GeoPoint(latitude, longitude) else null,
+    exifScanned = exifScanned,
 )
 
 internal fun MediaItem.toEntity() = MediaEntity(
@@ -50,7 +51,7 @@ internal fun MediaItem.toEntity() = MediaEntity(
     localDay = takenLocalDate.dayOfMonth,
     latitude = location?.latitude,
     longitude = location?.longitude,
-    exifScanned = false,
+    exifScanned = exifScanned,
 )
 
 internal fun FolderRow.toModel() = Folder(

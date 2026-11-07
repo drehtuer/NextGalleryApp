@@ -22,36 +22,41 @@ import net.drehtuer.nextgallery.feature.folders.SelectionOverviewRoute
 import net.drehtuer.nextgallery.feature.folders.folderGridScreen
 import net.drehtuer.nextgallery.feature.folders.folderListScreen
 import net.drehtuer.nextgallery.feature.folders.selectionOverviewScreen
+import net.drehtuer.nextgallery.feature.map.MapScreenRoute
+import net.drehtuer.nextgallery.feature.map.mapScreen
 import net.drehtuer.nextgallery.feature.settings.AboutInfo
 import net.drehtuer.nextgallery.feature.settings.AboutRoute
 import net.drehtuer.nextgallery.feature.settings.AppearanceRoute
 import net.drehtuer.nextgallery.feature.settings.FolderRulesRoute
 import net.drehtuer.nextgallery.feature.settings.LicencesRoute
+import net.drehtuer.nextgallery.feature.settings.MapTilesRoute
 import net.drehtuer.nextgallery.feature.settings.SettingsRoute
 import net.drehtuer.nextgallery.feature.settings.aboutScreen
 import net.drehtuer.nextgallery.feature.settings.appearanceScreen
 import net.drehtuer.nextgallery.feature.settings.folderRulesScreen
 import net.drehtuer.nextgallery.feature.settings.licencesScreen
+import net.drehtuer.nextgallery.feature.settings.mapTilesScreen
 import net.drehtuer.nextgallery.feature.settings.settingsScreen
 import net.drehtuer.nextgallery.feature.viewer.ViewerRoute
 import net.drehtuer.nextgallery.feature.viewer.viewerScreen
 
 /**
  * Navigation graph. The feature screens replace the placeholders in the following phases.
- * [folders] and [settings] build those destinations; tests replace them, because the real screens need Hilt.
+ * [folders], [settings] and [map] build those destinations; tests replace them, because the real screens need Hilt.
  */
 @Composable
 fun NextGalleryNavHost(
     navController: NavHostController,
     folders: NavGraphBuilder.(NavHostController) -> Unit,
     settings: NavGraphBuilder.(NavHostController) -> Unit,
+    map: NavGraphBuilder.(NavHostController) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     NavHost(navController = navController, startDestination = FoldersRoute, modifier = modifier) {
         folders(navController)
         settings(navController)
+        map(navController)
         composable<TimelineRoute> { PlaceholderScreen(stringResource(R.string.destination_timeline)) }
-        composable<MapRoute> { PlaceholderScreen(stringResource(R.string.destination_map)) }
         composable<NextcloudRoute> { PlaceholderScreen(stringResource(R.string.destination_nextcloud)) }
     }
 }
@@ -73,16 +78,30 @@ fun NavGraphBuilder.foldersGraph(navController: NavHostController) {
     }
 }
 
+/** A nested graph, like the folders. The viewer and the selection overview are registered in [foldersGraph]. */
+fun NavGraphBuilder.mapGraph(navController: NavHostController) {
+    navigation<MapRoute>(startDestination = MapScreenRoute) {
+        mapScreen(
+            onOpenViewer = { id, bounds ->
+                navController.navigate(ViewerRoute(id.value, bucketId = 0, mapBounds = bounds.encode()))
+            },
+            onOpenSelectionOverview = { navController.navigate(SelectionOverviewRoute(bucketId = 0, fromMap = true)) },
+        )
+    }
+}
+
 fun NavGraphBuilder.settingsGraph(navController: NavHostController) {
     navigation<SettingsGraphRoute>(startDestination = SettingsRoute) {
         settingsScreen(
             onBack = navController::popBackStack,
             onOpenFolders = { navController.navigate(FolderRulesRoute) },
             onOpenAppearance = { navController.navigate(AppearanceRoute) },
+            onOpenMapTiles = { navController.navigate(MapTilesRoute) },
             onOpenAbout = { navController.navigate(AboutRoute) },
         )
         folderRulesScreen(onBack = navController::popBackStack)
         appearanceScreen(onBack = navController::popBackStack)
+        mapTilesScreen(onBack = navController::popBackStack)
         aboutScreen(
             info = AboutInfo(
                 versionName = BuildConfig.VERSION_NAME,

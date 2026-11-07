@@ -7,6 +7,19 @@ import org.junit.Test
 
 class NextGalleryColorsTest {
     @Test
+    fun mapColors_light_matchDesign() {
+        assertEquals(
+            NextGalleryMapColors(Color(0xFFECE9E1), Color(0xFFAFCBDB)),
+            nextGalleryMapColors(darkTheme = false),
+        )
+    }
+
+    @Test
+    fun mapColors_dark_matchDesign() {
+        assertEquals(NextGalleryMapColors(Color(0xFF202326), Color(0xFF1C3442)), nextGalleryMapColors(darkTheme = true))
+    }
+
+    @Test
     fun colorScheme_lightAccent_usesItsPrimary() {
         assertEquals(Color(0xFF00696E), nextGalleryColorScheme(AccentColor.TEAL, dark = false).primary)
     }
