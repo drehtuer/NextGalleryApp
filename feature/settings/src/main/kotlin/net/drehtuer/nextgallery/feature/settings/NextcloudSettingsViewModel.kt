@@ -1,5 +1,6 @@
 package net.drehtuer.nextgallery.feature.settings
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.assisted.Assisted
@@ -24,6 +25,7 @@ import net.drehtuer.nextgallery.core.data.nextcloud.ACCESS_LOCAL_NETWORK_PERMISS
 import net.drehtuer.nextgallery.core.data.nextcloud.LocalNetworkPermissionSource
 import net.drehtuer.nextgallery.core.data.nextcloud.LoginState
 import net.drehtuer.nextgallery.core.data.nextcloud.NextcloudAccountRepository
+import net.drehtuer.nextgallery.core.data.nextcloud.PendingLogin
 import net.drehtuer.nextgallery.core.data.nextcloud.RemoteFileOperations
 import net.drehtuer.nextgallery.core.data.nextcloud.TrustedCertificateRepository
 import net.drehtuer.nextgallery.core.data.settings.SettingsRepository
@@ -62,6 +64,11 @@ sealed interface NextcloudSettingsEvent {
 
     data object CancelSignIn : NextcloudSettingsEvent
 
+    /** The screen is in front again, for example after the browser; a login in progress checks right away. */
+    data object Resumed : NextcloudSettingsEvent
+
+    data object Paused : NextcloudSettingsEvent
+
     /** The user read why the permission is needed. */
     data object LocalNetworkExplanationAccepted : NextcloudSettingsEvent
 
@@ -96,6 +103,7 @@ sealed interface NextcloudSettingsEffect {
 @HiltViewModel(assistedFactory = NextcloudSettingsViewModel.Factory::class)
 class NextcloudSettingsViewModel @AssistedInject constructor(
     @Assisted private val signInAgain: Boolean,
+    private val savedState: SavedStateHandle,
     private val accounts: NextcloudAccountRepository,
     private val certificates: TrustedCertificateRepository,
     private val localNetwork: LocalNetworkPermissionSource,
@@ -109,6 +117,7 @@ class NextcloudSettingsViewModel @AssistedInject constructor(
 
     private val effectChannel = Channel<NextcloudSettingsEffect>(Channel.BUFFERED)
     private val form = MutableStateFlow(NextcloudSettingsUiState())
+    private val foreground = MutableStateFlow(true)
     private var loginJob: Job? = null
     private var formWanted = signInAgain
 
@@ -127,6 +136,10 @@ class NextcloudSettingsViewModel @AssistedInject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), NextcloudSettingsUiState())
 
     init {
+        restorePendingLogin()?.let { pending ->
+            form.update { it.copy(isSigningIn = true) }
+            loginJob = viewModelScope.launch { accounts.resumeLogin(pending, foreground).collect(::onLoginState) }
+        }
         if (signInAgain) {
             viewModelScope.launch {
                 val server = accounts.observeAccount().first()?.serverUrl.orEmpty()
@@ -146,6 +159,10 @@ class NextcloudSettingsViewModel @AssistedInject constructor(
             NextcloudSettingsEvent.LocalNetworkExplanationDismissed,
             NextcloudSettingsEvent.LocalNetworkRequestFinished,
             -> onLoginEvent(event)
+
+            NextcloudSettingsEvent.Resumed -> foreground.value = true
+
+            NextcloudSettingsEvent.Paused -> foreground.value = false
 
             NextcloudSettingsEvent.TrustCertificate -> trustCertificate()
 
@@ -183,6 +200,7 @@ class NextcloudSettingsViewModel @AssistedInject constructor(
 
             else -> {
                 loginJob?.cancel()
+                clearPendingLogin()
                 form.update { it.copy(isSigningIn = false) }
             }
         }
@@ -192,30 +210,58 @@ class NextcloudSettingsViewModel @AssistedInject constructor(
         loginJob?.cancel()
         val address = state.value.serverAddress
         form.update { it.copy(isSigningIn = true, error = null, certificate = null) }
-        loginJob = viewModelScope.launch { accounts.login(address).collect(::onLoginState) }
+        loginJob = viewModelScope.launch { accounts.login(address, foreground).collect(::onLoginState) }
     }
 
     private suspend fun onLoginState(login: LoginState) {
         when (login) {
-            is LoginState.Started -> effectChannel.send(NextcloudSettingsEffect.OpenBrowser(login.loginUrl))
+            is LoginState.Started -> {
+                savePendingLogin(login.pending)
+                effectChannel.send(NextcloudSettingsEffect.OpenBrowser(login.loginUrl))
+            }
 
             LoginState.Polling -> Unit
 
             is LoginState.Success -> {
+                clearPendingLogin()
                 formWanted = false
                 form.update { it.copy(isSigningIn = false, serverAddress = "") }
                 effectChannel.send(NextcloudSettingsEffect.SignedIn)
             }
 
-            is LoginState.Failed -> form.update { current ->
-                val untrusted = (login.error as? AppError.UntrustedCertificate)?.info
-                current.copy(
-                    isSigningIn = false,
-                    certificate = untrusted,
-                    error = login.error.takeIf { untrusted == null },
-                )
+            is LoginState.Failed -> {
+                clearPendingLogin()
+                form.update { current ->
+                    val untrusted = (login.error as? AppError.UntrustedCertificate)?.info
+                    current.copy(
+                        isSigningIn = false,
+                        certificate = untrusted,
+                        error = login.error.takeIf { untrusted == null },
+                    )
+                }
             }
         }
+    }
+
+    /** Kept with the screen's saved state only, for as long as the login runs; it is never written to a file. */
+    private fun savePendingLogin(pending: PendingLogin) {
+        savedState[KEY_SERVER] = pending.serverUrl
+        savedState[KEY_ENDPOINT] = pending.pollEndpoint
+        savedState[KEY_TOKEN] = pending.token
+        savedState[KEY_STARTED_AT] = pending.startedAtMillis
+    }
+
+    /** The values are saved and cleared together, so the start time stands for all of them. */
+    private fun restorePendingLogin(): PendingLogin? {
+        val startedAt = savedState.get<Long>(KEY_STARTED_AT) ?: return null
+        val (server, endpoint, token) = listOf(KEY_SERVER, KEY_ENDPOINT, KEY_TOKEN).map {
+            savedState.get<String>(it).orEmpty()
+        }
+        return PendingLogin(server, endpoint, token, startedAt)
+    }
+
+    private fun clearPendingLogin() {
+        listOf(KEY_SERVER, KEY_ENDPOINT, KEY_TOKEN, KEY_STARTED_AT).forEach { savedState.remove<Any>(it) }
     }
 
     /** Only here, after the user's explicit decision, does a certificate get pinned (D32). */
@@ -253,6 +299,10 @@ class NextcloudSettingsViewModel @AssistedInject constructor(
     }
 
     private companion object {
+        const val KEY_SERVER = "login_server"
+        const val KEY_ENDPOINT = "login_endpoint"
+        const val KEY_TOKEN = "login_token"
+        const val KEY_STARTED_AT = "login_started_at"
         const val STOP_TIMEOUT_MILLIS = 5_000L
     }
 }
