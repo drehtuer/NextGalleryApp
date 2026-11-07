@@ -2,7 +2,6 @@ package net.drehtuer.nextgallery.core.nextcloud
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -36,8 +35,6 @@ data class LoginFlowResult(val serverUrl: String, val loginName: String, val app
 class LoginFlowV2Client(
     private val client: OkHttpClient,
     private val allowCleartext: Boolean,
-    private val pollIntervalMillis: Long = DEFAULT_POLL_INTERVAL_MILLIS,
-    private val timeoutMillis: Long = DEFAULT_TIMEOUT_MILLIS,
     private val io: CoroutineDispatcher = Dispatchers.IO,
 ) {
     private val pollClient = client.newBuilder().followRedirects(false).build()
@@ -51,18 +48,10 @@ class LoginFlowV2Client(
         }
     }
 
-    /** Asks until the user has signed in. Fails with [LoginExpiredException] after the timeout (20 minutes). */
-    suspend fun poll(session: LoginFlowSession): LoginFlowResult {
-        repeat((timeoutMillis / pollIntervalMillis).toInt().coerceAtLeast(1)) {
-            pollOnce(session)?.let { return it }
-            delay(pollIntervalMillis)
-        }
-        throw LoginExpiredException()
-    }
-
-    private suspend fun pollOnce(session: LoginFlowSession): LoginFlowResult? = withContext(io) {
-        val body = FormBody.Builder().add("token", session.token).build()
-        val request = Request.Builder().url(session.pollEndpoint).post(body).build()
+    /** Asks once whether the user has signed in. Returns null while they have not. The result is only given once. */
+    suspend fun check(pollEndpoint: String, token: String): LoginFlowResult? = withContext(io) {
+        val body = FormBody.Builder().add("token", token).build()
+        val request = Request.Builder().url(pollEndpoint).post(body).build()
         pollClient.newCall(request).await().use { response ->
             if (response.code == HttpURLConnection.HTTP_NOT_FOUND) return@withContext null
             if (response.isRedirect) throw ServerMismatchException()
@@ -111,8 +100,6 @@ class LoginFlowV2Client(
     }
 
     private companion object {
-        const val DEFAULT_POLL_INTERVAL_MILLIS = 2_000L
-        const val DEFAULT_TIMEOUT_MILLIS = 20 * 60 * 1_000L
         val EMPTY_BODY = ByteArray(0).toRequestBody()
     }
 }

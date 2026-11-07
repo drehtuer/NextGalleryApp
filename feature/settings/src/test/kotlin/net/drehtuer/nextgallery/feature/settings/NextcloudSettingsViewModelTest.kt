@@ -1,14 +1,19 @@
 package net.drehtuer.nextgallery.feature.settings
 
+import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -22,6 +27,7 @@ import net.drehtuer.nextgallery.core.data.nextcloud.ACCESS_LOCAL_NETWORK_PERMISS
 import net.drehtuer.nextgallery.core.data.nextcloud.LocalNetworkPermissionSource
 import net.drehtuer.nextgallery.core.data.nextcloud.LoginState
 import net.drehtuer.nextgallery.core.data.nextcloud.NextcloudAccountRepository
+import net.drehtuer.nextgallery.core.data.nextcloud.PendingLogin
 import net.drehtuer.nextgallery.core.data.nextcloud.RemoteFileOperations
 import net.drehtuer.nextgallery.core.data.nextcloud.RemoteFolderContent
 import net.drehtuer.nextgallery.core.data.nextcloud.TrustedCertificateRepository
@@ -44,7 +50,8 @@ class NextcloudSettingsViewModelTest {
     private val login = MutableSharedFlow<LoginState>()
     private val accounts = mockk<NextcloudAccountRepository>(relaxed = true) {
         every { observeAccount() } returns account
-        every { login(any()) } returns login
+        every { login(any(), any()) } returns login
+        every { resumeLogin(any(), any()) } returns login
     }
     private val certificates = mockk<TrustedCertificateRepository>(relaxed = true) {
         coEvery { accept(any()) } returns AppResult.Success(Unit)
@@ -63,8 +70,11 @@ class NextcloudSettingsViewModelTest {
     @After
     fun tearDown() = Dispatchers.resetMain()
 
+    private val savedState = SavedStateHandle()
+    private val pending = PendingLogin("https://cloud.example.com", "https://cloud.example.com/poll", "token", 1)
+
     private fun viewModel(signInAgain: Boolean = false) =
-        NextcloudSettingsViewModel(signInAgain, accounts, certificates, localNetwork, settings, operations)
+        NextcloudSettingsViewModel(signInAgain, savedState, accounts, certificates, localNetwork, settings, operations)
 
     /** Keeps the state flow subscribed for the test. */
     private fun TestScope.subscribed(viewModel: NextcloudSettingsViewModel) = viewModel.also {
@@ -135,7 +145,7 @@ class NextcloudSettingsViewModelTest {
         viewModel.onEvent(NextcloudSettingsEvent.SignIn)
 
         assertTrue(viewModel.state.value.showLocalNetworkExplanation)
-        io.mockk.verify(exactly = 0) { accounts.login(any()) }
+        io.mockk.verify(exactly = 0) { accounts.login(any(), any()) }
     }
 
     @Test
@@ -161,7 +171,7 @@ class NextcloudSettingsViewModelTest {
         viewModel.onEvent(NextcloudSettingsEvent.LocalNetworkExplanationDismissed)
 
         assertFalse(viewModel.state.value.showLocalNetworkExplanation)
-        io.mockk.verify(exactly = 0) { accounts.login(any()) }
+        io.mockk.verify(exactly = 0) { accounts.login(any(), any()) }
     }
 
     @Test
@@ -171,7 +181,7 @@ class NextcloudSettingsViewModelTest {
 
         viewModel.onEvent(NextcloudSettingsEvent.LocalNetworkRequestFinished)
 
-        io.mockk.verify { accounts.login("cloud.example.com") }
+        io.mockk.verify { accounts.login("cloud.example.com", any()) }
     }
 
     @Test
@@ -182,7 +192,7 @@ class NextcloudSettingsViewModelTest {
         viewModel.onEvent(NextcloudSettingsEvent.SignIn)
 
         assertTrue(viewModel.state.value.isSigningIn)
-        io.mockk.verify { accounts.login("cloud.example.com") }
+        io.mockk.verify { accounts.login("cloud.example.com", any()) }
     }
 
     @Test
@@ -192,7 +202,7 @@ class NextcloudSettingsViewModelTest {
         viewModel.onEvent(NextcloudSettingsEvent.SignIn)
 
         viewModel.effects.test {
-            login.emit(LoginState.Started("https://cloud.example.com/login"))
+            login.emit(LoginState.Started("https://cloud.example.com/login", pending))
 
             assertEquals(NextcloudSettingsEffect.OpenBrowser("https://cloud.example.com/login"), awaitItem())
         }
@@ -264,7 +274,7 @@ class NextcloudSettingsViewModelTest {
         viewModel.onEvent(NextcloudSettingsEvent.TrustCertificate)
 
         coVerify { certificates.accept(info) }
-        io.mockk.verify(exactly = 2) { accounts.login("cloud.example.com") }
+        io.mockk.verify(exactly = 2) { accounts.login("cloud.example.com", any()) }
     }
 
     @Test
@@ -277,7 +287,7 @@ class NextcloudSettingsViewModelTest {
         viewModel.onEvent(NextcloudSettingsEvent.TrustCertificate)
 
         assertEquals(AppError.Io("disk"), viewModel.state.value.error)
-        io.mockk.verify(exactly = 1) { accounts.login(any()) }
+        io.mockk.verify(exactly = 1) { accounts.login(any(), any()) }
     }
 
     @Test
@@ -370,5 +380,85 @@ class NextcloudSettingsViewModelTest {
         viewModel.onEvent(NextcloudSettingsEvent.RootPickerDismissed)
 
         assertNull(viewModel.state.value.rootPicker)
+    }
+
+    private fun signingIn() = viewModel().also {
+        it.onEvent(NextcloudSettingsEvent.ServerAddressChanged("cloud.example.com"))
+        it.onEvent(NextcloudSettingsEvent.SignIn)
+    }
+
+    private suspend fun started() = login.emit(LoginState.Started("https://cloud.example.com/login", pending))
+
+    @Test
+    fun onEvent_loginStarted_survivesTheAppBeingKilled() = runTest {
+        signingIn()
+        started()
+
+        viewModel()
+
+        verify { accounts.resumeLogin(pending, any()) }
+    }
+
+    @Test
+    fun init_noLoginInProgress_resumesNothing() {
+        viewModel()
+
+        verify(exactly = 0) { accounts.resumeLogin(any(), any()) }
+    }
+
+    @Test
+    fun init_loginInProgress_showsSigningIn() = runTest {
+        signingIn()
+        started()
+
+        val restored = subscribed(viewModel())
+
+        assertTrue(restored.state.value.isSigningIn)
+    }
+
+    @Test
+    fun onEvent_loginFailed_forgetsTheLogin() = runTest {
+        signingIn()
+        started()
+        login.emit(LoginState.Failed(AppError.LoginExpired))
+
+        viewModel()
+
+        verify(exactly = 0) { accounts.resumeLogin(any(), any()) }
+    }
+
+    @Test
+    fun onEvent_signedIn_forgetsTheLogin() = runTest {
+        signingIn()
+        started()
+        login.emit(LoginState.Success(signedIn))
+
+        viewModel()
+
+        verify(exactly = 0) { accounts.resumeLogin(any(), any()) }
+    }
+
+    @Test
+    fun onEvent_cancelSignIn_forgetsTheLogin() = runTest {
+        val viewModel = signingIn()
+        started()
+        viewModel.onEvent(NextcloudSettingsEvent.CancelSignIn)
+
+        viewModel()
+
+        verify(exactly = 0) { accounts.resumeLogin(any(), any()) }
+    }
+
+    @Test
+    fun onEvent_pausedAndResumed_tellTheLoginWhetherItIsInFront() = runTest {
+        val foreground = slot<Flow<Boolean>>()
+        every { accounts.login(any(), capture(foreground)) } returns login
+        val viewModel = signingIn()
+
+        viewModel.onEvent(NextcloudSettingsEvent.Paused)
+        val whilePaused = foreground.captured.first()
+        viewModel.onEvent(NextcloudSettingsEvent.Resumed)
+
+        assertEquals(listOf(false, true), listOf(whilePaused, foreground.captured.first()))
     }
 }

@@ -1,6 +1,7 @@
 package net.drehtuer.nextgallery.feature.map
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -14,6 +15,10 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.LifecycleRegistry
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.paging.PagingData
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -196,6 +201,29 @@ class MapScreenTest {
         show(MapUiState(openCluster = mapCluster(128)))
 
         composeRule.onNodeWithText("Near Bolzano").assertIsDisplayed()
+    }
+
+    @Test
+    fun openCluster_duringABackGesture_keepsItsSheetClosed() {
+        val duringGesture = object : LifecycleOwner {
+            override val lifecycle = LifecycleRegistry.createUnsafe(this).apply {
+                currentState = Lifecycle.State.STARTED
+            }
+        }
+        val pages = flowOf(PagingData.empty<MediaItem>())
+        composeRule.setContent {
+            CompositionLocalProvider(LocalLifecycleOwner provides duringGesture) {
+                MapScreen(
+                    state = MapUiState(openCluster = mapCluster(128)),
+                    sheetItems = pages.collectAsLazyPagingItems(),
+                    onEvent = { events += it },
+                    onOpenSelectionOverview = { overviewOpened++ },
+                    map = { Box(it) },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Near Bolzano").assertDoesNotExist()
     }
 
     @Test

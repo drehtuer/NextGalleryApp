@@ -20,5 +20,8 @@ No version is tagged yet. Builds call themselves 0.1.0.
 
 ### Fixed
 
+- Nextcloud sign-in opens in the default browser and checks for success as soon as you return to the app. A brief
+  network failure no longer ends it, and it survives the app being killed in the background.
+- A right swipe from an image opened from the map's cluster sheet no longer gets stuck on that sheet.
 - Sharing more images than the system can take now shows a message instead of ending the app.
 - In the remote browser a screen reader now finds an image's name and actions in one place.

@@ -7,6 +7,7 @@ import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.io.IOException
@@ -14,7 +15,7 @@ import java.io.IOException
 class LoginFlowV2ClientTest {
     private val server = MockWebServer()
     private val client =
-        LoginFlowV2Client(OkHttpClient(), allowCleartext = true, pollIntervalMillis = 1, timeoutMillis = 3)
+        LoginFlowV2Client(OkHttpClient(), allowCleartext = true)
 
     private val session get() = LoginFlowSession("https://l", server.url("/login/v2/poll").toString(), "poll-token")
 
@@ -136,82 +137,81 @@ class LoginFlowV2ClientTest {
     }
 
     @Test
-    fun poll_success_returnsCredentials() = runBlocking {
+    fun check_success_returnsCredentials() = runBlocking {
         server.enqueue(
             MockResponse().setBody("""{"server":"https://cloud.example.com/","loginName":"anna","appPassword":"pw"}"""),
         )
 
-        val result = client.poll(session)
+        val result = client.check(session.pollEndpoint, session.token)
 
         assertEquals(LoginFlowResult("https://cloud.example.com", "anna", "pw"), result)
     }
 
     @Test
-    fun poll_sendsTheTokenInTheBody() = runBlocking {
+    fun check_sendsTheTokenInTheBody() = runBlocking {
         server.enqueue(MockResponse().setBody("""{"server":"https://c","loginName":"a","appPassword":"p"}"""))
 
-        client.poll(session)
+        client.check(session.pollEndpoint, session.token)
 
         assertEquals("token=poll-token", server.takeRequest().body.readUtf8())
     }
 
     @Test
-    fun poll_pendingThenSuccess_keepsAsking() = runBlocking {
+    fun check_notSignedInYet_returnsNull() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(404))
-        server.enqueue(MockResponse().setBody("""{"server":"https://c","loginName":"a","appPassword":"p"}"""))
 
-        assertEquals("a", client.poll(session).loginName)
-        assertEquals(2, server.requestCount)
+        assertNull(client.check(session.pollEndpoint, session.token))
     }
 
     @Test
-    fun poll_stillPendingAtTheEnd_failsAsExpired() {
-        repeat(3) { server.enqueue(MockResponse().setResponseCode(404)) }
-
-        assertThrows(LoginExpiredException::class.java) { runBlocking { client.poll(session) } }
-    }
-
-    @Test
-    fun poll_serverOverHttpWithoutCleartext_isRefused() {
+    fun check_serverOverHttpWithoutCleartext_isRefused() {
         val strict = LoginFlowV2Client(OkHttpClient(), allowCleartext = false)
         server.enqueue(MockResponse().setBody("""{"server":"http://c","loginName":"a","appPassword":"p"}"""))
 
-        assertThrows(InvalidServerUrlException::class.java) { runBlocking { strict.poll(session) } }
+        assertThrows(InvalidServerUrlException::class.java) {
+            runBlocking { strict.check(session.pollEndpoint, session.token) }
+        }
     }
 
     @Test
-    fun poll_serverAddressIsNormalized() = runBlocking {
+    fun check_serverAddressIsNormalized() = runBlocking {
         server.enqueue(
             MockResponse().setBody(
                 """{"server":"https://CLOUD.example.com/nc/index.php/?a=b","loginName":"a","appPassword":"p"}""",
             ),
         )
 
-        assertEquals("https://cloud.example.com/nc", client.poll(session).serverUrl)
+        assertEquals("https://cloud.example.com/nc", client.check(session.pollEndpoint, session.token)?.serverUrl)
     }
 
     @Test
-    fun poll_serverAddressWithCredentials_isRefused() {
+    fun check_serverAddressWithCredentials_isRefused() {
         server.enqueue(MockResponse().setBody("""{"server":"https://a:b@c","loginName":"a","appPassword":"p"}"""))
 
-        assertThrows(InvalidServerUrlException::class.java) { runBlocking { client.poll(session) } }
+        assertThrows(InvalidServerUrlException::class.java) {
+            runBlocking { client.check(session.pollEndpoint, session.token) }
+        }
     }
 
     @Test
-    fun poll_redirect_isNotFollowedAndFailsAsAnotherServer() {
+    fun check_redirect_isNotFollowedAndFailsAsAnotherServer() {
         val other = MockWebServer()
         server.enqueue(MockResponse().setResponseCode(307).setHeader("Location", other.url("/stolen")))
 
-        assertThrows(ServerMismatchException::class.java) { runBlocking { client.poll(session) } }
+        assertThrows(ServerMismatchException::class.java) {
+            runBlocking { client.check(session.pollEndpoint, session.token) }
+        }
         assertEquals(0, other.requestCount)
         other.shutdown()
     }
 
     @Test
-    fun poll_oversizedResponse_failsInsteadOfReadingIt() {
+    fun check_oversizedResponse_failsInsteadOfReadingIt() {
         server.enqueue(MockResponse().setBody("x".repeat(MAX_JSON_BYTES.toInt() + 1)))
 
-        assertThrows(ResponseTooLargeException::class.java) { runBlocking { client.poll(session) } }
+        assertThrows(ResponseTooLargeException::class.java) {
+            runBlocking { client.check(session.pollEndpoint, session.token) }
+        }
     }
 
     @Test

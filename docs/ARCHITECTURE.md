@@ -727,7 +727,7 @@ sequenceDiagram
     participant VM as NextcloudSettingsViewModel
     participant Repo as NextcloudAccountRepository
     participant LF as LoginFlowV2Client
-    participant Br as Browser Custom Tab
+    participant Br as Default browser
     participant Srv as Nextcloud
     participant CS as AccountStore
 
@@ -739,8 +739,11 @@ sequenceDiagram
     Repo-->>VM: LoginSession
     VM-->>UI: UiEffect OpenBrowser login URL
     UI->>Br: open login URL
-    loop every 2s until success, timeout 20 min, or cancel
-        Repo->>LF: poll(token)
+    Note over VM: the pending login goes into SavedStateHandle
+    Note over UI,Repo: checks wait while the app is in the background
+    UI->>VM: Resumed, on returning from the browser
+    loop at once, then every 2s in the foreground until success, timeout 20 min, or cancel
+        Repo->>LF: check(pollEndpoint, token)
         LF->>Srv: POST poll endpoint
         Srv-->>LF: 404 pending or 200 with server, loginName, appPassword
     end
@@ -751,7 +754,8 @@ sequenceDiagram
 ```
 
 - Server URL normalization: add `https://` if missing, strip trailing `/` and `/index.php`; `http://` is rejected in release builds (see 11).
-- Polling runs in `viewModelScope`; leaving the screen cancels it. The poll token is never persisted.
+- Checking runs in `viewModelScope`; leaving the screen cancels it. The login opens in the default browser as a separate task, and checks only run while the screen is resumed, because Android may freeze the app and cut its network in the background (D54). A network failure or a 5xx answer only means the next check decides; 20 minutes after the start the login expires, also when returning later.
+- The pending login (server, poll endpoint, poll token, start time) is kept in `SavedStateHandle`, so it survives the system killing the app while the user is in the browser. It is not written to the app's files, is cleared when the login ends, and `toString` hides the token.
 - `ACCESS_LOCAL_NETWORK` (D39) is requested when the user starts the login, after a short explanation; a denied permission only matters for local addresses, where connection failures then become `LocalNetworkBlocked`.
 - The session ended (401): the browser shows a banner that opens the same form again with the server filled in; a successful login replaces the app password.
 - The poll endpoint must have the scheme, host and port of the address the user entered, the poll does not follow redirects, and the returned `server` is normalised and must have that origin too; otherwise the login fails with `AppError.ServerMismatch`. Login JSON is limited to 1 MiB. A password that does not end up stored (user id failed, login cancelled, wrong server) is revoked best effort on the entered server, as is the password a new login replaces, but never the one in use.
@@ -1028,7 +1032,7 @@ Rules:
   - `WebDavClient`, `OcsClient` and `LoginFlowV2Client` go through `NextcloudHttpModule` to the server the user entered. Login Flow may name other URLs on that server; the checks above apply.
   - The remote Coil loader (`RemoteImageLoader`) uses the authenticated client for the account's previews and images. The local loader has no network fetcher at all.
   - osmdroid's tile downloader goes to the tile server in Settings (OpenStreetMap by default).
-  - Two links open outside the app, when tapped: the login page in a Custom Tab, and the source code link in About, in the browser.
+  - Two links open outside the app, when tapped: the login page in the default browser, and the source code link in About, in the browser.
 - **No tracking**: no analytics, no crash reporting SDKs, no Google Play Services. osmdroid tile requests go over HTTPS to the OSM tile server (or the one set in Settings) with the user agent `NextGalleryApp (Android, osmdroid)`, which names the app, as the OSM tile usage policy requires, and carries no personal data. This is the only third-party network traffic and is triggered only by opening the map. Place names are looked up on the phone (D45), and tiles are cached in the app's cache folder.
 - **Least privilege**: only `READ_MEDIA_IMAGES`, `READ_MEDIA_VISUAL_USER_SELECTED`, `ACCESS_MEDIA_LOCATION`, `ACCESS_COARSE_LOCATION` (optional, D44), `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_LOCAL_NETWORK` (D39), plus a `<queries>` entry for `com.nextcloud.client`. No foreground service or notification permission (uploads are done by the Nextcloud app). Destructive actions go through system dialogs.
 - Shared local images use MediaStore content URIs with temporary read grants. Server images are downloaded first and shared through a `FileProvider` limited to one temporary cache folder (D48); the rest of the app's storage stays private.

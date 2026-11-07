@@ -20,11 +20,15 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
 import androidx.paging.compose.LazyPagingItems
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
@@ -57,8 +61,13 @@ fun MapScreen(
         MapControls(onEvent, Modifier.align(Alignment.BottomEnd))
         SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter))
     }
-    state.openCluster?.let { cluster ->
-        ClusterSheet(cluster, sheetItems, state.selectedIds, onEvent, onOpenSelectionOverview)
+    // The sheet is a window of its own. During a back gesture from the viewer this screen is composed underneath, not
+    // resumed yet; a sheet opening then would take over the touches and the back handling of the gesture.
+    val lifecycleState by LocalLifecycleOwner.current.lifecycle.currentStateAsState()
+    if (lifecycleState.isAtLeast(Lifecycle.State.RESUMED)) {
+        state.openCluster?.let { cluster ->
+            ClusterSheet(cluster, sheetItems, state.selectedIds, onEvent, onOpenSelectionOverview)
+        }
     }
 }
 
