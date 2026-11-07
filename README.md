@@ -59,16 +59,16 @@ A simple, fast Android gallery app with basic editing, multiple ways to browse y
 - **Organise server photos** – long-press an image (or a selection) to move it to another server folder, share it or delete it to the Nextcloud trash bin, with undo.
 
 NextGalleryApp does not duplicate what the official Nextcloud Android app already does (uploading, offline files, …); it hands off to that app instead. The built-in viewer and moving or deleting server images are the deliberate exceptions.
-- **Upload status** – each local image shows whether it already exists on Nextcloud (badge on the thumbnail).
-- **Upload** – hands a single image or a selection to the official Nextcloud Android app, which does the actual upload (target folder, name conflicts, large files). Requires the Nextcloud app to be installed.
+- **Upload status** – while signed in, each local image shows whether it already exists on Nextcloud (badge on the thumbnail in the folder grid and the timeline).
+- **Upload** – hands a single image or a selection to the official Nextcloud Android app, which does the actual upload (target folder, name conflicts, large files). Requires the Nextcloud app to be installed; images already on the server are left out.
 - **Login** – via Nextcloud Login Flow v2 (browser-based sign-in, app password), so the account password is never stored in the app. Without a login, Nextcloud features are unavailable and the app shows a hint to log in.
 - **Self-hosted servers** – self-signed or otherwise untrusted certificates can be accepted after a warning dialog showing the certificate details.
 
 #### How "already uploaded" is determined
 
 1. Match by relative path and file size against the configured remote folder (cheap, one `PROPFIND` per folder).
-2. If the server provides checksums (`oc:checksums`), compare a SHA-1/MD5 of the local file for an exact match.
-3. Results are cached locally and refreshed in the background, so the grid never waits on the network.
+2. If the server provides checksums (`oc:checksums`), compare a SHA-1/MD5 of the local file for an exact match. Only name-and-size matches are read, and only once per version of the file. Different content counts as not uploaded.
+3. Results are cached locally and refreshed in the background, every 6 hours with a network, after a sign-in or a new remote folder, and on returning from the Nextcloud app, so the grid never waits on the network.
 4. Files the Nextcloud app renamed during upload (e.g. on a name conflict) are not recognised and show as "not uploaded".
 
 ## Planned tech stack

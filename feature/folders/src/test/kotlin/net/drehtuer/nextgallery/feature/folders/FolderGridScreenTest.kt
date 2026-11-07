@@ -16,6 +16,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.flow.flowOf
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
+import net.drehtuer.nextgallery.core.model.UploadAvailability
+import net.drehtuer.nextgallery.core.model.UploadState
 import net.drehtuer.nextgallery.core.ui.component.MEDIA_GRID_PLACEHOLDER_TAG
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -28,6 +30,12 @@ class FolderGridScreenTest {
     val composeRule = createComposeRule()
 
     private val events = mutableListOf<FolderGridEvent>()
+    private val visibleReports = mutableListOf<FolderGridEvent.VisibleItemsChanged>()
+
+    /** The grid reports what it shows by itself, at a time of its own. */
+    private fun record(event: FolderGridEvent) {
+        if (event is FolderGridEvent.VisibleItemsChanged) visibleReports += event else events += event
+    }
 
     private fun show(
         state: FolderGridUiState = FolderGridUiState(title = "Camera"),
@@ -39,8 +47,49 @@ class FolderGridScreenTest {
         val finished = LoadState.NotLoading(endOfPaginationReached = true)
         val pages = flowOf(PagingData.from(items, LoadStates(refresh, finished, finished)))
         composeRule.setContent {
-            FolderGridScreen(state, pages.collectAsLazyPagingItems(), { events += it }, onBack, onOpenSelectionOverview)
+            FolderGridScreen(state, pages.collectAsLazyPagingItems(), ::record, onBack, onOpenSelectionOverview)
         }
+    }
+
+    private val selecting = FolderGridUiState(selectedIds = setOf(MediaId(1)))
+
+    @Test
+    fun uploadAvailable_clicked_sendsEvent() {
+        show(selecting.copy(uploadAvailability = UploadAvailability.AVAILABLE))
+
+        composeRule.onNodeWithContentDescription("Upload").performClick()
+
+        assertEquals(listOf(FolderGridEvent.UploadSelected), events)
+    }
+
+    @Test
+    fun loggedOut_noUploadAction() {
+        show(selecting.copy(uploadAvailability = UploadAvailability.HIDDEN))
+
+        composeRule.onNodeWithContentDescription("Upload").assertDoesNotExist()
+    }
+
+    @Test
+    fun badgeKnown_isShown() {
+        show(FolderGridUiState(uploadBadges = mapOf(MediaId(1) to UploadState.NotUploaded)))
+
+        composeRule.onNodeWithContentDescription("Not on your Nextcloud", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun noBadgeEntry_showsNoBadge() {
+        show(FolderGridUiState())
+
+        composeRule.onNodeWithContentDescription("Not on your Nextcloud", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun grid_reportsTheVisibleImages() {
+        show()
+
+        composeRule.waitUntil { visibleReports.isNotEmpty() }
+
+        assertEquals(listOf(FolderGridEvent.VisibleItemsChanged(setOf(MediaId(1)))), visibleReports)
     }
 
     @Test

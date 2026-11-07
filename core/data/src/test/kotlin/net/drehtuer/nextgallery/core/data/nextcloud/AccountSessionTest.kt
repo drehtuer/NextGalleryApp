@@ -1,5 +1,6 @@
 package net.drehtuer.nextgallery.core.data.nextcloud
 
+import net.drehtuer.nextgallery.core.data.upload.UploadStateStore
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -33,13 +34,14 @@ class AccountSessionTest {
     private val images = mockk<RemoteImageCache>(relaxed = true)
     private val shares = mockk<RemoteShareCache>(relaxed = true)
     private val connections = mockk<ConnectionEvictor>(relaxed = true)
+    private val uploadStates = mockk<UploadStateStore>(relaxed = true)
 
     private val newPassword = TEST_ACCOUNT.copy(appPassword = "new-password")
     private val otherUser = TEST_ACCOUNT.copy(userId = "someone-else", appPassword = "new-password")
 
     private fun session(accounts: AccountStore = store) = AccountSession(
         accounts,
-        RemoteDataWiper(cache, images, shares, connections),
+        RemoteDataWiper(cache, images, shares, connections, uploadStates),
         AppPasswordRevoker(ocs, CoroutineScope(Dispatchers.Unconfined)),
     )
 
@@ -64,6 +66,13 @@ class AccountSessionTest {
         coVerify { images.clear() }
         verify { shares.clear() }
         verify { connections.evictConnections() }
+    }
+
+    @Test
+    fun logOut_clearsTheUploadStates() = runTest {
+        session.logOut()
+
+        coVerify { uploadStates.clear() }
     }
 
     @Test

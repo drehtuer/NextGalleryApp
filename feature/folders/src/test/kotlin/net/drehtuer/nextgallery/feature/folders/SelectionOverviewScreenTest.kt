@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import net.drehtuer.nextgallery.core.data.selection.SelectionOverviewItem
 import net.drehtuer.nextgallery.core.model.MediaId
+import net.drehtuer.nextgallery.core.model.UploadAvailability
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -27,6 +28,30 @@ class SelectionOverviewScreenTest {
     }
 
     private val shown = SelectionOverviewItem(mediaItem(1), greyedOut = false)
+
+    private fun showWithUpload(availability: UploadAvailability) = composeRule.setContent {
+        SelectionOverviewScreen(
+            SelectionOverviewUiState(listOf(shown), uploadAvailability = availability),
+            { events += it },
+            onBack = {},
+        )
+    }
+
+    @Test
+    fun uploadClicked_sendsEvent() {
+        showWithUpload(UploadAvailability.AVAILABLE)
+
+        composeRule.onNodeWithContentDescription("Upload").performClick()
+
+        assertEquals(listOf(SelectionOverviewEvent.Upload), events)
+    }
+
+    @Test
+    fun loggedOut_noUploadAction() {
+        showWithUpload(UploadAvailability.HIDDEN)
+
+        composeRule.onNodeWithContentDescription("Upload").assertDoesNotExist()
+    }
 
     @Test
     fun loading_showsLoadingIndicator() {

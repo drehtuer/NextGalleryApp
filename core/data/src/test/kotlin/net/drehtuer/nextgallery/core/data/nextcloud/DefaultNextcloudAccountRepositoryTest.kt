@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import net.drehtuer.nextgallery.core.common.AppError
+import net.drehtuer.nextgallery.core.data.upload.UploadStateStore
 import net.drehtuer.nextgallery.core.model.RemoteItem
 import net.drehtuer.nextgallery.core.nextcloud.ConnectionEvictor
 import net.drehtuer.nextgallery.core.nextcloud.LoginExpiredException
@@ -39,6 +40,7 @@ class DefaultNextcloudAccountRepositoryTest {
     private val images = mockk<RemoteImageCache>(relaxed = true)
     private val shares = mockk<RemoteShareCache>(relaxed = true)
     private val connections = mockk<ConnectionEvictor>(relaxed = true)
+    private val uploadStates = mockk<UploadStateStore>(relaxed = true)
     private val policy = LocalNetworkPolicy(GrantedLocalNetwork) { emptyList() }
 
     private val session = LoginFlowSession("https://cloud.example.com/login", "https://cloud.example.com/poll", "token")
@@ -51,7 +53,7 @@ class DefaultNextcloudAccountRepositoryTest {
         accounts = store,
         session = AccountSession(
             store,
-            RemoteDataWiper(cache, images, shares, connections),
+            RemoteDataWiper(cache, images, shares, connections, uploadStates),
             AppPasswordRevoker(ocs, CoroutineScope(Dispatchers.Unconfined)),
         ),
         localNetwork = networkPolicy,

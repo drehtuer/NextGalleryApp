@@ -15,6 +15,7 @@ import kotlinx.serialization.Serializable
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.ViewContext
 import net.drehtuer.nextgallery.core.ui.platform.rememberTrashEffectHandler
+import net.drehtuer.nextgallery.core.ui.platform.rememberUploadHandoffHandler
 import net.drehtuer.nextgallery.core.ui.platform.shareImages
 
 @Serializable
@@ -59,11 +60,15 @@ fun NavGraphBuilder.folderGridScreen(
             onConfirmationResult = { viewModel.onEvent(FolderGridEvent.ConfirmationResult(it)) },
             onUndo = { viewModel.onEvent(FolderGridEvent.UndoDelete) },
         )
+        val handleUpload = rememberUploadHandoffHandler(snackbarHostState) {
+            viewModel.onEvent(FolderGridEvent.Resumed)
+        }
         LaunchedEffect(viewModel) {
             viewModel.effects.collect { effect ->
                 when (effect) {
                     is FolderGridEffect.OpenViewer -> onOpenViewer(effect.id, route.bucketId)
                     is FolderGridEffect.Share -> context.shareImages(effect.spec)
+                    is FolderGridEffect.Upload -> handleUpload(effect.handoff)
                     is FolderGridEffect.Trash -> handleTrashEffect(effect.effect)
                 }
             }
@@ -93,10 +98,14 @@ fun NavGraphBuilder.selectionOverviewScreen(onBack: () -> Unit) {
             onConfirmationResult = { viewModel.onEvent(SelectionOverviewEvent.ConfirmationResult(it)) },
             onUndo = { viewModel.onEvent(SelectionOverviewEvent.UndoDelete) },
         )
+        val handleUpload = rememberUploadHandoffHandler(snackbarHostState) {
+            viewModel.onEvent(SelectionOverviewEvent.Resumed)
+        }
         LaunchedEffect(viewModel) {
             viewModel.effects.collect { effect ->
                 when (effect) {
                     is SelectionOverviewEffect.Share -> context.shareImages(effect.spec)
+                    is SelectionOverviewEffect.Upload -> handleUpload(effect.handoff)
                     is SelectionOverviewEffect.Trash -> handleTrashEffect(effect.effect)
                 }
             }

@@ -22,17 +22,25 @@ import net.drehtuer.nextgallery.core.data.media.MediaActionsRepository
 import net.drehtuer.nextgallery.core.data.media.MediaRepository
 import net.drehtuer.nextgallery.core.data.media.TrashFlow
 import net.drehtuer.nextgallery.core.data.selection.SelectionRepository
+import net.drehtuer.nextgallery.core.data.upload.UploadHandoffRepository
+import net.drehtuer.nextgallery.core.data.upload.UploadStateRepository
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
 import net.drehtuer.nextgallery.core.model.MediaSource
 import net.drehtuer.nextgallery.core.model.ShareSpec
 import net.drehtuer.nextgallery.core.model.TrashEffect
+import net.drehtuer.nextgallery.core.model.UploadAvailability
+import net.drehtuer.nextgallery.core.model.UploadHandoff
+import net.drehtuer.nextgallery.core.model.UploadState
 
 /** [selectedIds] is the app-wide selection, so it can contain images of other folders (D33). */
 data class FolderGridUiState(
     val title: String = "",
     val selectedIds: Set<MediaId> = emptySet(),
     val selecting: Boolean = selectedIds.isNotEmpty(),
+    /** The images on screen. An image without an entry has no badge, as all have while logged out (D35). */
+    val uploadBadges: Map<MediaId, UploadState> = emptyMap(),
+    val uploadAvailability: UploadAvailability = UploadAvailability.HIDDEN,
 )
 
 sealed interface FolderGridEvent {
@@ -49,11 +57,18 @@ sealed interface FolderGridEvent {
 
     data object ShareSelected : FolderGridEvent
 
+    data object UploadSelected : FolderGridEvent
+
     data object DeleteSelected : FolderGridEvent
 
     data class ConfirmationResult(val confirmed: Boolean) : FolderGridEvent
 
     data object UndoDelete : FolderGridEvent
+
+    data class VisibleItemsChanged(val ids: Set<MediaId>) : FolderGridEvent
+
+    /** The screen came back, possibly from the Nextcloud app. */
+    data object Resumed : FolderGridEvent
 }
 
 sealed interface FolderGridEffect {
@@ -61,17 +76,24 @@ sealed interface FolderGridEffect {
 
     data class Share(val spec: ShareSpec) : FolderGridEffect
 
+    data class Upload(val handoff: UploadHandoff) : FolderGridEffect
+
     data class Trash(val effect: TrashEffect) : FolderGridEffect
 }
 
 @HiltViewModel(assistedFactory = FolderGridViewModel.Factory::class)
-class FolderGridViewModel @AssistedInject constructor(
+class FolderGridViewModel
+@Suppress("LongParameterList")
+@AssistedInject
+constructor(
     @Assisted private val bucketId: Long,
     private val mediaRepository: MediaRepository,
     folderRepository: FolderRepository,
     private val selectionRepository: SelectionRepository,
     private val actions: MediaActionsRepository,
     private val trashFlow: TrashFlow,
+    uploadStates: UploadStateRepository,
+    private val uploadHandoff: UploadHandoffRepository,
 ) : ViewModel() {
     @AssistedFactory
     interface Factory {
@@ -80,6 +102,7 @@ class FolderGridViewModel @AssistedInject constructor(
 
     private val effectChannel = Channel<FolderGridEffect>(Channel.BUFFERED)
     private val startedSelecting = MutableStateFlow(false)
+    private val visibleIds = MutableStateFlow<Set<MediaId>>(emptySet())
 
     val effects: Flow<FolderGridEffect> = effectChannel.receiveAsFlow()
 
@@ -90,8 +113,16 @@ class FolderGridViewModel @AssistedInject constructor(
         folderRepository.observeFolder(bucketId),
         selectionRepository.observe(),
         startedSelecting,
-    ) { folder, selectedIds, started ->
-        FolderGridUiState(folder?.name.orEmpty(), selectedIds, selecting = started || selectedIds.isNotEmpty())
+        uploadStates.observeBadges(visibleIds),
+        uploadHandoff.observeAvailability(),
+    ) { folder, selectedIds, started, badges, availability ->
+        FolderGridUiState(
+            title = folder?.name.orEmpty(),
+            selectedIds = selectedIds,
+            selecting = started || selectedIds.isNotEmpty(),
+            uploadBadges = badges,
+            uploadAvailability = availability,
+        )
     }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), FolderGridUiState())
 
@@ -117,6 +148,15 @@ class FolderGridViewModel @AssistedInject constructor(
                     effectChannel.send(FolderGridEffect.Share(it))
                 }
             }
+
+            FolderGridEvent.UploadSelected -> viewModelScope.launch {
+                val handoff = uploadHandoff.prepare(selectionRepository.observe().value)
+                effectChannel.send(FolderGridEffect.Upload(handoff))
+            }
+
+            is FolderGridEvent.VisibleItemsChanged -> visibleIds.value = event.ids
+
+            FolderGridEvent.Resumed -> uploadHandoff.onAppResumed()
 
             FolderGridEvent.DeleteSelected -> viewModelScope.launch {
                 sendTrashEffect(trashFlow.request(selectionRepository.observe().value))

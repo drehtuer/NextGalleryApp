@@ -27,6 +27,7 @@ import net.drehtuer.nextgallery.core.ui.component.DeleteAction
 import net.drehtuer.nextgallery.core.ui.component.EmptyState
 import net.drehtuer.nextgallery.core.ui.component.LoadingIndicator
 import net.drehtuer.nextgallery.core.ui.component.ShareAction
+import net.drehtuer.nextgallery.core.ui.component.UploadAction
 import net.drehtuer.nextgallery.core.ui.theme.NextGalleryTheme
 import net.drehtuer.nextgallery.core.ui.thumbnail.LARGE_THUMBNAIL_PX
 import net.drehtuer.nextgallery.core.ui.thumbnail.ThumbnailCell
@@ -51,6 +52,7 @@ fun SelectionOverviewScreen(
                 actions = {
                     if (!state.items.isNullOrEmpty()) {
                         ShareAction(onClick = { onEvent(SelectionOverviewEvent.Share) })
+                        UploadAction(state.uploadAvailability, onClick = { onEvent(SelectionOverviewEvent.Upload) })
                         DeleteAction(onClick = { onEvent(SelectionOverviewEvent.Delete) })
                     }
                 },

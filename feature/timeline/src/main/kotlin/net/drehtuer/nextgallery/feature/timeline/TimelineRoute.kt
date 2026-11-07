@@ -13,6 +13,7 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import kotlinx.serialization.Serializable
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.ui.platform.rememberTrashEffectHandler
+import net.drehtuer.nextgallery.core.ui.platform.rememberUploadHandoffHandler
 import net.drehtuer.nextgallery.core.ui.platform.shareImages
 
 @Serializable
@@ -29,11 +30,13 @@ fun NavGraphBuilder.timelineScreen(onOpenViewer: (id: MediaId) -> Unit, onOpenSe
             onConfirmationResult = { viewModel.onEvent(TimelineEvent.ConfirmationResult(it)) },
             onUndo = { viewModel.onEvent(TimelineEvent.UndoDelete) },
         )
+        val handleUpload = rememberUploadHandoffHandler(snackbarHostState) { viewModel.onEvent(TimelineEvent.Resumed) }
         LaunchedEffect(viewModel) {
             viewModel.effects.collect { effect ->
                 when (effect) {
                     is TimelineEffect.OpenViewer -> onOpenViewer(effect.id)
                     is TimelineEffect.Share -> context.shareImages(effect.spec)
+                    is TimelineEffect.Upload -> handleUpload(effect.handoff)
                     is TimelineEffect.Trash -> handleTrashEffect(effect.effect)
                 }
             }

@@ -10,10 +10,16 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import net.drehtuer.nextgallery.core.model.UploadAvailability
 import net.drehtuer.nextgallery.core.ui.R
+
+private const val UNAVAILABLE_ACTION_ALPHA = 0.38f
 
 @Composable
 fun BackButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -33,6 +39,27 @@ fun ShareAction(onClick: () -> Unit, modifier: Modifier = Modifier) {
 fun DeleteAction(onClick: () -> Unit, modifier: Modifier = Modifier) {
     IconButton(onClick = onClick, modifier = modifier) {
         Icon(painterResource(R.drawable.core_ui_ic_delete), stringResource(R.string.core_ui_delete))
+    }
+}
+
+/**
+ * Hands images to the Nextcloud app (D31). Not there while logged out (D35). Without the app it stays tappable but is
+ * dimmed: the tap explains what is missing, and it works if the app was installed in the meantime.
+ */
+@Composable
+fun UploadAction(availability: UploadAvailability, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    if (availability == UploadAvailability.HIDDEN) return
+    val appMissing = availability == UploadAvailability.APP_MISSING
+    val hint = stringResource(R.string.core_ui_upload_app_missing)
+    IconButton(
+        onClick = onClick,
+        modifier = modifier.semantics { if (appMissing) stateDescription = hint },
+    ) {
+        Icon(
+            painterResource(R.drawable.core_ui_ic_upload),
+            stringResource(R.string.core_ui_upload),
+            Modifier.alpha(if (appMissing) UNAVAILABLE_ACTION_ALPHA else 1f),
+        )
     }
 }
 

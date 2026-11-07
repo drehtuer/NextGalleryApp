@@ -23,6 +23,8 @@ import kotlinx.coroutines.flow.flowOf
 import net.drehtuer.nextgallery.core.model.DateSource
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
+import net.drehtuer.nextgallery.core.model.UploadState
+import net.drehtuer.nextgallery.core.ui.thumbnail.UploadBadge
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -52,6 +54,22 @@ class MediaGridTest {
                 FastScrollbar(state, items.itemCount)
             }
         }
+    }
+
+    @Test
+    fun mediaGrid_showsTheBadgeOfAnItem() {
+        val pages = flowOf(PagingData.from(listOf(item(1))))
+        composeRule.setContent {
+            MediaGrid(
+                pages.collectAsLazyPagingItems(),
+                emptySet(),
+                {},
+                {},
+                cellBadge = { UploadBadge(UploadState.NotUploaded) },
+            )
+        }
+
+        composeRule.onNodeWithContentDescription("Not on your Nextcloud", useUnmergedTree = true).assertIsDisplayed()
     }
 
     @Test
