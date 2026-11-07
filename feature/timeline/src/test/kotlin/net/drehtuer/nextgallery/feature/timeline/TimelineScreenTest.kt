@@ -22,6 +22,8 @@ import net.drehtuer.nextgallery.core.data.timeline.TimelineIndex
 import net.drehtuer.nextgallery.core.model.DayCount
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
+import net.drehtuer.nextgallery.core.model.UploadAvailability
+import net.drehtuer.nextgallery.core.model.UploadState
 import net.drehtuer.nextgallery.core.ui.component.MEDIA_GRID_PLACEHOLDER_TAG
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -35,6 +37,12 @@ class TimelineScreenTest {
     val composeRule = createComposeRule()
 
     private val events = mutableListOf<TimelineEvent>()
+    private val visibleReports = mutableListOf<TimelineEvent.VisibleItemsChanged>()
+
+    /** The grid reports what it shows by itself, at a time of its own. */
+    private fun record(event: TimelineEvent) {
+        if (event is TimelineEvent.VisibleItemsChanged) visibleReports += event else events += event
+    }
     private val march16 = LocalDate.of(2024, 3, 16)
     private val onePhoto = TimelineIndex(listOf(DayCount(march16, 1)))
 
@@ -47,8 +55,49 @@ class TimelineScreenTest {
         val finished = LoadState.NotLoading(endOfPaginationReached = true)
         val pages = flowOf(PagingData.from(items, LoadStates(refresh, finished, finished)))
         composeRule.setContent {
-            TimelineScreen(state, pages.collectAsLazyPagingItems(), { events += it }, onOpenSelectionOverview)
+            TimelineScreen(state, pages.collectAsLazyPagingItems(), ::record, onOpenSelectionOverview)
         }
+    }
+
+    private val selecting = TimelineUiState(index = onePhoto, selectedIds = setOf(MediaId(1)))
+
+    @Test
+    fun uploadAvailable_clicked_sendsEvent() {
+        show(selecting.copy(uploadAvailability = UploadAvailability.AVAILABLE))
+
+        composeRule.onNodeWithContentDescription("Upload").performClick()
+
+        assertEquals(listOf(TimelineEvent.UploadSelected), events)
+    }
+
+    @Test
+    fun loggedOut_noUploadAction() {
+        show(selecting.copy(uploadAvailability = UploadAvailability.HIDDEN))
+
+        composeRule.onNodeWithContentDescription("Upload").assertDoesNotExist()
+    }
+
+    @Test
+    fun badgeKnown_isShown() {
+        show(TimelineUiState(index = onePhoto, uploadBadges = mapOf(MediaId(1) to UploadState.NotUploaded)))
+
+        composeRule.onNodeWithContentDescription("Not on your Nextcloud", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
+    fun noBadgeEntry_showsNoBadge() {
+        show()
+
+        composeRule.onNodeWithContentDescription("Not on your Nextcloud", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun grid_reportsOnlyTheImagesAsVisible() {
+        show()
+
+        composeRule.waitUntil { visibleReports.isNotEmpty() }
+
+        assertEquals(listOf(TimelineEvent.VisibleItemsChanged(setOf(MediaId(1)))), visibleReports)
     }
 
     @Test
@@ -223,7 +272,7 @@ class TimelineScreenTest {
             TimelineScreen(
                 TimelineUiState(index = onePhoto, selecting = true),
                 pages.collectAsLazyPagingItems(),
-                { events += it },
+                ::record,
                 {},
             )
         }

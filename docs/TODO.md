@@ -349,7 +349,7 @@ _Depends on: Phases 3 (viewer), 4 (settings)._
 - [x] **8.4 Coil integration (`:core:ui` / `:app`)**
   - [x] Separate authenticated Coil `ImageLoader` (or `OkHttpNetworkFetcherFactory` with auth client) qualified `@RemoteImageLoader`; disk-cache key by fileId+etag+size. Tests: keyer. _Coil applies keyers after mapping to the URL, so the key is set on each request (`remoteImageCacheKey`). Own disk cache of 500 MB (D37), which logging out can wipe separately; `LocalRemoteImageLoader` hands the loader to the screens._
 - [x] **8.5 Repository (`:core:data`)**
-  - [x] `NextcloudAccountRepository`: `login(serverUrl): Flow<LoginState>` (Started(loginUrl) → Polling → Success/Failed), `logout()` (revoke via `DELETE /ocs/v2.php/core/apppassword` best effort, clear store, remote cache and upload states; D35). Tests per state. _Upload states don't exist yet: Phase 9 has to add its table to `RemoteDataWiper`._
+  - [x] `NextcloudAccountRepository`: `login(serverUrl): Flow<LoginState>` (Started(loginUrl) → Polling → Success/Failed), `logout()` (revoke via `DELETE /ocs/v2.php/core/apppassword` best effort, clear store, remote cache and upload states; D35). Tests per state. _Upload states came with Phase 9, in `RemoteDataWiper`._
   - [x] Logged-out guard: every remote call returns `AppError.NotLoggedIn` without network access. Test.
   - [x] `TrustedCertificateRepository` + `TrustedCertificateStore` port (DataStore): `accept(info)`, `remove(host)`, `observe()`. JVM tests per function.
   - [x] `RemoteBrowseRepository.list(path): Flow<RemoteListing>` (Room `remote_cache` per path, so offline browsing shows what was loaded before; filter supported image mimes + folders). Tests.
@@ -375,28 +375,28 @@ _Depends on: Phases 3 (viewer), 4 (settings)._
 **Goal:** show a per-thumbnail "on Nextcloud" badge and hand images that are not uploaded yet to the Nextcloud Android app (D31).
 _Depends on: Phases 4 (settings), 8 (WebDAV client, account)._
 
-- [ ] **9.1 Model & settings**
-  - [ ] `UploadState` (`Unknown`, `NotUploaded`, `Uploaded(verifiedByChecksum)`).
-  - [ ] `remoteRoot` in settings (should match the Nextcloud app's upload folder); `RemoteTargetResolver.remotePathFor(item, remoteRoot)` = `<remoteRoot>/<local relative path>/<displayName>`. Tests: nesting, trailing slashes, special characters.
-- [ ] **9.2 Database (migration → next version)**
-  - [ ] `UploadStateEntity` (`upload_state`: media_id PK, remote_path, local_size, remote_etag, checksum_verified, state, checked_at). Migration test.
-  - [ ] `UploadStateDao`: `upsertAll`, `observeStatusFor(ids)`, `observeStatusByBucket(bucketId)`, `deleteForMissingMedia()`, `clear()`. Tests per method.
-- [ ] **9.3 Status check (`:core:data` + `:core:platform`)**
-  - [ ] `ChecksumCalculator.sha1(InputStream)` / `md5(InputStream)` (streaming, JVM); content opened through the `MediaContentSource` port (`ContentResolverContentSource` adapter, Robolectric test). Tests with fixture bytes.
-  - [ ] `ChecksumParser.parse("SHA1:… MD5:…")`. Tests.
-  - [ ] `UploadStateMatcher.match(localItems, remoteListing)` – path+size match; if remote has `oc:checksums`, confirm via local hash. Tests: match, size mismatch, missing remote, checksum confirm/mismatch.
-  - [ ] `UploadStateRepository.refreshAll()`: one PROPFIND per local folder → matcher → upsert. JVM tests: success, offline → retryable failure, logged out → no-op.
-  - [ ] `UploadStateSyncWorker` in `:core:platform` (periodic e.g. 6 h, network constraint; one-shot via `requestUploadStateSync()`), maps the result. Tests (Robolectric): success, retry.
-- [ ] **9.4 Hand-off (`:core:data` + `:core:platform`)**
-  - [ ] `NextcloudAppSource` port; `PackageManagerNextcloudAppSource` + manifest `<queries>` for `com.nextcloud.client`. Test (Robolectric): installed / not installed.
-  - [ ] `UploadHandoffRepository.prepare(ids)`: drops `Uploaded` items, returns a `ShareSpec` targeted at `com.nextcloud.client`; `NothingToUpload` when all are uploaded; `NextcloudAppMissing` when not installed. `onReturnedFromHandoff()` → `requestUploadStateSync()`. JVM tests per outcome.
-  - [ ] `ShareIntentFactory` honours a target package (explicit intent). Robolectric test.
-- [ ] **9.5 UI**
-  - [ ] `UploadBadge` composable in `:core:ui` (icon per `UploadState`, content description). Compose test per state.
-  - [ ] Folder grid and timeline ViewModels combine paging items with `observeStatusFor`; badges shown only when logged in. Tests.
-  - [ ] "Upload" action in viewer, `SelectionTopBar` and selection overview: hand-off of the not-yet-uploaded items; disabled with a hint when the Nextcloud app is missing; hidden when logged out. Tests per case.
-  - [ ] Settings: remote root. Tests.
-- [ ] **9.6 Update docs** – ARCHITECTURE.md (upload-state algorithm, hand-off) and README "How already uploaded is determined" match code.
+- [x] **9.1 Model & settings**
+  - [x] `UploadState` (`Unknown`, `NotUploaded`, `Uploaded(verifiedByChecksum)`).
+  - [x] `remoteRoot` in settings (should match the Nextcloud app's upload folder); `RemoteTargetResolver.remotePathFor(item, remoteRoot)` = `<remoteRoot>/<local relative path>/<displayName>`. Tests: nesting, trailing slashes, special characters. _`remoteRoot` and its setting were already there from Phase 8._
+- [x] **9.2 Database (migration → next version)**
+  - [x] `UploadStateEntity` (`upload_state`: media_id PK, remote_path, local_size, remote_etag, checksum_verified, state, checked_at). Migration test. _Schema version 3. Also `local_date_modified_s` as in ARCHITECTURE.md §4.1, and `remote_folder_etag` for the skip rule of §5.7._
+  - [x] `UploadStateDao`: `upsertAll`, `observeStatusFor(ids)`, `observeStatusByBucket(bucketId)`, `deleteForMissingMedia()`, `clear()`. Tests per method. _No `deleteForMissingMedia()`: the foreign key removes the rows. No `observeStatusByBucket`: the timeline needs the visible ids anyway (§5.2), and the folder grid uses them as well. Added what the check reads, and `upsertExisting`, which leaves out images deleted during the check._
+- [x] **9.3 Status check (`:core:data` + `:core:platform`)**
+  - [x] `ChecksumCalculator.sha1(InputStream)` / `md5(InputStream)` (streaming, JVM); content opened through the `MediaContentSource` port (`ContentResolverContentSource` adapter, Robolectric test). Tests with fixture bytes. _Reads the original with `setRequireOriginal`, because the system otherwise blanks the location in the file, so also an on-device test._
+  - [x] `ChecksumParser.parse("SHA1:… MD5:…")`. Tests.
+  - [x] `UploadStateMatcher.match(localItems, remoteListing)` – path+size match; if remote has `oc:checksums`, confirm via local hash. Tests: match, size mismatch, missing remote, checksum confirm/mismatch. _The image is read through a function parameter, and only for a name-and-size match that was not compared before._
+  - [x] `UploadStateRepository.refreshAll()`: one PROPFIND per local folder → matcher → upsert. JVM tests: success, offline → retryable failure, logged out → no-op.
+  - [x] `UploadStateSyncWorker` in `:core:platform` (periodic e.g. 6 h, network constraint; one-shot via `requestUploadStateSync()`), maps the result. Tests (Robolectric): success, retry.
+- [x] **9.4 Hand-off (`:core:data` + `:core:platform`)**
+  - [x] `NextcloudAppSource` port; `PackageManagerNextcloudAppSource` + manifest `<queries>` for `com.nextcloud.client`. Test (Robolectric): installed / not installed.
+  - [x] `UploadHandoffRepository.prepare(ids)`: drops `Uploaded` items, returns a `ShareSpec` targeted at `com.nextcloud.client`; `NothingToUpload` when all are uploaded; `NextcloudAppMissing` when not installed. `onReturnedFromHandoff()` → `requestUploadStateSync()`. JVM tests per outcome. _As `onAppResumed()`, called on every resume: it requests a check only after a hand-off, and also looks for the Nextcloud app again. Returns `UploadHandoff`, because `:core:ui` carries it out._
+  - [x] `ShareIntentFactory` honours a target package (explicit intent). Robolectric test.
+- [x] **9.5 UI**
+  - [x] `UploadBadge` composable in `:core:ui` (icon per `UploadState`, content description). Compose test per state.
+  - [x] Folder grid and timeline ViewModels combine paging items with `observeStatusFor`; badges shown only when logged in. Tests. _Through the ids of the images on screen; the paging query stays as it was. No badges in the map's cluster sheet: the task names the folder grid and the timeline._
+  - [x] "Upload" action in viewer, `SelectionTopBar` and selection overview: hand-off of the not-yet-uploaded items; disabled with a hint when the Nextcloud app is missing; hidden when logged out. Tests per case. _Dimmed and still tappable, as in DESIGN.md. Not in the map's own selection bar, but in the selection overview it opens._
+  - [x] Settings: remote root. Tests. _Done in Phase 8; changing it now requests a check._
+- [x] **9.6 Update docs** – ARCHITECTURE.md (upload-state algorithm, hand-off) and README "How already uploaded is determined" match code.
 
 **Definition of done:** badges reflect server state without blocking the grid; selected images that are not on the server open in the Nextcloud app's upload screen; badges update after returning; already-present files are not handed over again; tests for every function; CI green.
 

@@ -5,9 +5,11 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -16,10 +18,13 @@ import net.drehtuer.nextgallery.core.data.media.ImageDetailsMapper
 import net.drehtuer.nextgallery.core.data.media.MediaActionsRepository
 import net.drehtuer.nextgallery.core.data.media.MediaRepository
 import net.drehtuer.nextgallery.core.data.media.TrashFlow
+import net.drehtuer.nextgallery.core.data.upload.UploadHandoffRepository
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaSource
 import net.drehtuer.nextgallery.core.model.ShareSpec
 import net.drehtuer.nextgallery.core.model.TrashEffect
+import net.drehtuer.nextgallery.core.model.UploadAvailability
+import net.drehtuer.nextgallery.core.model.UploadHandoff
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -41,6 +46,9 @@ class ViewerViewModelTest {
         coEvery { shareSpec(listOf(MediaId(1))) } returns spec
     }
     private val trashFlow = mockk<TrashFlow>(relaxed = true)
+    private val uploadHandoff = mockk<UploadHandoffRepository>(relaxed = true) {
+        every { observeAvailability() } returns flowOf(UploadAvailability.APP_MISSING)
+    }
 
     @Before
     fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
@@ -49,9 +57,41 @@ class ViewerViewModelTest {
     fun tearDown() = Dispatchers.resetMain()
 
     private fun viewModel() =
-        ViewerViewModel(ViewerRoute(mediaId = 1, bucketId = 7), mediaRepository, actions, trashFlow)
+        ViewerViewModel(ViewerRoute(mediaId = 1, bucketId = 7), mediaRepository, actions, trashFlow, uploadHandoff)
 
     private fun viewModelOnFirstImage() = viewModel().apply { onEvent(ViewerEvent.PageChanged(mediaItem(1))) }
+
+    @Test
+    fun init_observesUploadAvailability() {
+        assertEquals(UploadAvailability.APP_MISSING, viewModel().state.value.uploadAvailability)
+    }
+
+    @Test
+    fun onEvent_upload_sendsTheHandoffOfTheCurrentImage() = runTest {
+        coEvery { uploadHandoff.prepare(listOf(MediaId(1))) } returns UploadHandoff.NothingToUpload
+        val viewModel = viewModelOnFirstImage()
+
+        viewModel.onEvent(ViewerEvent.Upload)
+
+        viewModel.effects.test {
+            assertEquals(ViewerEffect.Upload(UploadHandoff.NothingToUpload), awaitItem())
+            cancel()
+        }
+    }
+
+    @Test
+    fun onEvent_uploadWithoutCurrentImage_preparesNothing() {
+        viewModel().onEvent(ViewerEvent.Upload)
+
+        coVerify(exactly = 0) { uploadHandoff.prepare(any()) }
+    }
+
+    @Test
+    fun onEvent_resumed_tellsTheRepository() {
+        viewModel().onEvent(ViewerEvent.Resumed)
+
+        verify { uploadHandoff.onAppResumed() }
+    }
 
     @Test
     fun init_findsPositionOfOpenedImage() {
@@ -63,7 +103,8 @@ class ViewerViewModelTest {
         every { mediaRepository.pagedItems(MediaSource.Timeline) } returns emptyFlow()
         coEvery { mediaRepository.indexOf(MediaSource.Timeline, MediaId(1)) } returns 9
 
-        val viewModel = ViewerViewModel(ViewerRoute(mediaId = 1, bucketId = null), mediaRepository, actions, trashFlow)
+        val route = ViewerRoute(mediaId = 1, bucketId = null)
+        val viewModel = ViewerViewModel(route, mediaRepository, actions, trashFlow, uploadHandoff)
 
         assertEquals(9, viewModel.state.value.initialIndex)
     }

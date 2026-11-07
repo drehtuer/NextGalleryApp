@@ -33,6 +33,9 @@ import net.drehtuer.nextgallery.core.ui.component.SelectAllAction
 import net.drehtuer.nextgallery.core.ui.component.SelectionOverviewAction
 import net.drehtuer.nextgallery.core.ui.component.SelectionTopBar
 import net.drehtuer.nextgallery.core.ui.component.ShareAction
+import net.drehtuer.nextgallery.core.ui.component.UploadAction
+import net.drehtuer.nextgallery.core.ui.component.VisibleMediaIdsEffect
+import net.drehtuer.nextgallery.core.ui.thumbnail.UploadBadge
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,6 +61,7 @@ fun FolderGridScreen(
                         SelectAllAction(onClick = { onEvent(FolderGridEvent.SelectAll) })
                         SelectionOverviewAction(onClick = onOpenSelectionOverview)
                         ShareAction(onClick = { onEvent(FolderGridEvent.ShareSelected) })
+                        UploadAction(state.uploadAvailability, onClick = { onEvent(FolderGridEvent.UploadSelected) })
                         DeleteAction(onClick = { onEvent(FolderGridEvent.DeleteSelected) })
                     },
                 )
@@ -94,7 +98,9 @@ private fun FolderGridContent(
                 onItemLongClick = { onEvent(FolderGridEvent.ItemLongPressed(it.id)) },
                 state = gridState,
                 selecting = state.selecting,
+                cellBadge = { item -> state.uploadBadges[item.id]?.let { UploadBadge(it) } },
             )
+            VisibleMediaIdsEffect(gridState) { onEvent(FolderGridEvent.VisibleItemsChanged(it)) }
             FastScrollbar(gridState, items.itemCount, Modifier.align(Alignment.CenterEnd))
         }
 

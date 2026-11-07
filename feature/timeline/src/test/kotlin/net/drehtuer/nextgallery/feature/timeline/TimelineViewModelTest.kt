@@ -5,9 +5,11 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
@@ -23,11 +25,16 @@ import net.drehtuer.nextgallery.core.data.media.TrashFlow
 import net.drehtuer.nextgallery.core.data.selection.SelectionRepository
 import net.drehtuer.nextgallery.core.data.timeline.TimelineIndex
 import net.drehtuer.nextgallery.core.data.timeline.TimelineRepository
+import net.drehtuer.nextgallery.core.data.upload.UploadHandoffRepository
+import net.drehtuer.nextgallery.core.data.upload.UploadStateRepository
 import net.drehtuer.nextgallery.core.model.DayCount
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaSource
 import net.drehtuer.nextgallery.core.model.ShareSpec
 import net.drehtuer.nextgallery.core.model.TrashEffect
+import net.drehtuer.nextgallery.core.model.UploadAvailability
+import net.drehtuer.nextgallery.core.model.UploadHandoff
+import net.drehtuer.nextgallery.core.model.UploadState
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -56,6 +63,14 @@ class TimelineViewModelTest {
         coEvery { shareSpec(setOf(MediaId(1))) } returns spec
     }
     private val trashFlow = mockk<TrashFlow>(relaxed = true)
+    private val visibleIds = slot<Flow<Set<MediaId>>>()
+    private val badges = MutableStateFlow<Map<MediaId, UploadState>>(emptyMap())
+    private val uploadStates = mockk<UploadStateRepository> {
+        every { observeBadges(capture(visibleIds)) } returns badges
+    }
+    private val uploadHandoff = mockk<UploadHandoffRepository>(relaxed = true) {
+        every { observeAvailability() } returns flowOf(UploadAvailability.APP_MISSING)
+    }
 
     /** 6 November 2026, 23:30 UTC, which is already the 7th at UTC+1. */
     private val clock = mockk<Clock> {
@@ -69,10 +84,63 @@ class TimelineViewModelTest {
     @After
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun viewModel() =
-        TimelineViewModel(mediaRepository, timelineRepository, selectionRepository, actions, trashFlow, clock)
+    private fun viewModel() = TimelineViewModel(
+        mediaRepository,
+        timelineRepository,
+        selectionRepository,
+        actions,
+        trashFlow,
+        clock,
+        uploadStates,
+        uploadHandoff,
+    )
 
     private suspend fun TimelineViewModel.loadedState() = state.first { it.index != null }
+
+    @Test
+    fun state_containsUploadBadges() = runTest {
+        badges.value = mapOf(MediaId(1) to UploadState.NotUploaded)
+
+        val state = viewModel().state.first { it.uploadBadges.isNotEmpty() }
+
+        assertEquals(mapOf(MediaId(1) to UploadState.NotUploaded), state.uploadBadges)
+    }
+
+    @Test
+    fun state_containsUploadAvailability() = runTest {
+        assertEquals(UploadAvailability.APP_MISSING, viewModel().loadedState().uploadAvailability)
+    }
+
+    @Test
+    fun onEvent_visibleItemsChanged_reachesTheBadges() = runTest {
+        val viewModel = viewModel()
+        viewModel.loadedState()
+
+        viewModel.onEvent(TimelineEvent.VisibleItemsChanged(setOf(MediaId(3))))
+
+        assertEquals(setOf(MediaId(3)), visibleIds.captured.first())
+    }
+
+    @Test
+    fun onEvent_uploadSelected_sendsTheHandoffOfTheSelection() = runTest {
+        selectedIds.value = setOf(MediaId(1))
+        coEvery { uploadHandoff.prepare(setOf(MediaId(1))) } returns UploadHandoff.NothingToUpload
+        val viewModel = viewModel()
+
+        viewModel.onEvent(TimelineEvent.UploadSelected)
+
+        viewModel.effects.test {
+            assertEquals(TimelineEffect.Upload(UploadHandoff.NothingToUpload), awaitItem())
+            cancel()
+        }
+    }
+
+    @Test
+    fun onEvent_resumed_tellsTheRepository() {
+        viewModel().onEvent(TimelineEvent.Resumed)
+
+        verify { uploadHandoff.onAppResumed() }
+    }
 
     @Test
     fun init_pagesThroughTimeline() {

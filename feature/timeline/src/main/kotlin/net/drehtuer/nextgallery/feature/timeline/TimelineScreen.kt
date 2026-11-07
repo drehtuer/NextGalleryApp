@@ -46,8 +46,11 @@ import net.drehtuer.nextgallery.core.ui.component.SelectAllAction
 import net.drehtuer.nextgallery.core.ui.component.SelectionOverviewAction
 import net.drehtuer.nextgallery.core.ui.component.SelectionTopBar
 import net.drehtuer.nextgallery.core.ui.component.ShareAction
+import net.drehtuer.nextgallery.core.ui.component.UploadAction
+import net.drehtuer.nextgallery.core.ui.component.VisibleMediaIdsEffect
 import net.drehtuer.nextgallery.core.ui.theme.NextGalleryTheme
 import net.drehtuer.nextgallery.core.ui.thumbnail.ThumbnailCell
+import net.drehtuer.nextgallery.core.ui.thumbnail.UploadBadge
 import net.drehtuer.nextgallery.core.ui.thumbnail.thumbnailSizePx
 import net.drehtuer.nextgallery.core.ui.thumbnail.toThumbnail
 import java.time.LocalDate
@@ -83,6 +86,7 @@ fun TimelineScreen(
                         SelectAllAction(onClick = { onEvent(TimelineEvent.SelectAll) })
                         SelectionOverviewAction(onClick = onOpenSelectionOverview)
                         ShareAction(onClick = { onEvent(TimelineEvent.ShareSelected) })
+                        UploadAction(state.uploadAvailability, onClick = { onEvent(TimelineEvent.UploadSelected) })
                         DeleteAction(onClick = { onEvent(TimelineEvent.DeleteSelected) })
                     },
                 )
@@ -124,6 +128,7 @@ private fun TimelineContent(
         else -> Box(Modifier.fillMaxSize()) {
             val gridState = rememberLazyGridState()
             TimelineGrid(index, state, items, gridState, onEvent)
+            VisibleMediaIdsEffect(gridState) { onEvent(TimelineEvent.VisibleItemsChanged(it)) }
             StickyMonth(index, gridState)
             // A sibling after the list and the sticky header, so nothing covers it (D43).
             DateRail(gridState, index)
@@ -201,6 +206,7 @@ private fun PhotoCell(
             onClick = { item?.let { onEvent(TimelineEvent.ItemClicked(it.id)) } },
             onLongClick = { item?.let { onEvent(TimelineEvent.ItemLongPressed(it.id)) } },
         ),
+        badge = { item?.let { state.uploadBadges[it.id] }?.let { UploadBadge(it) } },
     )
 }
 

@@ -3,6 +3,7 @@ package net.drehtuer.nextgallery.core.ui.component
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -37,6 +38,7 @@ fun MediaGrid(
     state: LazyGridState = rememberLazyGridState(),
     selecting: Boolean = selectedIds.isNotEmpty(),
     columns: Int = NextGalleryTheme.dimensions.gridColumns,
+    cellBadge: @Composable BoxScope.(MediaItem) -> Unit = {},
 ) {
     val dimensions = NextGalleryTheme.dimensions
     BoxWithConstraints(modifier) {
@@ -68,6 +70,7 @@ fun MediaGrid(
                         onClick = { item?.let(onItemClick) },
                         onLongClick = { item?.let(onItemLongClick) },
                     ),
+                    badge = { item?.let { cellBadge(it) } },
                 )
             }
         }

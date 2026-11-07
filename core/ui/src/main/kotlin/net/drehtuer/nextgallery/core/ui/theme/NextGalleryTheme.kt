@@ -37,6 +37,8 @@ data class NextGalleryDimensions(
     val scrollbarThumbHeight: Dp = 48.dp,
     val scrollbarTouchWidth: Dp = 48.dp,
     val badgeSize: Dp = 24.dp,
+    val badgeInset: Dp = 6.dp,
+    val badgeIconSize: Dp = 16.dp,
     val clusterMarkerSize: Dp = 60.dp,
     val clusterMarkerBorder: Dp = 3.dp,
     val clusterPillHeight: Dp = 22.dp,

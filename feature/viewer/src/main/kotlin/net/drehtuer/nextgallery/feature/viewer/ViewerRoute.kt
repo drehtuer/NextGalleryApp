@@ -16,6 +16,7 @@ import net.drehtuer.nextgallery.core.model.GeoBounds
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaSource
 import net.drehtuer.nextgallery.core.ui.platform.rememberTrashEffectHandler
+import net.drehtuer.nextgallery.core.ui.platform.rememberUploadHandoffHandler
 import net.drehtuer.nextgallery.core.ui.platform.shareImages
 
 /** Pages through the map cluster [mapBounds] ([GeoBounds.encode]) if set, the folder [bucketId], or the timeline. */
@@ -45,10 +46,12 @@ fun NavGraphBuilder.viewerScreen(onBack: () -> Unit, onOpenEditor: (MediaId) -> 
             onConfirmationResult = { viewModel.onEvent(ViewerEvent.ConfirmationResult(it)) },
             onUndo = { viewModel.onEvent(ViewerEvent.UndoDelete) },
         )
+        val handleUpload = rememberUploadHandoffHandler(snackbarHostState) { viewModel.onEvent(ViewerEvent.Resumed) }
         LaunchedEffect(viewModel) {
             viewModel.effects.collect { effect ->
                 when (effect) {
                     is ViewerEffect.Share -> context.shareImages(effect.spec)
+                    is ViewerEffect.Upload -> handleUpload(effect.handoff)
                     is ViewerEffect.Trash -> handleTrashEffect(effect.effect)
                     is ViewerEffect.OpenEditor -> onOpenEditor(effect.id)
                     ViewerEffect.Close -> onBack()

@@ -42,6 +42,7 @@ import net.drehtuer.nextgallery.core.ui.component.BackButton
 import net.drehtuer.nextgallery.core.ui.component.DeleteAction
 import net.drehtuer.nextgallery.core.ui.component.LoadingIndicator
 import net.drehtuer.nextgallery.core.ui.component.ShareAction
+import net.drehtuer.nextgallery.core.ui.component.UploadAction
 import net.drehtuer.nextgallery.core.ui.theme.NextGalleryViewerTheme
 
 private const val CHROME_ALPHA = 0.6f
@@ -70,7 +71,7 @@ fun ViewerScreen(
             } else {
                 ImagePager(initialIndex, items, onEvent, pageContent)
             }
-            if (state.chromeVisible) ViewerTopBar(state.current, onEvent, onBack)
+            if (state.chromeVisible) ViewerTopBar(state, onEvent, onBack)
             SnackbarHost(snackbarHostState, Modifier.align(Alignment.BottomCenter).navigationBarsPadding())
         }
         state.details?.let { ImageInfoSheet(it, onDismiss = { onEvent(ViewerEvent.HideInfo) }) }
@@ -118,7 +119,8 @@ private fun ZoomablePage(item: MediaItem, onTap: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ViewerTopBar(current: MediaItem?, onEvent: (ViewerEvent) -> Unit, onBack: () -> Unit) {
+private fun ViewerTopBar(state: ViewerUiState, onEvent: (ViewerEvent) -> Unit, onBack: () -> Unit) {
+    val current = state.current
     TopAppBar(
         title = {
             current?.let {
@@ -134,6 +136,7 @@ private fun ViewerTopBar(current: MediaItem?, onEvent: (ViewerEvent) -> Unit, on
         navigationIcon = { BackButton(onClick = onBack) },
         actions = {
             ShareAction(onClick = { onEvent(ViewerEvent.Share) })
+            UploadAction(state.uploadAvailability, onClick = { onEvent(ViewerEvent.Upload) })
             if (current != null && SupportedMimeTypes.isEditable(current.mimeType)) {
                 IconButton(onClick = { onEvent(ViewerEvent.Edit) }) {
                     Icon(

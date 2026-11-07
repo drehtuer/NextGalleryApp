@@ -37,7 +37,7 @@ abstract class DatabaseModule {
         @Singleton
         fun provideDatabase(@ApplicationContext context: Context): NextGalleryDatabase =
             Room.databaseBuilder(context, NextGalleryDatabase::class.java, NextGalleryDatabase.NAME)
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
 
         @Provides
@@ -54,5 +54,8 @@ abstract class DatabaseModule {
 
         @Provides
         fun provideRemoteCacheDao(database: NextGalleryDatabase): RemoteCacheDao = database.remoteCacheDao()
+
+        @Provides
+        fun provideUploadStateDao(database: NextGalleryDatabase): UploadStateDao = database.uploadStateDao()
     }
 }

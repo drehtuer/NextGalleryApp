@@ -167,9 +167,21 @@ class FakeMediaChangeSource : MediaChangeSource {
 
 class FakeWorkScheduler : WorkScheduler {
     val enqueued = mutableListOf<IndexMode>()
+    var uploadStateSchedules = 0
+        private set
+    var uploadStateRequests = 0
+        private set
 
     override fun enqueueIndex(mode: IndexMode) {
         enqueued += mode
+    }
+
+    override fun scheduleUploadStateSync() {
+        uploadStateSchedules++
+    }
+
+    override fun requestUploadStateSync() {
+        uploadStateRequests++
     }
 }
 

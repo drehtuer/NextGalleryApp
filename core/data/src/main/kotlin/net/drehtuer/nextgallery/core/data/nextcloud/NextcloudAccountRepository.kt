@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import net.drehtuer.nextgallery.core.common.AppError
+import net.drehtuer.nextgallery.core.data.upload.UploadStateStore
 import net.drehtuer.nextgallery.core.model.NextcloudAccount
 import net.drehtuer.nextgallery.core.model.RemoteImageUrls
 import net.drehtuer.nextgallery.core.model.RemoteItem
@@ -48,6 +49,7 @@ class RemoteDataWiper @Inject constructor(
     private val images: RemoteImageCache,
     private val shares: RemoteShareCache,
     private val connections: ConnectionEvictor,
+    private val uploadStates: UploadStateStore,
 ) {
     suspend fun wipe() {
         val steps = listOf<suspend () -> Unit>(
@@ -55,6 +57,7 @@ class RemoteDataWiper @Inject constructor(
             { images.clear() },
             { shares.clear() },
             { connections.evictConnections() },
+            { uploadStates.clear() },
         )
         steps.forEach { step -> ignoringFailure(step) }
     }

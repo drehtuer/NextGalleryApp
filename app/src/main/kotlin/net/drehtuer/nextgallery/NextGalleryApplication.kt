@@ -14,6 +14,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import net.drehtuer.nextgallery.core.data.nextcloud.RemoteShareCache
 import net.drehtuer.nextgallery.core.data.settings.RuleChangeObserver
+import net.drehtuer.nextgallery.core.data.upload.UploadStateSyncObserver
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -34,12 +35,16 @@ class NextGalleryApplication :
     @Inject
     lateinit var remoteShareCache: Lazy<RemoteShareCache>
 
+    @Inject
+    lateinit var uploadStateSyncObserver: Lazy<UploadStateSyncObserver>
+
     /** Not tied to an activity, so a rule change still reaches the index if the user leaves the app right after it. */
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
         super.onCreate()
         applicationScope.launch { ruleChangeObserver.get().observe() }
+        applicationScope.launch { uploadStateSyncObserver.get().observe() }
         // Shared server images only live until the next share or app start (D48).
         applicationScope.launch(Dispatchers.IO) { remoteShareCache.get().clear() }
     }

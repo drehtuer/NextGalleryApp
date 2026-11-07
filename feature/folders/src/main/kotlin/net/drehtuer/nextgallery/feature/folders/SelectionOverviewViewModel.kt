@@ -10,7 +10,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -18,15 +18,19 @@ import net.drehtuer.nextgallery.core.data.media.MediaActionsRepository
 import net.drehtuer.nextgallery.core.data.media.TrashFlow
 import net.drehtuer.nextgallery.core.data.selection.SelectionOverviewItem
 import net.drehtuer.nextgallery.core.data.selection.SelectionRepository
+import net.drehtuer.nextgallery.core.data.upload.UploadHandoffRepository
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.ShareSpec
 import net.drehtuer.nextgallery.core.model.TrashEffect
+import net.drehtuer.nextgallery.core.model.UploadAvailability
+import net.drehtuer.nextgallery.core.model.UploadHandoff
 import net.drehtuer.nextgallery.core.model.ViewContext
 
 /** [items] is null while the selected images are being read. */
 data class SelectionOverviewUiState(
     val items: List<SelectionOverviewItem>? = null,
     val greyedOutForMissingLocation: Boolean = false,
+    val uploadAvailability: UploadAvailability = UploadAvailability.HIDDEN,
 )
 
 sealed interface SelectionOverviewEvent {
@@ -34,15 +38,22 @@ sealed interface SelectionOverviewEvent {
 
     data object Share : SelectionOverviewEvent
 
+    data object Upload : SelectionOverviewEvent
+
     data object Delete : SelectionOverviewEvent
 
     data class ConfirmationResult(val confirmed: Boolean) : SelectionOverviewEvent
 
     data object UndoDelete : SelectionOverviewEvent
+
+    /** The screen came back, possibly from the Nextcloud app. */
+    data object Resumed : SelectionOverviewEvent
 }
 
 sealed interface SelectionOverviewEffect {
     data class Share(val spec: ShareSpec) : SelectionOverviewEffect
+
+    data class Upload(val handoff: UploadHandoff) : SelectionOverviewEffect
 
     data class Trash(val effect: TrashEffect) : SelectionOverviewEffect
 }
@@ -54,6 +65,7 @@ class SelectionOverviewViewModel @AssistedInject constructor(
     private val selectionRepository: SelectionRepository,
     private val actions: MediaActionsRepository,
     private val trashFlow: TrashFlow,
+    private val uploadHandoff: UploadHandoffRepository,
 ) : ViewModel() {
     @AssistedFactory
     interface Factory {
@@ -64,8 +76,12 @@ class SelectionOverviewViewModel @AssistedInject constructor(
 
     val effects: Flow<SelectionOverviewEffect> = effectChannel.receiveAsFlow()
 
-    val state: StateFlow<SelectionOverviewUiState> = selectionRepository.observeOverview(context)
-        .map { SelectionOverviewUiState(it, greyedOutForMissingLocation = context == ViewContext.Map) }
+    val state: StateFlow<SelectionOverviewUiState> = combine(
+        selectionRepository.observeOverview(context),
+        uploadHandoff.observeAvailability(),
+    ) { items, availability ->
+        SelectionOverviewUiState(items, greyedOutForMissingLocation = context == ViewContext.Map, availability)
+    }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(STOP_TIMEOUT_MILLIS), SelectionOverviewUiState())
 
     fun onEvent(event: SelectionOverviewEvent) {
@@ -77,6 +93,13 @@ class SelectionOverviewViewModel @AssistedInject constructor(
                     effectChannel.send(SelectionOverviewEffect.Share(it))
                 }
             }
+
+            SelectionOverviewEvent.Upload -> viewModelScope.launch {
+                val handoff = uploadHandoff.prepare(selectionRepository.observe().value)
+                effectChannel.send(SelectionOverviewEffect.Upload(handoff))
+            }
+
+            SelectionOverviewEvent.Resumed -> uploadHandoff.onAppResumed()
 
             SelectionOverviewEvent.Delete -> viewModelScope.launch {
                 sendTrashEffect(trashFlow.request(selectionRepository.observe().value))

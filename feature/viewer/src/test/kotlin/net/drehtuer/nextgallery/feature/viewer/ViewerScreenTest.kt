@@ -19,6 +19,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import kotlinx.coroutines.flow.flowOf
 import net.drehtuer.nextgallery.core.data.media.ImageDetailsMapper
 import net.drehtuer.nextgallery.core.model.MediaItem
+import net.drehtuer.nextgallery.core.model.UploadAvailability
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -50,6 +51,24 @@ class ViewerScreenTest {
                 },
             )
         }
+    }
+
+    private val onFirstImage = ViewerUiState(initialIndex = 0, current = mediaItem(1))
+
+    @Test
+    fun uploadClicked_sendsEvent() {
+        show(onFirstImage.copy(uploadAvailability = UploadAvailability.AVAILABLE))
+
+        composeRule.onNodeWithContentDescription("Upload").performClick()
+
+        assertTrue(ViewerEvent.Upload in events)
+    }
+
+    @Test
+    fun loggedOut_noUploadAction() {
+        show(onFirstImage.copy(uploadAvailability = UploadAvailability.HIDDEN))
+
+        composeRule.onNodeWithContentDescription("Upload").assertDoesNotExist()
     }
 
     @Test

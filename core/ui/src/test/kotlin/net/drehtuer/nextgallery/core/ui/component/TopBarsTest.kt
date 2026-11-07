@@ -1,12 +1,15 @@
 package net.drehtuer.nextgallery.core.ui.component
 
 import androidx.compose.material3.Text
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import net.drehtuer.nextgallery.core.model.UploadAvailability
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -16,6 +19,52 @@ import org.junit.runner.RunWith
 class TopBarsTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun uploadAction_available_clickInvokesCallback() {
+        var clicks = 0
+        composeRule.setContent { UploadAction(UploadAvailability.AVAILABLE, onClick = { clicks++ }) }
+
+        composeRule.onNodeWithContentDescription("Upload").performClick()
+
+        assertEquals(1, clicks)
+    }
+
+    @Test
+    fun uploadAction_hidden_isNotThere() {
+        composeRule.setContent { UploadAction(UploadAvailability.HIDDEN, onClick = {}) }
+
+        composeRule.onNodeWithContentDescription("Upload").assertDoesNotExist()
+    }
+
+    @Test
+    fun uploadAction_appMissing_staysTappable() {
+        var clicks = 0
+        composeRule.setContent { UploadAction(UploadAvailability.APP_MISSING, onClick = { clicks++ }) }
+
+        composeRule.onNodeWithContentDescription("Upload").performClick()
+
+        assertEquals(1, clicks)
+    }
+
+    @Test
+    fun uploadAction_appMissing_announcesTheHint() {
+        composeRule.setContent { UploadAction(UploadAvailability.APP_MISSING, onClick = {}) }
+
+        composeRule.onNode(
+            SemanticsMatcher.expectValue(
+                SemanticsProperties.StateDescription,
+                "Install the Nextcloud app to upload photos.",
+            ),
+        ).assertIsDisplayed()
+    }
+
+    @Test
+    fun uploadAction_available_hasNoHint() {
+        composeRule.setContent { UploadAction(UploadAvailability.AVAILABLE, onClick = {}) }
+
+        composeRule.onNode(SemanticsMatcher.keyIsDefined(SemanticsProperties.StateDescription)).assertDoesNotExist()
+    }
 
     @Test
     fun backButton_clicked_invokesCallback() {
