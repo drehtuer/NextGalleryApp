@@ -429,11 +429,11 @@ _Depends on: Phases 1–9._
   - [ ] Release signing with a local keystore via `keystore.properties` (never committed); `signingConfigs.release`. _Set up: without the file the release build is unsigned. The wiring was checked with a file naming a missing keystore, which the signing step refuses. A real signed build needs a keystore, which only the owner creates._
   - [x] Versioning scheme (`versionCode` from tag), CHANGELOG. _`v1.2.3` gives version 1.2.3 and code 1002003. [CHANGELOG.md](CHANGELOG.md) is in `docs/`, as all documentation is. No tag exists yet._
   - [ ] _Deferred until distribution (D28):_ GitHub Actions `release.yml` building signed artifacts on tag.
-  - [x] Security checks: Dependabot (D57), CodeQL, dependency review and OpenSSF Scorecard (D58), [SECURITY.md](SECURITY.md) with private vulnerability reporting, status badges in the README.
-  - [x] Documentation site: `pages.yml` publishes `README.md` and `docs/` to GitHub Pages with Jekyll when a release is published (D56). _Built locally with the same Jekyll image; the first deployment happens with the first release._
+  - [x] Security checks: Dependabot (D59), CodeQL, dependency review and OpenSSF Scorecard (D60), [SECURITY.md](SECURITY.md) with private vulnerability reporting, status badges in the README.
+  - [x] Documentation site: `pages.yml` publishes `README.md` and `docs/` to GitHub Pages with Jekyll when a release is published (D58). _Built locally with the same Jekyll image; the first deployment happens with the first release._
 - [ ] **10.5 Final checks**
   - [ ] Full manual pass on the reference Pixel 10a (Android 17); instrumented suite green on a local API 37 emulator and on the Pixel 10a.
-  - [x] Third-party license screen (`:feature:settings` About) generated from dependencies. _The AboutLibraries Gradle plugin writes the list during the build; only its data ships, not its library. GeoNames and OpenStreetMap stay as entries by hand. The screen shows the licence names, not their full texts._
+  - [x] Third-party license screen (`:feature:settings` About) generated from dependencies. _The AboutLibraries Gradle plugin writes the list during the build; only its data ships, not its library. GeoNames and OpenStreetMap stay as entries by hand. The screen shows the licence names, not their full texts, which the owner decided is enough (D57)._
   - [x] Privacy: confirm no analytics/tracking, network only to user's Nextcloud and OSM tiles. _Confirmed by reading the code and the APK; all entry points are listed in ARCHITECTURE.md §11. The two links that open a browser are what the user tapped. Not watched on the wire._
 - [x] **10.6 Update docs** – README (status, building, installing the release build), ARCHITECTURE.md final state, DESIGN_DECISIONS.md resolved questions.
 
@@ -454,5 +454,16 @@ _Depends on: Phases 1–9._
 - [x] `MediaSource.VirtualFolder`, `ViewContext.VirtualFolder`, DAO and store queries over `bucket_id IN (...)`, which also replace the single-folder ones, optional route arguments, `FolderGridViewModel` for both kinds of folder.
 - [x] `FolderRepository.observeVirtualFolders()` with live cover and count.
 - [x] Settings "Folders" screen with the picker and the virtual folder editor; folder list with virtual folders first and new empty states; timeline and map wording.
+- [ ] Checks on the device, see [STATUS.md](STATUS.md).
+- [x] Update docs.
+
+## Delete confirmation without trash bin (D56) and licence texts (D57)
+
+**Goal:** a delete on the server that cannot be undone is never done without asking.
+
+- [x] `OcsClient.isTrashBinEnabled` reads `files.undelete` from `ocs/v2.php/cloud/capabilities`, with the size limit and error mapping of the other OCS calls.
+- [x] `RemoteFileOperations.isTrashBinEnabled`: unknown counts as off; a known answer is kept per account for the session.
+- [x] Remote browser: with the trash bin on, delete and Undo as before; otherwise the "Delete permanently?" dialog, then a message without Undo. The dialog closes when the account changes.
+- [x] D57: the licence list without full texts is enough; the known issue is gone from STATUS.md.
 - [ ] Checks on the device, see [STATUS.md](STATUS.md).
 - [x] Update docs.

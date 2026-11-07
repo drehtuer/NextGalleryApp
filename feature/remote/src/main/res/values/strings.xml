@@ -64,6 +64,15 @@
         <item quantity="one">%d image moved to the Nextcloud trash bin</item>
         <item quantity="other">%d images moved to the Nextcloud trash bin</item>
     </plurals>
+    <string name="feature_remote_delete_permanently_title">Delete permanently?</string>
+    <plurals name="feature_remote_delete_permanently_message">
+        <item quantity="one">The trash bin on your Nextcloud is off or couldn\'t be checked, so this image can\'t be restored.</item>
+        <item quantity="other">The trash bin on your Nextcloud is off or couldn\'t be checked, so these %d images can\'t be restored.</item>
+    </plurals>
+    <plurals name="feature_remote_deleted_permanently">
+        <item quantity="one">%d image deleted</item>
+        <item quantity="other">%d images deleted</item>
+    </plurals>
 
     <string name="feature_remote_details">Details</string>
     <string name="feature_remote_loading_full">Loading full image · %1$.1f of %2$.1f MB</string>

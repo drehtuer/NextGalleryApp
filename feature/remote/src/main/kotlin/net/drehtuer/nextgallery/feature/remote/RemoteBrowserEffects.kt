@@ -15,7 +15,7 @@ import net.drehtuer.nextgallery.core.ui.platform.rememberShareHandler
 import net.drehtuer.nextgallery.core.ui.remote.remoteMessage
 import net.drehtuer.nextgallery.core.ui.R as CoreUiR
 
-/** The screen with its effects: messages with Undo, the share sheet and opening the viewer. */
+/** The screen with its effects: messages (some with Undo), the share sheet and opening the viewer. */
 @Composable
 fun RemoteBrowserWithEffects(
     state: RemoteBrowserUiState,
@@ -39,9 +39,7 @@ fun RemoteBrowserWithEffects(
             if (result == SnackbarResult.ActionPerformed) onEvent(undo)
         }
     }
-    val show: (Int) -> Unit = { message ->
-        scope.launch { snackbarHostState.showSnackbar(resources.getString(message)) }
-    }
+    val show: (String) -> Unit = { message -> scope.launch { snackbarHostState.showSnackbar(message) } }
     LaunchedEffect(effects) {
         effects.collect { effect ->
             when (effect) {
@@ -64,9 +62,17 @@ fun RemoteBrowserWithEffects(
                     ActionEvent.UndoDelete,
                 )
 
-                is RemoteBrowserEffect.Failed -> show(effect.error.remoteMessage())
+                is RemoteBrowserEffect.DeletedPermanently -> show(
+                    resources.getQuantityString(
+                        R.plurals.feature_remote_deleted_permanently,
+                        effect.count,
+                        effect.count,
+                    ),
+                )
 
-                is RemoteBrowserEffect.Offline -> show(offlineMessage(effect.action))
+                is RemoteBrowserEffect.Failed -> show(resources.getString(effect.error.remoteMessage()))
+
+                is RemoteBrowserEffect.Offline -> show(resources.getString(offlineMessage(effect.action)))
             }
         }
     }

@@ -1,4 +1,4 @@
-# Dependabot version updates (D57). Security updates are switched on in the repository settings and are not grouped.
+# Dependabot version updates (D59). Security updates are switched on in the repository settings and are not grouped.
 # Minor and patch updates are grouped into one pull request per ecosystem, so a week brings few PRs; major updates
 # come one by one, because they usually need code changes (AGP, Kotlin, Compose, Room, ...).
 version: 2

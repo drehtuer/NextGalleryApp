@@ -158,7 +158,7 @@ Before opening a pull request, run the checks CI runs (`ktlintFormat` fixes what
 
 CI sends the coverage and the code analysis to [SonarCloud](https://sonarcloud.io/project/overview?id=drehtuer_NextGalleryApp). This needs Automatic Analysis turned off in the SonarCloud project and a `SONAR_TOKEN` repository secret (see D41 in [DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md)).
 
-Two more workflows check security (D57, D58 in [DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md)). [security.yml](.github/workflows/security.yml) runs CodeQL on the Kotlin code and the workflows, sends the Gradle dependencies to GitHub's dependency graph, and runs a dependency review on pull requests. [scorecard.yml](.github/workflows/scorecard.yml) runs OpenSSF Scorecard. Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) proposes updates for Gradle, the actions and the devcontainer image every Monday. The results are under the repository's Security tab.
+Two more workflows check security (D59, D60 in [DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md)). [security.yml](.github/workflows/security.yml) runs CodeQL on the Kotlin code and the workflows, sends the Gradle dependencies to GitHub's dependency graph, and runs a dependency review on pull requests. [scorecard.yml](.github/workflows/scorecard.yml) runs OpenSSF Scorecard. Dependabot ([.github/dependabot.yml](.github/dependabot.yml)) proposes updates for Gradle, the actions and the devcontainer image every Monday. The results are under the repository's Security tab.
 
 Instrumented tests do not run in CI. Run them on the host against an API 37 emulator or the Pixel 10a with `./gradlew connectedDebugAndroidTest` (this needs a local Android SDK).
 
@@ -187,7 +187,7 @@ The version comes from the nearest Git tag of the form `vMAJOR.MINOR.PATCH`: `v1
 
 ### Documentation site
 
-Publishing a GitHub release runs [.github/workflows/pages.yml](.github/workflows/pages.yml), which builds `README.md` and `docs/` with GitHub's Jekyll and deploys them to GitHub Pages; it can also be started by hand from the Actions tab. The Jekyll config is in [.github/pages/](.github/pages/). The repository's Pages source must be "GitHub Actions", and the `github-pages` environment must allow the release tags (`v*`) as well as `main` (D56 in [DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md)).
+Publishing a GitHub release runs [.github/workflows/pages.yml](.github/workflows/pages.yml), which builds `README.md` and `docs/` with GitHub's Jekyll and deploys them to GitHub Pages; it can also be started by hand from the Actions tab. The Jekyll config is in [.github/pages/](.github/pages/). The repository's Pages source must be "GitHub Actions", and the `github-pages` environment must allow the release tags (`v*`) as well as `main` (D58 in [DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md)).
 
 ## License
 

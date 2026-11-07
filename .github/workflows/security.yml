@@ -1,6 +1,6 @@
 name: Security
 
-# Code scanning and dependency checks (D58). SonarCloud's code analysis runs in ci.yml (D41).
+# Code scanning and dependency checks (D60). SonarCloud's code analysis runs in ci.yml (D41).
 on:
   push:
     branches: [main]
@@ -89,7 +89,7 @@ jobs:
       # Only what ships in the app is scoped 'runtime': the release runtime classpath of the Android modules and the
       # runtime classpath of the JVM modules, outside :benchmark and build-logic. Everything else (AGP, lint, detekt,
       # test libraries) is 'development': Dependabot still reports it, but the dependency review below only fails
-      # on runtime dependencies (D58).
+      # on runtime dependencies (D60).
       - uses: gradle/actions/dependency-submission@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         env:
           DEPENDENCY_GRAPH_RUNTIME_INCLUDE_CONFIGURATIONS: "releaseRuntimeClasspath|runtimeClasspath"

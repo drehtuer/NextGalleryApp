@@ -44,6 +44,9 @@ data class RemoteMoveUiState(
 
 data class RemoteShareUiState(val current: Int, val total: Int)
 
+/** The server's trash bin is off or unknown, so deleting [items] needs a confirmation (D56). */
+data class DeleteConfirmationState(val items: List<RemoteItem>)
+
 data class RemoteBrowserUiState(
     val loginRequired: Boolean = false,
     val path: String = RemotePaths.ROOT,
@@ -62,6 +65,7 @@ data class RemoteBrowserUiState(
     val menu: RemoteMenuState? = null,
     val move: RemoteMoveUiState = RemoteMoveUiState(),
     val share: RemoteShareUiState? = null,
+    val deleteConfirmation: DeleteConfirmationState? = null,
 ) {
     val isOffline: Boolean get() = !isConnected || serverUnreachable
 }
@@ -123,6 +127,10 @@ sealed interface MoveEvent : RemoteBrowserEvent {
 sealed interface ActionEvent : RemoteBrowserEvent {
     data object UndoDelete : ActionEvent
 
+    data object ConfirmDelete : ActionEvent
+
+    data object CancelDelete : ActionEvent
+
     data object CancelShare : ActionEvent
 }
 
@@ -137,8 +145,11 @@ sealed interface RemoteBrowserEffect {
     /** [targetFolder] is the folder's path; offers Undo. */
     data class Moved(val count: Int, val targetFolder: String) : RemoteBrowserEffect
 
-    /** Offers Undo. */
+    /** Into the trash bin; offers Undo. */
     data class Deleted(val count: Int) : RemoteBrowserEffect
+
+    /** Without a trash bin (D56), so without Undo. */
+    data class DeletedPermanently(val count: Int) : RemoteBrowserEffect
 
     data class Failed(val error: AppError) : RemoteBrowserEffect
 

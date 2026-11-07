@@ -46,9 +46,9 @@ that need a rooted or already compromised device.
 
 ## How the code is checked
 
-- **Dependabot** reports known vulnerabilities in the dependencies and proposes updates (D57).
+- **Dependabot** reports known vulnerabilities in the dependencies and proposes updates (D59).
 - **CodeQL** scans the Kotlin code and the GitHub Actions workflows on every pull request and every week. **OpenSSF
-  Scorecard** rates the repository's practices (D58).
+  Scorecard** rates the repository's practices (D60).
 - **Dependency review** fails a pull request that adds a vulnerable dependency to the app, or a licence GPL-3.0 cannot
   take. Build tools (the Android Gradle plugin, lint, detekt) are reported by Dependabot but do not block a pull request.
 - **SonarCloud** reports code issues and coverage (D41).

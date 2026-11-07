@@ -5,9 +5,11 @@ import net.drehtuer.nextgallery.core.common.AppResult
 import net.drehtuer.nextgallery.core.model.NextcloudAccount
 import net.drehtuer.nextgallery.core.model.RemoteItem
 import net.drehtuer.nextgallery.core.model.RemotePaths
+import net.drehtuer.nextgallery.core.nextcloud.OcsClient
 import net.drehtuer.nextgallery.core.nextcloud.TrashItem
 import net.drehtuer.nextgallery.core.nextcloud.WebDavClient
 import javax.inject.Inject
+import javax.inject.Singleton
 
 /** What to do if the target already has a file of that name (D46). */
 enum class ConflictPolicy { ASK, KEEP_BOTH, REPLACE, SKIP }
@@ -57,8 +59,14 @@ interface RemoteFileOperations {
      */
     suspend fun undoMove(results: List<RemoteMoveResult>): RemoteBatchResult
 
-    /** Into the Nextcloud trash bin. */
+    /** Into the Nextcloud trash bin if it is on ([isTrashBinEnabled]); otherwise the images are gone for good. */
     suspend fun delete(items: List<RemoteItem>): RemoteBatchResult
+
+    /**
+     * Whether the server keeps deleted files in its trash bin (D56). Unknown counts as no: logged out, or the answer
+     * could not be read. A known answer is kept for the signed-in account until the app ends.
+     */
+    suspend fun isTrashBinEnabled(): Boolean
 
     suspend fun undoDelete(items: List<RemoteItem>): RemoteBatchResult
 
@@ -74,11 +82,15 @@ interface RemoteFileOperations {
     fun nextFreeName(name: String, existing: Set<String>): String
 }
 
+/** A singleton, so that the trash bin answer lasts for the session. */
+@Singleton
 class DefaultRemoteFileOperations @Inject constructor(
     private val runner: RemoteCallRunner,
     private val webDav: WebDavClient,
+    ocs: OcsClient,
 ) : RemoteFileOperations {
     private val mover = RemoteMover(runner, webDav, ::nextFreeName)
+    private val trashBinCheck = TrashBinCheck(runner, ocs)
 
     override suspend fun move(
         items: List<RemoteItem>,
@@ -104,6 +116,8 @@ class DefaultRemoteFileOperations @Inject constructor(
     override suspend fun delete(items: List<RemoteItem>): RemoteBatchResult = batch(items) { account, item ->
         webDav.delete(account, item.path)
     }.let { RemoteBatchResult(it.done, it.failures) }
+
+    override suspend fun isTrashBinEnabled(): Boolean = trashBinCheck.isEnabled()
 
     override suspend fun undoDelete(items: List<RemoteItem>): RemoteBatchResult {
         val trash = when (val result = runner.call { webDav.listTrash(it) }) {

@@ -285,6 +285,13 @@ class RemoteBrowserScreenTest {
     }
 
     @Test
+    fun deleteConfirmation_showsTheDialog() {
+        show(loaded.copy(deleteConfirmation = DeleteConfirmationState(listOf(IMAGE_A))))
+
+        composeRule.onNodeWithText("Delete permanently?").assertIsDisplayed()
+    }
+
+    @Test
     fun moveSheetContent_noFolderButTitleAndIntro() {
         composeRule.setContent {
             MoveSheetContent(MoveSheetState(listOf(IMAGE_A, IMAGE_B), "/", isLoading = false), {})

@@ -81,6 +81,14 @@ class RemoteBrowserEffectsTest {
     }
 
     @Test
+    fun deletedPermanently_showsTheMessageWithoutUndo() {
+        send(RemoteBrowserEffect.DeletedPermanently(2))
+
+        composeRule.onNodeWithText("2 images deleted").assertIsDisplayed()
+        composeRule.onNodeWithText("Undo").assertDoesNotExist()
+    }
+
+    @Test
     fun failed_showsTheMessage() {
         send(RemoteBrowserEffect.Failed(AppError.Forbidden))
 

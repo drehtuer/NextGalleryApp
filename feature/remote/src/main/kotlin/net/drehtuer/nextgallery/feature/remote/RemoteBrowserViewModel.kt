@@ -70,8 +70,13 @@ class RemoteBrowserViewModel @Inject constructor(private val dependencies: Remot
 
     val effects: Flow<RemoteBrowserEffect> = effectChannel.receiveAsFlow()
 
-    val state: StateFlow<RemoteBrowserUiState> = combine(browser, move.state, actions.share) { current, moving, share ->
-        current.copy(move = moving, share = share)
+    val state: StateFlow<RemoteBrowserUiState> = combine(
+        browser,
+        move.state,
+        actions.share,
+        actions.deleteConfirmation,
+    ) { current, moving, share, deleteConfirmation ->
+        current.copy(move = moving, share = share, deleteConfirmation = deleteConfirmation)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, RemoteBrowserUiState())
 
     init {
@@ -95,6 +100,7 @@ class RemoteBrowserViewModel @Inject constructor(private val dependencies: Remot
     }
 
     private fun onAccountChanged(urls: RemoteImageUrls?) {
+        actions.cancelDelete()
         if (urls == null) {
             listingJob?.cancel()
             browser.update {
