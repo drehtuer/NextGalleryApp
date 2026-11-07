@@ -18,6 +18,8 @@ import net.drehtuer.nextgallery.core.data.selection.DefaultSelectionRepository
 import net.drehtuer.nextgallery.core.data.selection.SelectionRepository
 import net.drehtuer.nextgallery.core.data.settings.DefaultSettingsRepository
 import net.drehtuer.nextgallery.core.data.settings.SettingsRepository
+import net.drehtuer.nextgallery.core.data.timeline.DefaultTimelineRepository
+import net.drehtuer.nextgallery.core.data.timeline.TimelineRepository
 import javax.inject.Singleton
 
 /** Binds the `:core:data` interfaces to their default implementations. */
@@ -29,6 +31,9 @@ interface RepositoryModule {
 
     @Binds
     fun bindMediaRepository(repository: DefaultMediaRepository): MediaRepository
+
+    @Binds
+    fun bindTimelineRepository(repository: DefaultTimelineRepository): TimelineRepository
 
     @Binds
     fun bindMediaActionsRepository(repository: DefaultMediaActionsRepository): MediaActionsRepository

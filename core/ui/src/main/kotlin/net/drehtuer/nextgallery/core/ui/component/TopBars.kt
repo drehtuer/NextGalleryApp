@@ -37,6 +37,20 @@ fun DeleteAction(onClick: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 @Composable
+fun SelectAction(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    IconButton(onClick = onClick, modifier = modifier) {
+        Icon(painterResource(R.drawable.core_ui_ic_select), stringResource(R.string.core_ui_select))
+    }
+}
+
+@Composable
+fun SelectAllAction(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    IconButton(onClick = onClick, modifier = modifier) {
+        Icon(painterResource(R.drawable.core_ui_ic_select_all), stringResource(R.string.core_ui_select_all))
+    }
+}
+
+@Composable
 fun SelectionOverviewAction(onClick: () -> Unit, modifier: Modifier = Modifier) {
     IconButton(onClick = onClick, modifier = modifier) {
         Icon(painterResource(R.drawable.core_ui_ic_show_selection), stringResource(R.string.core_ui_selection_overview))

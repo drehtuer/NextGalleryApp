@@ -16,8 +16,10 @@ import net.drehtuer.nextgallery.core.data.index.MediaIndexStore
 import net.drehtuer.nextgallery.core.data.index.MediaScanSource
 import net.drehtuer.nextgallery.core.data.index.SyncState
 import net.drehtuer.nextgallery.core.data.index.SyncStateStore
+import net.drehtuer.nextgallery.core.data.index.TimelineStore
 import net.drehtuer.nextgallery.core.data.index.WorkScheduler
 import net.drehtuer.nextgallery.core.model.DateSource
+import net.drehtuer.nextgallery.core.model.DayCount
 import net.drehtuer.nextgallery.core.model.Folder
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
@@ -93,6 +95,19 @@ class FakeMediaIndexStore : MediaIndexStore {
         items.value.values.filter { it.bucketId == bucketId }.map { it.id }
 
     override fun observeFolders(): Flow<List<Folder>> = folders
+}
+
+class FakeTimelineStore : TimelineStore {
+    var items: List<MediaItem> = emptyList()
+    val dayCounts = MutableStateFlow<List<DayCount>>(emptyList())
+
+    override fun paged(config: PagingConfig): Flow<PagingData<MediaItem>> = flowOf(PagingData.from(items))
+
+    override suspend fun ids(): List<MediaId> = items.map { it.id }
+
+    override suspend fun indexOf(id: MediaId): Int = items.indexOfFirst { it.id == id }
+
+    override fun observeDayCounts(): Flow<List<DayCount>> = dayCounts
 }
 
 class FakeSyncStateStore(vararg initial: SyncState) : SyncStateStore {

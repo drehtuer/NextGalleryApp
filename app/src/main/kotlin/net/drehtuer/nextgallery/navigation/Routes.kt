@@ -6,9 +6,6 @@ import kotlinx.serialization.Serializable
 data object FoldersRoute
 
 @Serializable
-data object TimelineRoute
-
-@Serializable
 data object MapRoute
 
 @Serializable

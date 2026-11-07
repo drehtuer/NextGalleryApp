@@ -12,9 +12,12 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import net.drehtuer.nextgallery.core.model.MediaAccess
 import net.drehtuer.nextgallery.core.ui.component.ScreenBanner
+import net.drehtuer.nextgallery.feature.folders.SelectionOverviewRoute
+import net.drehtuer.nextgallery.feature.timeline.TimelineRoute
 import net.drehtuer.nextgallery.feature.viewer.ViewerRoute
 import net.drehtuer.nextgallery.navigation.FoldersRoute
 import net.drehtuer.nextgallery.navigation.SettingsGraphRoute
@@ -43,6 +46,7 @@ class NextGalleryAppContentTest {
                     }
                 }
             },
+            timeline = { composable<TimelineRoute> { Text("Timeline screen") } },
         )
     }
 
@@ -84,16 +88,71 @@ class NextGalleryAppContentTest {
                 onRequestAccess = {},
                 onOpenSettings = {},
                 navController = navController,
-                folders = {
-                    composable<FoldersRoute> { Text("Folders screen") }
-                    composable<ViewerRoute> { Text("Viewer screen") }
-                },
+                folders = { composable<FoldersRoute> { Text("Folders screen") } },
+                shared = { composable<ViewerRoute> { Text("Viewer screen") } },
             )
         }
 
         composeRule.runOnIdle { navController.navigate(ViewerRoute(mediaId = 1, bucketId = 7)) }
 
         composeRule.onNodeWithText("Timeline").assertDoesNotExist()
+    }
+
+    @Test
+    fun viewerRouteWithoutBucket_keepsNullThroughNavigation() {
+        val navController = showSharedStandIns()
+
+        composeRule.runOnIdle { navController.navigate(ViewerRoute(mediaId = 1, bucketId = null)) }
+
+        composeRule.onNodeWithText("Viewer of bucket null").assertIsDisplayed()
+    }
+
+    @Test
+    fun viewerRouteWithBucket_keepsBucketThroughNavigation() {
+        val navController = showSharedStandIns()
+
+        composeRule.runOnIdle { navController.navigate(ViewerRoute(mediaId = 1, bucketId = 7)) }
+
+        composeRule.onNodeWithText("Viewer of bucket 7").assertIsDisplayed()
+    }
+
+    @Test
+    fun selectionOverviewRouteWithoutBucket_keepsNullThroughNavigation() {
+        val navController = showSharedStandIns()
+
+        composeRule.runOnIdle { navController.navigate(SelectionOverviewRoute(bucketId = null)) }
+
+        composeRule.onNodeWithText("Overview of bucket null").assertIsDisplayed()
+    }
+
+    @Test
+    fun selectionOverviewOpen_hidesBottomNavigation() {
+        val navController = showSharedStandIns()
+
+        composeRule.runOnIdle { navController.navigate(SelectionOverviewRoute(bucketId = null)) }
+
+        composeRule.onNodeWithText("Timeline").assertDoesNotExist()
+    }
+
+    private fun showSharedStandIns(): NavHostController {
+        lateinit var navController: NavHostController
+        composeRule.setContent {
+            navController = rememberNavController()
+            NextGalleryAppContent(
+                state = MainUiState(MediaAccess.FULL),
+                onRequestAccess = {},
+                onOpenSettings = {},
+                navController = navController,
+                folders = { composable<FoldersRoute> { Text("Folders screen") } },
+                shared = {
+                    composable<ViewerRoute> { Text("Viewer of bucket ${it.toRoute<ViewerRoute>().bucketId}") }
+                    composable<SelectionOverviewRoute> {
+                        Text("Overview of bucket ${it.toRoute<SelectionOverviewRoute>().bucketId}")
+                    }
+                },
+            )
+        }
+        return navController
     }
 
     @Test
@@ -157,6 +216,6 @@ class NextGalleryAppContentTest {
 
         composeRule.onNodeWithText("Timeline").performClick()
 
-        composeRule.onNodeWithText("Coming soon").assertIsDisplayed()
+        composeRule.onNodeWithText("Timeline screen").assertIsDisplayed()
     }
 }

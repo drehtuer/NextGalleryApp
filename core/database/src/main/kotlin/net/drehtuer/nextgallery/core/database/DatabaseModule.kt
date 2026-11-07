@@ -10,6 +10,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import net.drehtuer.nextgallery.core.data.index.MediaIndexStore
 import net.drehtuer.nextgallery.core.data.index.SyncStateStore
+import net.drehtuer.nextgallery.core.data.index.TimelineStore
 import javax.inject.Singleton
 
 @Module
@@ -17,6 +18,9 @@ import javax.inject.Singleton
 abstract class DatabaseModule {
     @Binds
     abstract fun bindMediaIndexStore(store: RoomMediaIndexStore): MediaIndexStore
+
+    @Binds
+    abstract fun bindTimelineStore(store: RoomTimelineStore): TimelineStore
 
     @Binds
     abstract fun bindSyncStateStore(store: RoomSyncStateStore): SyncStateStore
@@ -32,6 +36,9 @@ abstract class DatabaseModule {
 
         @Provides
         fun provideFolderDao(database: NextGalleryDatabase): FolderDao = database.folderDao()
+
+        @Provides
+        fun provideTimelineDao(database: NextGalleryDatabase): TimelineDao = database.timelineDao()
 
         @Provides
         fun provideSyncStateDao(database: NextGalleryDatabase): SyncStateDao = database.syncStateDao()

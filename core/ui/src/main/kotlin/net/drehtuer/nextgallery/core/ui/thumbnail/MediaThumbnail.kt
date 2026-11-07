@@ -28,7 +28,7 @@ private const val SMALL_THUMBNAIL_PX = 256
 const val LARGE_THUMBNAIL_PX = 512
 
 /** Fixed sizes instead of exact cell sizes, so that different grid densities share cached thumbnails. */
-internal fun thumbnailSizePx(gridWidthPx: Int, columns: Int): Int =
+fun thumbnailSizePx(gridWidthPx: Int, columns: Int): Int =
     if (gridWidthPx / columns.coerceAtLeast(1) <= SMALL_THUMBNAIL_PX) SMALL_THUMBNAIL_PX else LARGE_THUMBNAIL_PX
 
 /** An edited image has a new modification date, so its thumbnail gets a new key. */

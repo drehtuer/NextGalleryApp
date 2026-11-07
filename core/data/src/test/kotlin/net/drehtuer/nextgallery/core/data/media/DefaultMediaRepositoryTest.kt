@@ -4,6 +4,7 @@ import androidx.paging.testing.asSnapshot
 import kotlinx.coroutines.test.runTest
 import net.drehtuer.nextgallery.core.data.fakes.FakeExifSource
 import net.drehtuer.nextgallery.core.data.fakes.FakeMediaIndexStore
+import net.drehtuer.nextgallery.core.data.fakes.FakeTimelineStore
 import net.drehtuer.nextgallery.core.data.fakes.mediaItem
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaSource
@@ -15,9 +16,10 @@ import org.junit.Test
 
 class DefaultMediaRepositoryTest {
     private val store = FakeMediaIndexStore()
+    private val timelineStore = FakeTimelineStore()
     private val folder = MediaSource.Folder(7)
 
-    private fun repository(exif: RawExif? = null) = DefaultMediaRepository(store, FakeExifSource(exif))
+    private fun repository(exif: RawExif? = null) = DefaultMediaRepository(store, timelineStore, FakeExifSource(exif))
 
     @Test
     fun getItem_unknownId_returnsNull() = runTest {
@@ -31,6 +33,15 @@ class DefaultMediaRepositoryTest {
         val snapshot = repository().pagedItems(folder).asSnapshot()
 
         assertEquals(listOf(MediaId(1)), snapshot.map { it.id })
+    }
+
+    @Test
+    fun pagedItems_timeline_returnsItemsOfAllFolders() = runTest {
+        timelineStore.items = listOf(mediaItem(id = 1, bucketId = 7), mediaItem(id = 2, bucketId = 8))
+
+        val snapshot = repository().pagedItems(MediaSource.Timeline).asSnapshot()
+
+        assertEquals(listOf(MediaId(1), MediaId(2)), snapshot.map { it.id })
     }
 
     @Test
@@ -52,6 +63,20 @@ class DefaultMediaRepositoryTest {
         store.upsertAll(listOf(mediaItem(id = 1), mediaItem(id = 2)))
 
         assertEquals(1, repository().indexOf(folder, MediaId(2)))
+    }
+
+    @Test
+    fun indexOf_timeline_returnsPositionInTimeline() = runTest {
+        timelineStore.items = listOf(mediaItem(id = 1, bucketId = 7), mediaItem(id = 2, bucketId = 8))
+
+        assertEquals(1, repository().indexOf(MediaSource.Timeline, MediaId(2)))
+    }
+
+    @Test
+    fun timelineItemIds_returnsIdsOfAllFolders() = runTest {
+        timelineStore.items = listOf(mediaItem(id = 1, bucketId = 7), mediaItem(id = 2, bucketId = 8))
+
+        assertEquals(listOf(MediaId(1), MediaId(2)), repository().timelineItemIds())
     }
 
     @Test
