@@ -39,9 +39,12 @@ jobs:
         uses: devcontainers/ci@v0.3
         with:
           push: never
+          # The JaCoCo report task failed once without a clear cause, so coverage gets its own step with one retry.
+          # Tests run before it and are not retried, so this cannot hide a flaky test.
           runCmd: >-
-            ./gradlew --continue
-            ktlintCheck detekt lint test :build-logic:convention:test assembleDebug assembleDebugAndroidTest coverageReport
+            ./gradlew --continue --stacktrace
+            ktlintCheck detekt lint test :build-logic:convention:test assembleDebug assembleDebugAndroidTest
+            && (./gradlew --continue --stacktrace coverageReport || ./gradlew --continue --stacktrace coverageReport)
 
       # Pull requests and main only: every pull request push also triggers a branch run with the same result.
       - name: SonarCloud scan

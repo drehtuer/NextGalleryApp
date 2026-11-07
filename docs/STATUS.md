@@ -14,8 +14,8 @@ Where the implementation stands against the plan in [TODO.md](TODO.md). TODO.md 
 | 3 | Full-screen viewer, delete, share | Done in code (PR #9, #10), CI green. Open: checks on the device. |
 | – | Visual design from Claude Design (task 10.0) | Applied to the existing screens. Open: checks on the device. |
 | 4 | Settings: folder include/exclude list | Done in code; the CI checks pass locally in the devcontainer. Open: checks on the device. |
-| 5 | Timeline view | Next |
-| 6 | Map view | Not started |
+| 5 | Timeline view | Done in code; the CI checks pass locally in the devcontainer. Open: checks on the device. |
+| 6 | Map view | Next |
 | 7 | Editor | Not started |
 | 8 | Nextcloud login and remote viewer | Not started |
 | 9 | Upload status and hand-off to the Nextcloud app | Not started |
@@ -31,11 +31,13 @@ Where the implementation stands against the plan in [TODO.md](TODO.md). TODO.md 
 - Long-press selects images, which works across folders. The selection bar shows the total and offers select all, clear, share, delete and an overview of the selection, where images the current folder cannot show are greyed out.
 - Delete moves images to the system trash after the system's confirmation, with an undo option. Share uses the Android share sheet.
 - Other apps can open an image in NextGallery ("Open with"). This shows only the zoomable image.
-- The other three tabs are still placeholders.
+- The Timeline tab shows all images, newest first, grouped by day under month headers. The month header stays at the top and day headers scroll ("Today · Friday 6 November"). A date rail on the right shows the day in the middle of the screen with the days above and below, and its thumb can be dragged to jump.
+- Tapping a timeline image opens the viewer, which swipes through the whole timeline. Selecting works as in the folders, and the selection is shared with them.
+- The Map and Nextcloud tabs are still placeholders.
 - The Folders top bar opens Settings: Folders, Appearance, Nextcloud ("Not connected") and About & licences.
 - Folder rules offer Include, Default or Exclude per folder, plus exclude patterns; a change re-indexes after about 2 s.
 - Appearance sets the theme mode, 3, 4 or 5 grid columns and the accent colour, applied live and kept across restarts.
-- 491 tests run with the CI command (plain JVM, Robolectric, Compose UI).
+- 587 tests run with the CI command (plain JVM, Robolectric, Compose UI).
 
 ## To verify on the device
 
@@ -61,6 +63,9 @@ These need the Pixel 10a or an API 37 emulator (`./gradlew connectedDebugAndroid
 - [ ] Settings persist after a force stop; forced Light and Dark look right, including the status bar icons; the viewer stays black.
 - [ ] Columns change in the folder grid and selection overview, also in landscape; accent swatches look right in both themes.
 - [ ] About: the source link opens the browser. Folder rules: the keyboard does not cover the pattern field; a folder with a `.nomedia` file is not listed.
+- [ ] Timeline: dates are correct, including images dated from EXIF or the modified date; "Today" shows on today's photos only; the month header switches correctly at month boundaries.
+- [ ] Timeline: the rail is readable over photos in both themes; dragging it is smooth on 10k+ images, and the thumb does not jitter on small libraries; photos under the rail labels can still be tapped.
+- [ ] Timeline: Back from the viewer returns to the same scroll position; delete with undo works; the overview opened from the timeline greys out nothing.
 - [ ] Design: the Select action starts a selection with "0 selected"; the limited access banner sits under the top bar.
 - [x] `MainActivityTest` (`:app`), `MediaStoreScannerTest` (`:core:media`) and `MediaThumbnailFetcherTest` (`:core:ui`) pass on the Pixel 10a (2026-11-06).
 - [x] Images in a folder with a `.nomedia` file are not returned by the scanner, after a media scan (D6; `MediaStoreScannerTest`).
