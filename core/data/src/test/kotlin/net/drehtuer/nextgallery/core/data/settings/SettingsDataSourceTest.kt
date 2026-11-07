@@ -113,6 +113,15 @@ class SettingsDataSourceTest {
     }
 
     @Test
+    fun update_remoteRoot_isReadBack() = runTest {
+        val dataSource = dataSource()
+
+        dataSource.update { it.copy(remoteRoot = "/Photos") }
+
+        assertEquals("/Photos", dataSource.settings.first().remoteRoot)
+    }
+
+    @Test
     fun update_accentColor_isReadBack() = runTest {
         val dataSource = dataSource()
 

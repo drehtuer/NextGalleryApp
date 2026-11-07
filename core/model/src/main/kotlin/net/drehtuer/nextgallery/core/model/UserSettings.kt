@@ -10,6 +10,7 @@ data class UserSettings(
     val gridColumns: Int = DEFAULT_GRID_COLUMNS,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val accentColor: AccentColor = AccentColor.BLUE,
+    val remoteRoot: String = RemotePaths.ROOT,
 ) {
     companion object {
         const val DEFAULT_GRID_COLUMNS = 3

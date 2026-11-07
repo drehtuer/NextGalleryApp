@@ -30,11 +30,13 @@ import net.drehtuer.nextgallery.core.ui.permission.LimitedAccessBanner
 import net.drehtuer.nextgallery.core.ui.permission.MediaAccessRequest
 import net.drehtuer.nextgallery.feature.editor.EditorRoute
 import net.drehtuer.nextgallery.feature.folders.SelectionOverviewRoute
+import net.drehtuer.nextgallery.feature.remote.RemoteViewerRoute
 import net.drehtuer.nextgallery.feature.viewer.ViewerRoute
 import net.drehtuer.nextgallery.navigation.NextGalleryNavHost
 import net.drehtuer.nextgallery.navigation.SettingsGraphRoute
 import net.drehtuer.nextgallery.navigation.TopLevelDestination
 import net.drehtuer.nextgallery.navigation.foldersGraph
+import net.drehtuer.nextgallery.navigation.remoteGraph
 import net.drehtuer.nextgallery.navigation.settingsGraph
 import net.drehtuer.nextgallery.navigation.sharedScreens
 import net.drehtuer.nextgallery.navigation.timelineGraph
@@ -49,6 +51,7 @@ fun NextGalleryAppContent(
     timeline: NavGraphBuilder.(NavHostController) -> Unit = { timelineGraph(it) },
     settings: NavGraphBuilder.(NavHostController) -> Unit = { settingsGraph(it) },
     shared: NavGraphBuilder.(NavHostController) -> Unit = { sharedScreens(it) },
+    remote: NavGraphBuilder.(NavHostController) -> Unit = { remoteGraph(it) },
 ) {
     when (state.access) {
         null -> LoadingIndicator()
@@ -61,6 +64,7 @@ fun NextGalleryAppContent(
                 destination.hasRoute(ViewerRoute::class) ||
                     destination.hasRoute(SelectionOverviewRoute::class) ||
                     destination.hasRoute(EditorRoute::class) ||
+                    destination.hasRoute(RemoteViewerRoute::class) ||
                     destination.hierarchy.any { it.hasRoute(SettingsGraphRoute::class) }
             } == true
             Scaffold(bottomBar = { if (!fullScreen) BottomBar(navController) }) { padding ->
@@ -69,7 +73,7 @@ fun NextGalleryAppContent(
                 }
                 Column(if (fullScreen) Modifier else Modifier.padding(padding).consumeWindowInsets(padding)) {
                     CompositionLocalProvider(LocalScreenBanner provides banner) {
-                        NextGalleryNavHost(navController, folders, timeline, settings, shared)
+                        NextGalleryNavHost(navController, folders, timeline, settings, shared, remote)
                     }
                 }
             }

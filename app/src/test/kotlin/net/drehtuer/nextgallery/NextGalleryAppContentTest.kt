@@ -18,10 +18,12 @@ import net.drehtuer.nextgallery.core.model.MediaAccess
 import net.drehtuer.nextgallery.core.ui.component.ScreenBanner
 import net.drehtuer.nextgallery.feature.editor.EditorRoute
 import net.drehtuer.nextgallery.feature.folders.SelectionOverviewRoute
+import net.drehtuer.nextgallery.feature.remote.RemoteViewerRoute
 import net.drehtuer.nextgallery.feature.timeline.TimelineRoute
 import net.drehtuer.nextgallery.feature.viewer.ViewerRoute
 import net.drehtuer.nextgallery.navigation.FoldersRoute
 import net.drehtuer.nextgallery.navigation.SettingsGraphRoute
+import net.drehtuer.nextgallery.navigation.settingsGraph
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -144,6 +146,15 @@ class NextGalleryAppContentTest {
         composeRule.onNodeWithText("Timeline").assertDoesNotExist()
     }
 
+    @Test
+    fun remoteViewerOpen_hidesBottomNavigation() {
+        val navController = showSharedStandIns()
+
+        composeRule.runOnIdle { navController.navigate(RemoteViewerRoute("/a.jpg")) }
+
+        composeRule.onNodeWithText("Timeline").assertDoesNotExist()
+    }
+
     private fun showSharedStandIns(): NavHostController {
         lateinit var navController: NavHostController
         composeRule.setContent {
@@ -161,6 +172,7 @@ class NextGalleryAppContentTest {
                     }
                     composable<EditorRoute> { Text("Editor screen") }
                 },
+                remote = { composable<RemoteViewerRoute> { Text("Remote viewer") } },
             )
         }
         return navController
@@ -216,6 +228,7 @@ class NextGalleryAppContentTest {
                 onOpenSettings = {},
                 navController = navController,
                 folders = { composable<FoldersRoute> { Text("Folders screen") } },
+                settings = { settingsGraph(it, accountLabel = { null }) },
             )
         }
         return navController

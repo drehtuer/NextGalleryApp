@@ -1,5 +1,6 @@
 package net.drehtuer.nextgallery.feature.settings
 
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -22,13 +23,25 @@ data object AboutRoute
 @Serializable
 data object LicencesRoute
 
+/** The account shown in the Settings root. Tests replace it, because the real one needs Hilt. */
+@Composable
+fun accountLabelFromViewModel(): String? {
+    val viewModel = hiltViewModel<SettingsRootViewModel>()
+    val label by viewModel.accountLabel.collectAsStateWithLifecycle()
+    return label
+}
+
 fun NavGraphBuilder.settingsScreen(
     onBack: () -> Unit,
     onOpenFolders: () -> Unit,
     onOpenAppearance: () -> Unit,
+    onOpenNextcloud: () -> Unit,
     onOpenAbout: () -> Unit,
+    accountLabel: @Composable () -> String? = { accountLabelFromViewModel() },
 ) {
-    composable<SettingsRoute> { SettingsScreen(onBack, onOpenFolders, onOpenAppearance, onOpenAbout) }
+    composable<SettingsRoute> {
+        SettingsScreen(accountLabel(), onBack, onOpenFolders, onOpenAppearance, onOpenNextcloud, onOpenAbout)
+    }
 }
 
 fun NavGraphBuilder.folderRulesScreen(onBack: () -> Unit) {

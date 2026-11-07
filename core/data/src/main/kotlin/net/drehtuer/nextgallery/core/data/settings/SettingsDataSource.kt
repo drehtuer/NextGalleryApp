@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import net.drehtuer.nextgallery.core.model.AccentColor
+import net.drehtuer.nextgallery.core.model.RemotePaths
 import net.drehtuer.nextgallery.core.model.ThemeMode
 import net.drehtuer.nextgallery.core.model.UserSettings
 import java.io.File
@@ -39,6 +40,7 @@ class SettingsDataSource(private val dataStore: DataStore<Preferences>) {
             ?: UserSettings.DEFAULT_GRID_COLUMNS,
         themeMode = ThemeMode.entries.find { it.name == preferences[THEME_MODE] } ?: ThemeMode.SYSTEM,
         accentColor = AccentColor.entries.find { it.name == preferences[ACCENT_COLOR] } ?: AccentColor.BLUE,
+        remoteRoot = preferences[REMOTE_ROOT] ?: RemotePaths.ROOT,
     )
 
     private fun write(preferences: MutablePreferences, settings: UserSettings) {
@@ -47,6 +49,7 @@ class SettingsDataSource(private val dataStore: DataStore<Preferences>) {
         preferences[GRID_COLUMNS] = settings.gridColumns
         preferences[THEME_MODE] = settings.themeMode.name
         preferences[ACCENT_COLOR] = settings.accentColor.name
+        preferences[REMOTE_ROOT] = settings.remoteRoot
     }
 
     companion object {
@@ -55,6 +58,7 @@ class SettingsDataSource(private val dataStore: DataStore<Preferences>) {
         private val GRID_COLUMNS = intPreferencesKey("grid_columns")
         private val THEME_MODE = stringPreferencesKey("theme_mode")
         private val ACCENT_COLOR = stringPreferencesKey("accent_color")
+        private val REMOTE_ROOT = stringPreferencesKey("remote_root")
 
         /** A corrupt file is replaced by the defaults, because nothing in it is worth stopping the app for. */
         fun create(file: File) = SettingsDataSource(

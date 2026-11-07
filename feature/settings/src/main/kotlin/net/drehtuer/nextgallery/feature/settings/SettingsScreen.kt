@@ -8,12 +8,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import net.drehtuer.nextgallery.core.ui.R as CoreUiR
 
-/** The Settings root. The Nextcloud row only shows that there is no account until Phase 8 adds the account screen. */
+/** The Settings root. [accountLabel] is the Nextcloud account, null if there is none. */
 @Composable
 fun SettingsScreen(
+    accountLabel: String?,
     onBack: () -> Unit,
     onOpenFolders: () -> Unit,
     onOpenAppearance: () -> Unit,
+    onOpenNextcloud: () -> Unit,
     onOpenAbout: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -33,8 +35,9 @@ fun SettingsScreen(
             )
             SettingsRow(
                 title = stringResource(R.string.feature_settings_nextcloud),
-                detail = stringResource(R.string.feature_settings_not_connected),
+                detail = accountLabel ?: stringResource(R.string.feature_settings_not_connected),
                 icon = R.drawable.feature_settings_ic_cloud,
+                onClick = onOpenNextcloud,
             )
             SettingsRow(
                 title = stringResource(R.string.feature_settings_about),

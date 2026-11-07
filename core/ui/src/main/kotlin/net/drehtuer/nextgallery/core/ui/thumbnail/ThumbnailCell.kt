@@ -96,7 +96,7 @@ fun ThumbnailCell(
 
 /** Filled with a check when selected; otherwise an empty white ring on a dark backing, readable over any photo. */
 @Composable
-private fun SelectionMark(selected: Boolean, modifier: Modifier) {
+internal fun SelectionMark(selected: Boolean, modifier: Modifier) {
     val dimensions = NextGalleryTheme.dimensions
     val colors = MaterialTheme.colorScheme
     val mark = Modifier
