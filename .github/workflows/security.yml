@@ -53,7 +53,7 @@ jobs:
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37.0" "build-tools;36.0.0" > /dev/null
 
       - if: matrix.build-mode == 'manual'
-        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         with:
           cache-read-only: true
 
@@ -90,7 +90,7 @@ jobs:
       # runtime classpath of the JVM modules, outside :benchmark and build-logic. Everything else (AGP, lint, detekt,
       # test libraries) is 'development': Dependabot still reports it, but the dependency review below only fails
       # on runtime dependencies (D60).
-      - uses: gradle/actions/dependency-submission@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - uses: gradle/actions/dependency-submission@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
         env:
           DEPENDENCY_GRAPH_RUNTIME_INCLUDE_CONFIGURATIONS: "releaseRuntimeClasspath|runtimeClasspath"
           DEPENDENCY_GRAPH_RUNTIME_EXCLUDE_PROJECTS: ":benchmark|:build-logic.*"
