@@ -8,6 +8,7 @@ import net.drehtuer.nextgallery.core.nextcloud.NextcloudErrorMapper
 import net.drehtuer.nextgallery.core.nextcloud.NextcloudHttpConfig
 import net.drehtuer.nextgallery.core.nextcloud.NextcloudHttpModule
 import okhttp3.Request
+import okhttp3.TlsVersion
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import okhttp3.tls.HandshakeCertificates
@@ -19,6 +20,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.IOException
+import java.net.InetAddress
+import java.net.Socket
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLSocketFactory
 
 /**
  * Real handshakes on Android's own TLS stack and system trust store, which the JVM tests cannot reach: an unknown
@@ -60,6 +65,49 @@ class NextcloudTlsDeviceTest {
         val failure = exceptionOrNull()
         assertTrue("Expected a failure, got $this", failure is IOException)
         return NextcloudErrorMapper.map(checkNotNull(failure))
+    }
+
+    /** Self-hosted servers may offer nothing newer. */
+    @Test
+    fun serverWithOnlyTls12_connects() {
+        val certificate = certificate()
+        val certificates = HandshakeCertificates.Builder().heldCertificate(certificate).build()
+        server.useHttps(Tls12Only(certificates.sslSocketFactory()), false)
+        server.enqueue(MockResponse().setBody("ok"))
+        server.start()
+        val fingerprint = CertificateInfoMapper.fingerprint(certificate.certificate)
+        val module = NextcloudHttpModule(
+            config = NextcloudHttpConfig("NextGalleryApp/test", allowCleartext = false),
+            credentials = { null },
+            pins = { fingerprint },
+        )
+        val url = server.url("/").newBuilder().host("localhost").build()
+
+        val version = module.base.newCall(Request.Builder().url(url).build()).execute().use { it.handshake?.tlsVersion }
+
+        assertEquals(TlsVersion.TLS_1_2, version)
+    }
+
+    /** Offers a server socket that only speaks TLS 1.2. */
+    private class Tls12Only(private val delegate: SSLSocketFactory) : SSLSocketFactory() {
+        private fun Socket.limited() = apply { (this as SSLSocket).enabledProtocols = arrayOf("TLSv1.2") }
+
+        override fun getDefaultCipherSuites(): Array<String> = delegate.defaultCipherSuites
+
+        override fun getSupportedCipherSuites(): Array<String> = delegate.supportedCipherSuites
+
+        override fun createSocket(socket: Socket, host: String, port: Int, autoClose: Boolean): Socket =
+            delegate.createSocket(socket, host, port, autoClose).limited()
+
+        override fun createSocket(host: String, port: Int): Socket = delegate.createSocket(host, port).limited()
+
+        override fun createSocket(host: String, port: Int, localHost: InetAddress, localPort: Int): Socket =
+            delegate.createSocket(host, port, localHost, localPort).limited()
+
+        override fun createSocket(host: InetAddress, port: Int): Socket = delegate.createSocket(host, port).limited()
+
+        override fun createSocket(address: InetAddress, port: Int, localAddress: InetAddress, localPort: Int): Socket =
+            delegate.createSocket(address, port, localAddress, localPort).limited()
     }
 
     @Test
