@@ -1,9 +1,9 @@
 # Design
 
-Status: delivered by Claude Design (D22) and applied to the screens that exist (task 10.0); later phases build their screens from it. This document is the handover for implementing the visual
+Status: delivered by Claude Design (D22) and applied to all screens (task 10.0). This document is the handover for implementing the visual
 design: every value `NextGalleryTheme` needs, and the layout, wording and states of each screen that differs from stock
 Material 3. Behaviour and architecture stay in [ARCHITECTURE.md](ARCHITECTURE.md); the decisions behind the new
-behaviour are D22, D34 and D43–D47 in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
+behaviour are D22, D34, D43–D47, D49–D51 and D55 in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
 
 Sources, for reference only (private claude.ai artifacts of the project owner; this document is complete without them):
 

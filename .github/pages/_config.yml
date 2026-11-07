@@ -1,0 +1,18 @@
+# Jekyll configuration for the documentation site (GitHub Pages), built by .github/workflows/pages.yml.
+# The workflow copies README.md, docs/ and this directory into one source folder; README.md becomes the start
+# page and links between the Markdown files are turned into links between the pages (jekyll-relative-links).
+title: NextGalleryApp
+description: A simple, fast Android gallery app with basic editing and built-in Nextcloud integration.
+theme: jekyll-theme-primer
+markdown: kramdown
+kramdown:
+  input: GFM
+plugins:
+  - jekyll-relative-links
+  - jekyll-readme-index
+  - jekyll-optional-front-matter
+  - jekyll-titles-from-headings
+  - jekyll-default-layout
+relative_links:
+  enabled: true
+  collections: false

@@ -38,7 +38,7 @@ are described in [ARCHITECTURE.md](ARCHITECTURE.md); rationale and open question
   - [x] `gradle.properties`: `org.gradle.jvmargs`, `org.gradle.caching=true`, `org.gradle.configuration-cache=true`, `android.useAndroidX=true`, `android.nonTransitiveRClass=true`, `kotlin.code.style=official`.
   - [x] `.gitignore` for Android/Gradle/IDE files; `local.properties` excluded.
 - [x] **0.2 Version catalog** `gradle/libs.versions.toml`
-  - [x] Versions/libraries: AGP, Kotlin, KSP, Compose BOM, Material 3, Activity Compose, Lifecycle (runtime/viewmodel compose), Navigation Compose, kotlinx.serialization, kotlinx.coroutines, Hilt (+ hilt-navigation-compose, hilt-work), Room (+ room-paging), Paging 3 (+ paging-compose), DataStore, WorkManager, Coil 3 (+ coil-network-okhttp), Telephoto `zoomable-image-coil`, ExifInterface, osmdroid, OkHttp, Tink, Browser (Custom Tabs).
+  - [x] Versions/libraries: AGP, Kotlin, KSP, Compose BOM, Material 3, Activity Compose, Lifecycle (runtime/viewmodel compose), Navigation Compose, kotlinx.serialization, kotlinx.coroutines, Hilt (+ hilt-navigation-compose, hilt-work), Room (+ room-paging), Paging 3 (+ paging-compose), DataStore, WorkManager, Coil 3 (+ coil-network-okhttp), Telephoto `zoomable-image-coil`, ExifInterface, osmdroid, OkHttp, Tink, Browser (Custom Tabs). _The browser library was dropped with D54: the login opens with a plain `ACTION_VIEW`._
   - [x] Test libraries: JUnit 4, MockK, Turbine, kotlinx-coroutines-test, Robolectric, androidx.test (core, ext-junit, runner), room-testing, work-testing, MockWebServer, compose-ui-test-junit4, compose-ui-test-manifest.
   - [x] Plugin aliases: android-application, android-library, kotlin-android, kotlin-serialization, compose-compiler, ksp, hilt, room, detekt, ktlint, baselineprofile. _Done; `kotlin-android` is not needed with AGP 9 built-in Kotlin, and `baselineprofile` is declared for Phase 10._
 - [x] **0.3 Convention plugins** in `build-logic/convention`
@@ -71,7 +71,7 @@ are described in [ARCHITECTURE.md](ARCHITECTURE.md); rationale and open question
   - [x] Gradle wrapper validation action.
 - [x] **0.7 Repo hygiene**
   - [x] `LICENSE` with the full GNU GPL v3 text (D27); license header note in README. Check every dependency in the version catalog is GPL-3.0-compatible. _All runtime dependencies are Apache-2.0 or similarly permissive and GPL-3.0-compatible; JUnit 4 (EPL-1.0) is test-only and not distributed._
-  - [x] `CONTRIBUTING.md` section or README note on running `./gradlew ktlintFormat detekt testDebugUnitTest`. _README "Building" section; the command is `./gradlew ktlintFormat detekt lint test :build-logic:convention:test`._
+  - [x] `CONTRIBUTING.md` section or README note on running `./gradlew ktlintFormat detekt testDebugUnitTest`. _README "Building" section, which gives the full command._
   - [x] PR template with checklist "tests added for every new function", "docs updated".
 - [x] **0.8 Update docs** – ARCHITECTURE.md module list and README "Building" section match the actual build.
 
@@ -93,7 +93,7 @@ _Depends on: Phase 0._
   - [x] `MediaId` (value class over MediaStore `_ID`), `MediaItem` (id, contentUri, displayName, relativePath, bucketId, bucketName, mimeType, sizeBytes, width, height, orientation, dateTakenMillis, dateModifiedSeconds, generationModified?, latitude?, longitude?, takenLocalDate). _Fields as in ARCHITECTURE.md §3.3._
   - [x] `Folder` (bucketId, name, relativePath, itemCount, coverItem).
   - [x] `SupportedMimeTypes` (`image/jpeg`, `image/png`, `image/webp`, `image/heic`, `image/heif`, `image/gif`) with `isSupported(mime)` and `isEditable(mime)` (JPEG, PNG only; D29). Tests: each supported/unsupported type, each editable/non-editable type. _Includes `isEditable` (D29)._
-  - [x] `FolderRule` (path, `Include`/`Exclude`) and `FolderRules.matches(relativePath)`; default excludes (`WhatsApp/Media/.Statuses`, `Android/data`). Tests: include match, exclude wins over include, prefix vs. sibling (`DCIM/Cam` vs `DCIM/Camera`), empty include list = all. _`FolderRule` is in `:core:model`; matching is `FolderRuleMatcher` and the defaults are `DefaultFolderRulesProvider`, both in `:core:data` (they need `RelativePaths` from `:core:common`)._
+  - [x] `FolderRule` (path, `Include`/`Exclude`) and `FolderRules.matches(relativePath)`; default excludes (`WhatsApp/Media/.Statuses`, `Android/data`). Tests: include match, exclude wins over include, prefix vs. sibling (`DCIM/Cam` vs `DCIM/Camera`), empty include list = all. _`FolderRule` is in `:core:model`; matching is `FolderRuleMatcher` and the defaults are `DefaultFolderRulesProvider`, both in `:core:data` (they need `RelativePaths` from `:core:common`)._ _Replaced by D55._
   - [x] `MediaAccess` enum (`Full`, `Partial`, `Denied`), `ScannedImage`, `RawExif`, `PlatformConfirmation` (opaque handle).
 - [x] **1.3 `:core:data` (JVM) – ports and indexing logic**
   - [x] Ports: `MediaScanSource` (`fullScan()`, `changesSince(generation)`, `allIds()`, `mediaStoreVersion()`, `noMediaPaths()`), `MediaChangeSource`, `ExifSource`, `MediaPermissionSource`, `MediaIndexStore`, `SyncStateStore`, `WorkScheduler`. Plus hand-written fakes in `testFixtures`. _Per-volume API; no `noMediaPaths()` (see next item). Fakes live in the module's tests; they move to `testFixtures` once another module needs them._
@@ -208,22 +208,22 @@ _Depends on: Phase 2 (grid, selection)._
 
 ---
 
-## Phase 4 – Settings: folder include/exclude list
+## Phase 4 – Settings: folder include/exclude list (folder rules replaced by D55)
 
 **Goal:** users choose which folders are indexed; changes re-index.
 _Depends on: Phase 1 (FolderRules, IndexScheduler)._
 
 - [x] **4.1 Settings storage (`:core:data`)**
-  - [x] `UserSettings` model in `:core:model` (folderRules, gridColumns, theme mode, accent colour). `AccentColor` already exists. _Also `excludePatterns`, for the pattern field in DESIGN.md._
+  - [x] `UserSettings` model in `:core:model` (folderRules, gridColumns, theme mode, accent colour). `AccentColor` already exists. _Also `excludePatterns`, for the pattern field in DESIGN.md._ _Replaced by D55._
   - [x] Proto or Preferences DataStore `SettingsDataSource` (`settings.preferences_pb`), serializer for rules. Tests: read defaults, write/read each field, corrupt-file handler.
   - [x] `SettingsRepository`: `observeSettings()`, `addRule()`, `removeRule()`, `setGridColumns()`, `setThemeMode()`, `setAccentColor()`. Tests per function. _Also `setExcludePatterns()`._
 - [x] **4.2 Rule application**
-  - [x] `MediaIndexer` reads rules from `SettingsRepository` (replace Phase 1 defaults). Test: rules respected. _`FolderRulesProvider` is gone. `FolderRuleMatcher` changed to the meaning in DESIGN.md (D52): an include no longer hides all other folders._
-  - [x] `RuleChangeObserver`: rules change → enqueue full scan (rule change can add items). Test: change → enqueue once. _Debounced by 2 s; started from `NextGalleryApplication`._
-  - [x] `FolderRepository.observeAllDeviceFolders()` – folders from MediaStore regardless of rules (needed to pick includes). Test. _Built on the existing `MediaScanSource.fullScan` and `MediaChangeSource`, so no new adapter code._
+  - [x] `MediaIndexer` reads rules from `SettingsRepository` (replace Phase 1 defaults). Test: rules respected. _`FolderRulesProvider` is gone. `FolderRuleMatcher` changed to the meaning in DESIGN.md (D52): an include no longer hides all other folders._ _Replaced by D55._
+  - [x] `RuleChangeObserver`: rules change → enqueue full scan (rule change can add items). Test: change → enqueue once. _Debounced by 2 s; started from `NextGalleryApplication`._ _Replaced by D55._
+  - [x] `FolderRepository.observeAllDeviceFolders()` – folders from MediaStore regardless of rules (needed to pick includes). Test. _Built on the existing `MediaScanSource.fullScan` and `MediaChangeSource`, so no new adapter code._ _Replaced by D55._
 - [x] **4.3 `:feature:settings`**
   - [x] `SettingsViewModel` / `SettingsScreen` (root list: Folders, Appearance, Nextcloud placeholder, About/licenses), opened from a settings icon in the Folders top bar. About needs `BuildConfig` enabled for the version. Tests: state mapping, navigation callbacks. _No `SettingsViewModel` yet: the root has no state until Phase 8 adds the account. `BuildConfig` is enabled in `:app`, which passes the version to the screen, because a library's `BuildConfig` has no version. The licence list is a hand-kept resource until task 10.5 generates it._
-  - [x] `FolderRulesViewModel` / `FolderRulesScreen`: list of device folders with Include/Exclude/Default toggles, add custom exclude pattern, show `.nomedia` folders as excluded (read-only). Tests: each toggle event; Compose test: toggling updates UI. _`.nomedia` folders cannot be listed (D53); a note on the screen says so._
+  - [x] `FolderRulesViewModel` / `FolderRulesScreen`: list of device folders with Include/Exclude/Default toggles, add custom exclude pattern, show `.nomedia` folders as excluded (read-only). Tests: each toggle event; Compose test: toggling updates UI. _`.nomedia` folders cannot be listed (D53); a note on the screen says so._ _Replaced by D55._
   - [x] Appearance: theme mode, grid columns (3, 4 or 5; D51), accent colour (the five accents in DESIGN.md; D34). Tests.
   - [x] Wire `NextGalleryTheme` and grids to settings. Test: `MainViewModel` emits theme. _The column count goes through `NextGalleryTheme.dimensions.gridColumns`, so every grid follows it; the folder list keeps its two covers (DESIGN.md)._
 - [x] **4.4 Update docs** – ARCHITECTURE.md (settings storage) and README match code.
@@ -232,9 +232,9 @@ _Depends on: Phase 1 (FolderRules, IndexScheduler)._
 
 ---
 
-## Phase 5 – Timeline view (year/month/day)
+## Phase 5 – Timeline view (month/day)
 
-**Goal:** all indexed images grouped by year → month → day with sticky headers and a date-labelled fast scroll.
+**Goal:** all indexed images grouped by month → day with sticky headers and a date-labelled fast scroll.
 _Depends on: Phases 2 (grid), 3 (viewer)._
 
 - [x] **5.1 Database**
@@ -429,6 +429,7 @@ _Depends on: Phases 1–9._
   - [ ] Release signing with a local keystore via `keystore.properties` (never committed); `signingConfigs.release`. _Set up: without the file the release build is unsigned. The wiring was checked with a file naming a missing keystore, which the signing step refuses. A real signed build needs a keystore, which only the owner creates._
   - [x] Versioning scheme (`versionCode` from tag), CHANGELOG. _`v1.2.3` gives version 1.2.3 and code 1002003. [CHANGELOG.md](CHANGELOG.md) is in `docs/`, as all documentation is. No tag exists yet._
   - [ ] _Deferred until distribution (D28):_ GitHub Actions `release.yml` building signed artifacts on tag.
+  - [x] Documentation site: `pages.yml` publishes `README.md` and `docs/` to GitHub Pages with Jekyll when a release is published (D56). _Built locally with the same Jekyll image; the first deployment happens with the first release._
 - [ ] **10.5 Final checks**
   - [ ] Full manual pass on the reference Pixel 10a (Android 17); instrumented suite green on a local API 37 emulator and on the Pixel 10a.
   - [x] Third-party license screen (`:feature:settings` About) generated from dependencies. _The AboutLibraries Gradle plugin writes the list during the build; only its data ships, not its library. GeoNames and OpenStreetMap stay as entries by hand. The screen shows the licence names, not their full texts._
