@@ -32,3 +32,5 @@ No version is tagged yet. Builds call themselves 0.1.0.
 - A right swipe from an image opened from the map's cluster sheet no longer gets stuck on that sheet.
 - Sharing more images than the system can take now shows a message instead of ending the app.
 - In the remote browser a screen reader now finds an image's name and actions in one place.
+- Deleting server images when the Nextcloud trash bin is off, or can't be checked, now asks first, because the images
+  can't be restored. Undo is only offered when they went to the trash bin.

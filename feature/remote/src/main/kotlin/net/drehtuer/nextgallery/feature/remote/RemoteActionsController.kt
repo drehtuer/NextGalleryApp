@@ -12,7 +12,7 @@ import net.drehtuer.nextgallery.core.data.nextcloud.RemoteShareProgress
 import net.drehtuer.nextgallery.core.data.nextcloud.RemoteShareRepository
 import net.drehtuer.nextgallery.core.model.RemoteItem
 
-/** Deleting with undo (D46) and sharing with progress (D48). */
+/** Deleting with undo, or with a confirmation where the server has no trash bin (D46, D56), and sharing (D48). */
 internal class RemoteActionsController(
     private val scope: CoroutineScope,
     private val operations: RemoteFileOperations,
@@ -21,26 +21,58 @@ internal class RemoteActionsController(
     private val onServerChanged: () -> Unit,
 ) {
     private val mutableShare = MutableStateFlow<RemoteShareUiState?>(null)
+    private val mutableDeleteConfirmation = MutableStateFlow<DeleteConfirmationState?>(null)
     private var shareJob: Job? = null
     private var lastDeleted: List<RemoteItem> = emptyList()
 
     val share: StateFlow<RemoteShareUiState?> = mutableShare
+    val deleteConfirmation: StateFlow<DeleteConfirmationState?> = mutableDeleteConfirmation
 
     fun onEvent(event: ActionEvent) {
         when (event) {
             ActionEvent.UndoDelete -> undoDelete()
+            ActionEvent.ConfirmDelete -> confirmDelete()
+            ActionEvent.CancelDelete -> cancelDelete()
             ActionEvent.CancelShare -> cancelShare()
         }
     }
 
+    /** Straight into the trash bin if the server has one; otherwise only after a confirmation (D56). */
     fun delete(items: List<RemoteItem>) {
         scope.launch {
-            val result = operations.delete(items)
-            lastDeleted = result.done
-            if (result.done.isNotEmpty()) sendEffect(RemoteBrowserEffect.Deleted(result.done.size))
-            sendFirstFailure(result)
-            onServerChanged()
+            if (operations.isTrashBinEnabled()) {
+                deleteNow(items, intoTrash = true)
+            } else {
+                mutableDeleteConfirmation.value = DeleteConfirmationState(items)
+            }
         }
+    }
+
+    /** Also when the account changes: the confirmation was for the images of the previous one. */
+    fun cancelDelete() {
+        mutableDeleteConfirmation.value = null
+    }
+
+    private fun confirmDelete() {
+        val items = mutableDeleteConfirmation.value?.items ?: return
+        mutableDeleteConfirmation.value = null
+        scope.launch { deleteNow(items, intoTrash = false) }
+    }
+
+    private suspend fun deleteNow(items: List<RemoteItem>, intoTrash: Boolean) {
+        val result = operations.delete(items)
+        lastDeleted = if (intoTrash) result.done else emptyList()
+        val count = result.done.size
+        if (count > 0) {
+            val effect = if (intoTrash) {
+                RemoteBrowserEffect.Deleted(count)
+            } else {
+                RemoteBrowserEffect.DeletedPermanently(count)
+            }
+            sendEffect(effect)
+        }
+        sendFirstFailure(result)
+        onServerChanged()
     }
 
     private fun undoDelete() {

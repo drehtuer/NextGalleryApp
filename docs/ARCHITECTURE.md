@@ -300,7 +300,7 @@ Repositories (interfaces + `Default…` implementations with `@Inject` construct
 | `NextcloudAccountRepository` | Account state, `login(serverUrl): Flow<LoginState>` (`Started` → `Polling` → `Success`/`Failed`), `logout()` (wipe first, then revoke in the background; D35), `RemoteImageUrls` of the account. |
 | `RemoteBrowseRepository` | `list(path): Flow<RemoteListing>`: the cached listing first, then the server's (`remote_cache`); folders and supported images only. |
 | `AccountSession` | Singleton. Account changes (`replaceAccount`, `logOut`, not cancellable) and writes of an account's data (`writeFor`) exclude each other. A new login wipes the remote data unless the readable previous account is the same user on the same server. `AppPasswordRevoker` ends unused app passwords in its own scope, which outlives the screens. |
-| `RemoteFileOperations` | Moving with a `ConflictPolicy` (`ASK`, `KEEP_BOTH`, `REPLACE`, `SKIP`; never overwrites a folder), `undoMove`, `delete`/`undoDelete` through the trash bin, `listFolder`, `createFolder`, `canWrite`, `nextFreeName` (D46). `RemoteMoveFlow` (one instance per ViewModel) holds the steps of a move: conflicts, "do the same for the others" (a "replace" never silently hits an image this move brought there: that asks again), undo (last moved first). |
+| `RemoteFileOperations` | Moving with a `ConflictPolicy` (`ASK`, `KEEP_BOTH`, `REPLACE`, `SKIP`; never overwrites a folder), `undoMove`, `delete`/`undoDelete` through the trash bin, `isTrashBinEnabled` (from the OCS capabilities, kept per account for the session; unknown is false, D56), `listFolder`, `createFolder`, `canWrite`, `nextFreeName` (D46). `RemoteMoveFlow` (one instance per ViewModel) holds the steps of a move: conflicts, "do the same for the others" (a "replace" never silently hits an image this move brought there: that asks again), undo (last moved first). |
 | `RemoteShareRepository` | `prepare(items)`: downloads to the temporary folder with progress and returns a `ShareSpec`; removes old files first (D48). |
 | `RemoteDownloads` | Progress of the original image being downloaded, for the viewer. |
 | `UploadStateRepository` | `refreshAll()`: folder mapping, PROPFIND comparison, checksum confirmation, `upload_state` cache. `observeBadges(visibleIds)`: the badges of the images on screen; empty while logged out. |
@@ -341,7 +341,7 @@ Pure logic (each class unit-tested on the JVM):
 | `NextcloudHttpModule` | The OkHttp clients: `base` (no credentials, for the login flow), `authenticated` (reads), `noRedirects` (changes on the server, never repeated elsewhere), `unauthenticatedNoRedirects` (for requests carrying credentials not yet stored). TLS only, unless `allowCleartext` (debug builds); no https → http redirects; user agent `NextGalleryApp/<version>`. `evictConnections()` also drops resumable TLS sessions, so a removed pin takes effect. |
 | `AuthInterceptor` | Network interceptor: adds Basic auth and `OCS-APIRequest` through a `CredentialsProvider`, only for the account's scheme, host and port. It runs for each redirect, so credentials can't follow one to another host. |
 | `LoginFlowV2Client` | `start(serverUrl)` → `{loginUrl, pollEndpoint, token}`; `poll()` until success or timeout (20 min); cancelling the coroutine cancels it. URLs from the server are only accepted as https. Token and password are hidden in `toString`. |
-| `OcsClient` | The user id (`ocs/v2.php/cloud/user`) and revoking the app password (`ocs/v2.php/core/apppassword`). |
+| `OcsClient` | The user id (`ocs/v2.php/cloud/user`), revoking the app password (`ocs/v2.php/core/apppassword`), and whether the trash bin is on (`ocs/v2.php/cloud/capabilities`, `files.undelete`; D56). Answers are read up to 1 MiB; a malformed answer is an `IOException`. |
 | `WebDavClient` | `list(path)`, `stat(path)`, `download(path, sink)`; `move` (`Overwrite: F` unless asked otherwise), `createFolder`, `delete`, `listTrash` and `restore` for reorganising server images (D46). Uploading is done by the Nextcloud app (D31). Paths are under `remote.php/dav/files/<userId>/`; the trash bin is under `remote.php/dav/trashbin/<userId>/`. |
 | `PropfindRequestBuilder` | The PROPFIND bodies: `d:getcontentlength`, `d:getcontenttype`, `d:getetag`, `d:getlastmodified`, `d:resourcetype`, `oc:fileid`, `oc:checksums`, `oc:permissions`, `nc:has-preview`, `nc:contained-file-count`; for the trash bin the `nc:trashbin-*` properties. |
 | `MultistatusParser` | Multistatus parser on the XmlPullParser API (`compileOnly`; provided by Android at runtime, kxml2 on the JVM test classpath). Only propstats with status 200 count. Hrefs outside the root and impossible names (dot segments, encoded slashes) are dropped. |
@@ -839,6 +839,44 @@ sequenceDiagram
 - If `NextcloudAppSource.isInstalled()` is false, the Upload action is drawn at 38 % and a tap shows "Install the Nextcloud app to upload photos." The tap still goes through `prepare`, so an app installed in the meantime works right away; each resume also looks for it again.
 - If all images are on the server, a tap shows "Already on your Nextcloud." If the system refuses the intent (for example too many images for one transaction), a tap shows a message instead of ending the app.
 - While logged out, the action is not shown at all (D35).
+
+### 5.9 Deleting on the server
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant UI as RemoteBrowserScreen
+    participant VM as RemoteBrowserViewModel
+    participant Ops as RemoteFileOperations
+    participant OCS as OcsClient
+    participant DAV as WebDavClient
+
+    UI->>VM: MenuDelete
+    VM->>Ops: isTrashBinEnabled()
+    alt no answer kept for this account
+        Ops->>OCS: GET ocs/v2.php/cloud/capabilities
+        OCS-->>Ops: files.undelete true, or missing
+    end
+    alt trash bin on
+        VM->>Ops: delete(items)
+        Ops->>DAV: DELETE per image
+        VM-->>UI: Deleted, snackbar with Undo
+        UI->>VM: UndoDelete
+        VM->>Ops: undoDelete(items)
+        Ops->>DAV: listTrash, restore
+    else off or unknown
+        VM-->>UI: state deleteConfirmation
+        UI->>VM: ConfirmDelete or CancelDelete
+        VM->>Ops: delete(items), only on ConfirmDelete
+        Ops->>DAV: DELETE per image
+        VM-->>UI: DeletedPermanently, snackbar without Undo
+    end
+```
+
+- `RemoteActionsController` holds the steps. Unknown counts as off (D56): not reported, `false`, a failed or unreadable answer, or logged out.
+- `DefaultRemoteFileOperations` is a singleton, and its `TrashBinCheck` keeps a known answer with the server and user id, never the password, until the process ends; a failed check is asked again at the next delete. Nothing is stored on disk.
+- The capabilities request goes through the client without redirects, with the account's credentials put on by `OcsClient`, like the other OCS calls.
+- An account change closes an open confirmation, so it cannot delete paths on the next account.
 
 ## 6. Navigation
 

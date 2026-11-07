@@ -55,6 +55,7 @@ class RemoteBrowserViewModelTest {
     private val operations = mockk<RemoteFileOperations> {
         coEvery { listFolder(any()) } returns AppResult.Success(RemoteFolderContent(null, emptyList()))
         every { canWrite(any()) } returns true
+        coEvery { isTrashBinEnabled() } returns true
     }
     private val shares = mockk<RemoteShareRepository>(relaxed = true)
     private val certificates = mockk<TrustedCertificateRepository> {
@@ -709,6 +710,71 @@ class RemoteBrowserViewModelTest {
         viewModel.onEvent(ActionEvent.UndoDelete)
 
         coVerify(exactly = 1) { operations.undoDelete(any()) }
+    }
+
+    private fun trashBinOff() {
+        coEvery { operations.isTrashBinEnabled() } returns false
+        coEvery { operations.delete(any()) } returns RemoteBatchResult(listOf(IMAGE_A), emptyList())
+    }
+
+    @Test
+    fun menuDelete_trashBinOff_asksInsteadOfDeleting() {
+        trashBinOff()
+        val viewModel = viewModel()
+
+        viewModel.deleteImageA()
+
+        assertEquals(DeleteConfirmationState(listOf(IMAGE_A)), viewModel.state.value.deleteConfirmation)
+        coVerify(exactly = 0) { operations.delete(any()) }
+    }
+
+    @Test
+    fun confirmDelete_deletesAndReportsItWithoutUndo() = runTest {
+        trashBinOff()
+        val viewModel = viewModel()
+        viewModel.deleteImageA()
+
+        viewModel.effects.test {
+            viewModel.onEvent(ActionEvent.ConfirmDelete)
+
+            assertEquals(RemoteBrowserEffect.DeletedPermanently(1), awaitItem())
+        }
+        assertNull(viewModel.state.value.deleteConfirmation)
+    }
+
+    @Test
+    fun confirmDelete_undoAfterwards_restoresNothing() {
+        trashBinOff()
+        val viewModel = viewModel()
+        viewModel.deleteImageA()
+        viewModel.onEvent(ActionEvent.ConfirmDelete)
+
+        viewModel.onEvent(ActionEvent.UndoDelete)
+
+        coVerify(exactly = 0) { operations.undoDelete(any()) }
+    }
+
+    @Test
+    fun cancelDelete_closesTheDialogAndDeletesNothing() {
+        trashBinOff()
+        val viewModel = viewModel()
+        viewModel.deleteImageA()
+
+        viewModel.onEvent(ActionEvent.CancelDelete)
+
+        assertNull(viewModel.state.value.deleteConfirmation)
+        coVerify(exactly = 0) { operations.delete(any()) }
+    }
+
+    @Test
+    fun accountChanged_closesTheDeleteConfirmation() {
+        trashBinOff()
+        val viewModel = viewModel()
+        viewModel.deleteImageA()
+
+        urls.value = null
+
+        assertNull(viewModel.state.value.deleteConfirmation)
     }
 
     // Sharing
