@@ -569,7 +569,7 @@ class DefaultEditRepositoryTest {
 
     @Test
     fun commitOverwrite_restoreFailsToo_savesBackupAsNewImage() = runTest {
-        val id = indexed()
+        sink.contents[uri] = ORIGINAL
         sink.failWrites = 2
 
         val outcome = repository().commitOverwrite(id, rotate)
@@ -578,8 +578,18 @@ class DefaultEditRepositoryTest {
     }
 
     @Test
+    fun commitOverwrite_restoreFailsToo_newImageHoldsTheOriginal() = runTest {
+        sink.contents[uri] = ORIGINAL
+        sink.failWrites = 2
+
+        repository().commitOverwrite(id, rotate)
+
+        assertEquals(ORIGINAL, sink.contents[FakeMediaWriteSink.NEW_URI])
+    }
+
+    @Test
     fun commitOverwrite_restoreAndRecoveryFail_reportsNoCopy() = runTest {
-        val id = indexed()
+        sink.contents[uri] = ORIGINAL
         sink.failWrites = 3
 
         val outcome = repository().commitOverwrite(id, rotate)

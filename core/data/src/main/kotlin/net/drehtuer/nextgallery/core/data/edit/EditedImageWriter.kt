@@ -12,7 +12,6 @@ import net.drehtuer.nextgallery.core.common.runCatchingCancellable
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
 import net.drehtuer.nextgallery.core.model.edit.EditOperation
-import java.io.File
 import java.io.IOException
 import javax.inject.Inject
 
@@ -122,8 +121,11 @@ class EditedImageWriter @Inject constructor(
      */
     private suspend fun replaceContent(item: MediaItem, encoded: EncodedImage) {
         val backup = sink.backup(item.contentUri)
-        val failure = (runCatchingCancellable { sink.write(item.contentUri, encoded) } as? AppResult.Failure)
-            ?: return backup.file.deleteAndForget()
+        val failure = runCatchingCancellable { sink.write(item.contentUri, encoded) } as? AppResult.Failure
+        if (failure == null) {
+            backup.file.delete()
+            return
+        }
         if (runCatchingCancellable { sink.write(item.contentUri, backup) } is AppResult.Success) {
             backup.file.delete()
             throw failure.toException()
@@ -131,10 +133,6 @@ class EditedImageWriter @Inject constructor(
         val recovered = runCatchingCancellable { insertCopy(item, backup) } is AppResult.Success
         if (recovered) backup.file.delete()
         throw OriginalDamagedException(recovered, failure.toException())
-    }
-
-    private fun File.deleteAndForget() {
-        delete()
     }
 
     private fun AppResult.Failure.toException(): Exception = when (val cause = error) {

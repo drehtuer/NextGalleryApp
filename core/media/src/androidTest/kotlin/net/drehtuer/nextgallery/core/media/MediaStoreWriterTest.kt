@@ -3,6 +3,7 @@ package net.drehtuer.nextgallery.core.media
 import android.content.Context
 import android.content.IntentSender
 import android.graphics.Bitmap
+import android.os.Bundle
 import android.provider.MediaStore
 import androidx.core.net.toUri
 import androidx.test.core.app.ApplicationProvider
@@ -49,13 +50,26 @@ class MediaStoreWriterTest {
     }
 
     private fun isPublished(uri: String): Boolean {
-        val cursor = context.contentResolver.query(uri.toUri(), arrayOf(MediaStore.Images.Media._ID), null, null, null)
+        // A query of the collection, like a gallery's: a query by id also returns the app's own pending entries.
+        val cursor = context.contentResolver.query(
+            MediaStore.Images.Media.getContentUri(volume),
+            arrayOf(MediaStore.Images.Media._ID),
+            "${MediaStore.Images.Media._ID} = ?",
+            arrayOf(uri.toUri().lastPathSegment),
+            null,
+        )
         return cursor!!.use { it.moveToFirst() }
     }
 
     @After
     fun deleteInserted() {
-        inserted.forEach { context.contentResolver.delete(it.toUri(), null, null) }
+        inserted.forEach { uri ->
+            try {
+                context.contentResolver.delete(uri.toUri(), null, null)
+            } catch (_: SecurityException) {
+                // MediaStore answers like this for a row the test already removed.
+            }
+        }
     }
 
     @Test
@@ -113,7 +127,9 @@ class MediaStoreWriterTest {
 
         writer.discard(uri)
 
-        assertEquals(0, context.contentResolver.delete(uri.toUri(), null, null))
+        val args = Bundle().apply { putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_INCLUDE) }
+        val remaining = context.contentResolver.query(uri.toUri(), null, args, null)?.use { it.count }
+        assertEquals(0, remaining)
     }
 
     @Test
@@ -122,7 +138,9 @@ class MediaStoreWriterTest {
 
         writer.cleanupPending(System.currentTimeMillis() + FUTURE_MILLIS)
 
-        assertEquals(0, context.contentResolver.delete(uri.toUri(), null, null))
+        val args = Bundle().apply { putInt(MediaStore.QUERY_ARG_MATCH_PENDING, MediaStore.MATCH_INCLUDE) }
+        val remaining = context.contentResolver.query(uri.toUri(), null, args, null)?.use { it.count }
+        assertEquals(0, remaining)
     }
 
     @Test
