@@ -42,6 +42,14 @@ data class NextGalleryDimensions(
     val iconTileSize: Dp = 72.dp,
     val iconTileIconSize: Dp = 36.dp,
     val accentSwatchSize: Dp = 52.dp,
+    val editorToolPillWidth: Dp = 64.dp,
+    val editorToolPillHeight: Dp = 32.dp,
+    val cropFrameWidth: Dp = 2.dp,
+    val cropThirdsWidth: Dp = 1.dp,
+    val cropHandleWidth: Dp = 5.dp,
+    val cropHandleLength: Dp = 20.dp,
+    val cropTouchTolerance: Dp = 24.dp,
+    val penSwatchSize: Dp = 36.dp,
 )
 
 private val LocalNextGalleryDimensions = staticCompositionLocalOf { NextGalleryDimensions() }

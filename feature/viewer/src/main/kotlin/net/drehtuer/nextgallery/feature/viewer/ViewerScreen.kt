@@ -37,6 +37,7 @@ import androidx.paging.compose.itemKey
 import kotlinx.coroutines.flow.distinctUntilChanged
 import me.saket.telephoto.zoomable.coil3.ZoomableAsyncImage
 import net.drehtuer.nextgallery.core.model.MediaItem
+import net.drehtuer.nextgallery.core.model.SupportedMimeTypes
 import net.drehtuer.nextgallery.core.ui.component.BackButton
 import net.drehtuer.nextgallery.core.ui.component.DeleteAction
 import net.drehtuer.nextgallery.core.ui.component.LoadingIndicator
@@ -133,6 +134,14 @@ private fun ViewerTopBar(current: MediaItem?, onEvent: (ViewerEvent) -> Unit, on
         navigationIcon = { BackButton(onClick = onBack) },
         actions = {
             ShareAction(onClick = { onEvent(ViewerEvent.Share) })
+            if (current != null && SupportedMimeTypes.isEditable(current.mimeType)) {
+                IconButton(onClick = { onEvent(ViewerEvent.Edit) }) {
+                    Icon(
+                        painter = painterResource(R.drawable.feature_viewer_ic_edit),
+                        contentDescription = stringResource(R.string.feature_viewer_edit),
+                    )
+                }
+            }
             DeleteAction(onClick = { onEvent(ViewerEvent.Delete) })
             IconButton(onClick = { onEvent(ViewerEvent.ShowInfo) }) {
                 Icon(

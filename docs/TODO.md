@@ -290,31 +290,31 @@ _Depends on: Phases 1 (GPS in index, ACCESS_MEDIA_LOCATION), 3 (viewer)._
 **Goal:** non-destructive edit pipeline with undo/redo, saving a new copy or overwriting with EXIF preserved.
 _Depends on: Phase 3 (viewer entry point, write/delete request helpers)._
 
-- [ ] **7.1 Model (`:core:model`)**
-  - [ ] `EditOperation` sealed interface: `Rotate(quarterTurns)`, `Crop(normalizedRect)`, `Scale(targetWidth, targetHeight)`, `PenStroke(points, colorArgb, widthPx-normalized)`.
-  - [ ] `EditHistory` (immutable list + cursor): `push`, `undo`, `redo`, `canUndo`, `canRedo`, `operations`. Tests per function, push after undo truncates redo.
-  - [ ] `AspectRatio` (`Free`, `Square`, `R4_3`, `R16_9`, `Original`) + `CropMath.constrain(rect, ratio, bounds)`. Tests per ratio.
-  - [ ] `ScaleMath.fromPercent()` / `fromTargetWidth()` / `fromTargetHeight()` keeping aspect. Tests.
-  - [ ] `GeometryMapper`: maps pen/crop coordinates through prior rotate/crop/scale so ops compose. Tests per op order.
-- [ ] **7.2 Rendering**
-  - [ ] `EditGeometry.steps(ops, sourceSize): RenderPlan` in `:core:data` (output size, 3×3 matrices, crop rects, stroke paths in pixels, orientation bake-in). JVM tests: one per op type + combinations.
-  - [ ] `MemoryBudget.check(sourceSize, outputSize, availableBytes): Fits | Refused(requiredBytes, availableBytes)` in `:core:data` (D30). JVM tests: fits, exactly at the limit, too large → refused with both numbers.
-  - [ ] On the Pixel 10a, check that the memory estimate respects Android 17's per-app memory limit, not only `availMem` (D40); adjust `ActivityManagerMemoryInfo` if needed.
-  - [ ] `MemoryInfoSource` port; `ActivityManagerMemoryInfo` in `:core:platform` (`ActivityManager.MemoryInfo.availMem` minus safety margin). Test (Robolectric): value from shadowed `MemoryInfo`, margin subtracted.
-  - [ ] `sampleSizeFor(source, maxSide)` in `:core:data`. JVM tests.
-  - [ ] `ImageRenderer` port; `BitmapImageRenderer` adapter in `:core:media` (`ImageDecoder` decode, apply `RenderPlan` via `Matrix`/`Canvas`/`Path`, return `PreviewImage` handle). Tests (Robolectric, native graphics): applies a matrix, a crop and a stroke on a small bitmap.
-  - [ ] Encoding in `BitmapImageRenderer`: JPEG (quality 95) and PNG, keeping the source format (D29). Tests per format (Robolectric).
-  - [ ] `ExifPolicy.forOutput(sourceTags, newWidth, newHeight)` in `:core:data` (which tags to copy, orientation normal, new dimensions; JVM tests) and `ExifWriter` in `:core:media` applying it (Robolectric fixture test).
-- [ ] **7.3 Saving (`:core:data` + `:core:media`)**
-  - [ ] `CopyNamer.nameFor(displayName, existingNames)` in `:core:data` (e.g. `IMG_1234_edited.jpg`, numbered on collision). JVM tests.
-  - [ ] `MediaWriteSink` port; `MediaStoreWriter` adapter: `insertPending(displayName, relativePath, mime)`, `requestOverwrite(contentUri): PlatformConfirmation` (`createWriteRequest`), `publish()`, `cleanupPending()`. Tests (Robolectric): insert sets `IS_PENDING`, publish clears it; overwrite request built for the URI.
-  - [ ] `EditRepository.save(sourceId, ops, mode = NewCopy|Overwrite): SaveOutcome` → triggers incremental index. Tests per mode/outcome.
-- [ ] **7.4 `:feature:editor`**
-  - [ ] `EditorRoute(mediaId)`; `EditorViewModel` → `EditorUiState(previewBitmap, activeTool, history, cropRect, penColor, penWidth, saving)`; events per tool, `Undo`, `Redo`, `Save(mode)`, `Discard`. A refused scale or save (`InsufficientMemory`) leaves the image unchanged and shows a message with the required and available memory (D30, with the numbers). Tests per event, including both refusal cases; preview re-render runs on `Default` dispatcher.
-  - [ ] `EditorScreen` with tool bar; `RotateTool`, `CropOverlay` (handles + aspect chips), `ScaleDialog` (percent / width / height), `PenCanvas` (pointer input, color & width pickers). Compose UI tests per tool.
-  - [ ] Unsaved-changes dialog on back; save mode dialog (new copy default, overwrite). Compose tests.
-  - [ ] Viewer "Edit" button shown only for editable formats (JPEG, PNG; D29) → `EditorRoute` in `:app`; after save, viewer navigates to the new copy. Test.
-- [ ] **7.5 Update docs** – ARCHITECTURE.md (edit pipeline) and README match code.
+- [x] **7.1 Model (`:core:model`)**
+  - [x] `EditOperation` sealed interface: `Rotate(quarterTurns)`, `Crop(normalizedRect)`, `Scale(targetWidth, targetHeight)`, `PenStroke(points, colorArgb, widthPx-normalized)`. _In the package `core.model.edit`, with `ImageSize`, `NormalizedPoint`, `NormalizedRect`, `Matrix3` and `PreviewImage`._
+  - [x] `EditHistory` (immutable list + cursor): `push`, `undo`, `redo`, `canUndo`, `canRedo`, `operations`. Tests per function, push after undo truncates redo.
+  - [x] `AspectRatio` (`Free`, `Square`, `R4_3`, `R16_9`, `Original`) + `CropMath.constrain(rect, ratio, bounds)`. Tests per ratio. _Also `CropMath.handleAt` and `drag` for the crop frame. 4:3 and 16:9 follow the image, so an upright image gets 3:4 and 9:16._
+  - [x] `ScaleMath.fromPercent()` / `fromTargetWidth()` / `fromTargetHeight()` keeping aspect. Tests.
+  - [x] `GeometryMapper`: maps pen/crop coordinates through prior rotate/crop/scale so ops compose. Tests per op order. _Coordinates of an operation are relative to the image just before it, so a point is mapped through the operations that follow it._
+- [ ] **7.2 Rendering** _Open: only the device check of the memory limit._
+  - [x] `EditGeometry.steps(ops, sourceSize): RenderPlan` in `:core:data` (output size, 3×3 matrices, crop rects, stroke paths in pixels, orientation bake-in). JVM tests: one per op type + combinations. _All operations flatten into one matrix from source to output, whose size also does the clipping, so there are no crop rects and only the two bitmaps of D30. `ImageDecoder` delivers upright pixels, so the plan starts from the upright size and the bake-in is done by the decoder (tested in `BitmapImageRendererTest`)._
+  - [x] `MemoryBudget.check(sourceSize, outputSize, availableBytes): Fits | Refused(requiredBytes, availableBytes)` in `:core:data` (D30). JVM tests: fits, exactly at the limit, too large → refused with both numbers.
+  - [ ] On the Pixel 10a, check that the memory estimate respects Android 17's per-app memory limit, not only `availMem` (D40); adjust `ActivityManagerMemoryInfo` if needed. _Device check, not done. Android 17 has no API to read the limit, only `adb shell am memory-limiter status`. Until it is checked, `ActivityManagerMemoryInfo` assumes at most half of the RAM._
+  - [x] `MemoryInfoSource` port; `ActivityManagerMemoryInfo` in `:core:platform` (`ActivityManager.MemoryInfo.availMem` minus safety margin). Test (Robolectric): value from shadowed `MemoryInfo`, margin subtracted. _The margin is the system's low-memory threshold plus 200 MB._
+  - [x] `sampleSizeFor(source, maxSide)` in `:core:data`. JVM tests.
+  - [x] `ImageRenderer` port; `BitmapImageRenderer` adapter in `:core:media` (`ImageDecoder` decode, apply `RenderPlan` via `Matrix`/`Canvas`/`Path`, return `PreviewImage` handle). Tests (Robolectric, native graphics): applies a matrix, a crop and a stroke on a small bitmap. _An `OutOfMemoryError` becomes the same refusal as the check before it. A scaled-down save decodes only as many pixels as the output needs._
+  - [x] Encoding in `BitmapImageRenderer`: JPEG (quality 95) and PNG, keeping the source format (D29). Tests per format (Robolectric).
+  - [x] `ExifPolicy.forOutput(sourceTags, newWidth, newHeight)` in `:core:data` (which tags to copy, orientation normal, new dimensions; JVM tests) and `ExifWriter` in `:core:media` applying it (Robolectric fixture test). _`ExifWriter` is the port, `AndroidExifWriter` the adapter. Reading through `setRequireOriginal` keeps the location; on-device check below._
+- [x] **7.3 Saving (`:core:data` + `:core:media`)**
+  - [x] `CopyNamer.nameFor(displayName, existingNames)` in `:core:data` (e.g. `IMG_1234_edited.jpg`, numbered on collision). JVM tests.
+  - [x] `MediaWriteSink` port; `MediaStoreWriter` adapter: `insertPending(displayName, relativePath, mime)`, `requestOverwrite(contentUri): PlatformConfirmation` (`createWriteRequest`), `publish()`, `cleanupPending()`. Tests (Robolectric): insert sets `IS_PENDING`, publish clears it; overwrite request built for the URI. _Robolectric tests run against a stand-in provider; `MediaStoreWriterTest` is the instrumented test against the real one, on entries it inserted itself. `cleanupPending` runs on app start._
+  - [x] `EditRepository.save(sourceId, ops, mode = NewCopy|Overwrite): SaveOutcome` → triggers incremental index. Tests per mode/outcome. _Overwriting continues in `commitOverwrite` after the confirmation. It keeps a temporary backup and puts it back if writing fails. The index syncs inline, so the viewer can open the copy right away._
+- [x] **7.4 `:feature:editor`**
+  - [x] `EditorRoute(mediaId)`; `EditorViewModel` → `EditorUiState(previewBitmap, activeTool, history, cropRect, penColor, penWidth, saving)`; events per tool, `Undo`, `Redo`, `Save(mode)`, `Discard`. A refused scale or save (`InsufficientMemory`) leaves the image unchanged and shows a message with the required and available memory (D30, with the numbers). Tests per event, including both refusal cases; preview re-render runs on `Default` dispatcher. _The dispatcher is in `DefaultEditRepository` and tested there. The design has no apply button for a crop: it is applied on leaving the tool, on another action and on saving._
+  - [x] `EditorScreen` with tool bar; `RotateTool`, `CropOverlay` (handles + aspect chips), `ScaleDialog` (percent / width / height), `PenCanvas` (pointer input, color & width pickers). Compose UI tests per tool.
+  - [x] Unsaved-changes dialog on back; save mode dialog (new copy default, overwrite). Compose tests. _The save mode is the menu of DESIGN.md, not a dialog, with "Save as copy" first._
+  - [x] Viewer "Edit" button shown only for editable formats (JPEG, PNG; D29) → `EditorRoute` in `:app`; after save, viewer navigates to the new copy. Test. _After an overwrite it returns to the same image, with Coil's memory cache cleared._
+- [x] **7.5 Update docs** – ARCHITECTURE.md (edit pipeline) and README match code.
 
 **Definition of done:** all four tools work with undo/redo; saved copies appear in the gallery with correct orientation, dimensions and preserved EXIF; overwrite goes through system confirmation; scales and saves that exceed available memory are refused with an explanatory message (D30), never an OOM; Edit is offered only for JPEG and PNG; tests for every function; CI green.
 

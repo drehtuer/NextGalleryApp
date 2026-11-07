@@ -12,6 +12,7 @@ import net.drehtuer.nextgallery.core.common.Clock
 import net.drehtuer.nextgallery.core.common.DefaultDispatcherProvider
 import net.drehtuer.nextgallery.core.common.DispatcherProvider
 import net.drehtuer.nextgallery.core.common.SystemClock
+import net.drehtuer.nextgallery.core.data.edit.MemoryInfoSource
 import net.drehtuer.nextgallery.core.data.index.WorkScheduler
 import net.drehtuer.nextgallery.core.data.settings.SettingsDataSource
 import java.io.File
@@ -28,6 +29,9 @@ abstract class PlatformModule {
 
     @Binds
     abstract fun bindWorkScheduler(scheduler: WorkManagerScheduler): WorkScheduler
+
+    @Binds
+    abstract fun bindMemoryInfoSource(source: ActivityManagerMemoryInfo): MemoryInfoSource
 
     companion object {
         @Provides

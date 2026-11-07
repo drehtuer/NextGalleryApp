@@ -15,6 +15,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import net.drehtuer.nextgallery.core.model.MediaAccess
 import net.drehtuer.nextgallery.core.ui.component.ScreenBanner
+import net.drehtuer.nextgallery.feature.editor.EditorRoute
 import net.drehtuer.nextgallery.feature.viewer.ViewerRoute
 import net.drehtuer.nextgallery.navigation.FoldersRoute
 import net.drehtuer.nextgallery.navigation.SettingsGraphRoute
@@ -92,6 +93,28 @@ class NextGalleryAppContentTest {
         }
 
         composeRule.runOnIdle { navController.navigate(ViewerRoute(mediaId = 1, bucketId = 7)) }
+
+        composeRule.onNodeWithText("Timeline").assertDoesNotExist()
+    }
+
+    @Test
+    fun editorOpen_hidesBottomNavigation() {
+        lateinit var navController: NavHostController
+        composeRule.setContent {
+            navController = rememberNavController()
+            NextGalleryAppContent(
+                state = MainUiState(MediaAccess.FULL),
+                onRequestAccess = {},
+                onOpenSettings = {},
+                navController = navController,
+                folders = {
+                    composable<FoldersRoute> { Text("Folders screen") }
+                    composable<EditorRoute> { Text("Editor screen") }
+                },
+            )
+        }
+
+        composeRule.runOnIdle { navController.navigate(EditorRoute(mediaId = 1)) }
 
         composeRule.onNodeWithText("Timeline").assertDoesNotExist()
     }

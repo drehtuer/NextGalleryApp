@@ -48,6 +48,8 @@ sealed interface ViewerEvent {
 
     data object Share : ViewerEvent
 
+    data object Edit : ViewerEvent
+
     data object Delete : ViewerEvent
 
     data class ConfirmationResult(val confirmed: Boolean) : ViewerEvent
@@ -59,6 +61,8 @@ sealed interface ViewerEffect {
     data class Share(val spec: ShareSpec) : ViewerEffect
 
     data class Trash(val effect: TrashEffect) : ViewerEffect
+
+    data class OpenEditor(val id: MediaId) : ViewerEffect
 
     data object Close : ViewerEffect
 }
@@ -110,6 +114,8 @@ class ViewerViewModel @AssistedInject constructor(
             ViewerEvent.Share -> withCurrent { id ->
                 actions.shareSpec(listOf(id))?.let { effectChannel.send(ViewerEffect.Share(it)) }
             }
+
+            ViewerEvent.Edit -> withCurrent { id -> effectChannel.send(ViewerEffect.OpenEditor(id)) }
 
             ViewerEvent.Delete -> withCurrent { id -> sendTrashEffect(trashFlow.request(listOf(id))) }
 

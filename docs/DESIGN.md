@@ -222,7 +222,8 @@ Black. Top bar: close, undo, redo (38 % when unavailable) and a filled "Save" th
 
 - Crop: white 2 dp frame with thirds lines and 5 dp corner and edge handles; outside darkened to 60 %. Aspect chips:
   Free, Original, 1:1, 4:3, 16:9.
-- Draw: six colour swatches (white, black, coral, orange, green, blue) and a width slider ("8 px").
+- Draw: six colour swatches (white, black, coral `#FF7A66`, orange `#FF9800`, green `#4CAF50`, blue `#2196F3`) and a
+  width slider ("8 px", 1 to 64).
 - Scale: dialog "Scale image" with Percent, Width and Height fields (D50); changing one updates the others.
   "Proportions are kept. Original: 4000 × 3000 (12 MP), new: 3 MP.", Cancel / Scale.
 - Closing with changes: "Discard your changes?" / "Your changes to IMG_2041.jpg haven't been saved and will be lost."

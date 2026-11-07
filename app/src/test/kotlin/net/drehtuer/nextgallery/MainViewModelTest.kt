@@ -15,6 +15,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import net.drehtuer.nextgallery.core.data.access.MediaAccessRepository
+import net.drehtuer.nextgallery.core.data.edit.EditRepository
 import net.drehtuer.nextgallery.core.data.index.IndexScheduler
 import net.drehtuer.nextgallery.core.data.settings.SettingsRepository
 import net.drehtuer.nextgallery.core.model.AccentColor
@@ -48,13 +49,32 @@ class MainViewModelTest {
     @After
     fun tearDown() = Dispatchers.resetMain()
 
-    private fun viewModel() = MainViewModel(accessRepository, scheduler, settingsRepository)
+    private val editRepository = mockk<EditRepository>(relaxed = true)
+
+    private fun viewModel() = MainViewModel(accessRepository, scheduler, editRepository, settingsRepository)
 
     @Test
     fun onEvent_firstResume_reportsAppStart() {
         viewModel().onEvent(MainEvent.Resumed)
 
         coVerify { scheduler.onAppStart(MediaAccess.FULL) }
+    }
+
+    @Test
+    fun onEvent_firstResume_cleansUpAfterAnInterruptedSave() {
+        viewModel().onEvent(MainEvent.Resumed)
+
+        coVerify(exactly = 1) { editRepository.cleanupPending() }
+    }
+
+    @Test
+    fun onEvent_laterResume_doesNotCleanUpAgain() {
+        val viewModel = viewModel()
+        viewModel.onEvent(MainEvent.Resumed)
+
+        viewModel.onEvent(MainEvent.Resumed)
+
+        coVerify(exactly = 1) { editRepository.cleanupPending() }
     }
 
     @Test
