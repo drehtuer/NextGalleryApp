@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The libraries shipped in the app, as "name|licence". Keep in sync with the dependencies; 10.5 generates this. -->
+    <string-array name="feature_settings_licence_entries" translatable="false">
+        <item>AndroidX and Jetpack Compose|Apache-2.0</item>
+        <item>Coil|Apache-2.0</item>
+        <item>Dagger and Hilt|Apache-2.0</item>
+        <item>Kotlin and KotlinX|Apache-2.0</item>
+        <item>Okio|Apache-2.0</item>
+        <item>Telephoto|Apache-2.0</item>
+    </string-array>
+</resources>

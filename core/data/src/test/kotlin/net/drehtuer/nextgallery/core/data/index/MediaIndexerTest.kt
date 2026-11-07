@@ -2,6 +2,7 @@ package net.drehtuer.nextgallery.core.data.index
 
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import net.drehtuer.nextgallery.core.data.fakes.FakeClock
 import net.drehtuer.nextgallery.core.data.fakes.FakeExifSource
@@ -10,9 +11,11 @@ import net.drehtuer.nextgallery.core.data.fakes.FakeMediaScanSource
 import net.drehtuer.nextgallery.core.data.fakes.FakeMediaScanSource.Companion.VOLUME
 import net.drehtuer.nextgallery.core.data.fakes.FakeSyncStateStore
 import net.drehtuer.nextgallery.core.data.fakes.scannedImage
+import net.drehtuer.nextgallery.core.data.settings.SettingsRepository
 import net.drehtuer.nextgallery.core.model.DateSource
 import net.drehtuer.nextgallery.core.model.FolderRule
 import net.drehtuer.nextgallery.core.model.RawExif
+import net.drehtuer.nextgallery.core.model.UserSettings
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -32,7 +35,22 @@ class MediaIndexerTest {
     private fun indexer(
         syncStateStore: FakeSyncStateStore = FakeSyncStateStore(),
         rules: List<FolderRule> = emptyList(),
-    ) = MediaIndexer(scanSource, exifSource, store, syncStateStore, { rules }, exifDateParser, dateResolver, clock)
+        excludePatterns: List<String> = emptyList(),
+    ): MediaIndexer {
+        val settingsRepository = mockk<SettingsRepository> {
+            every { observeSettings() } returns flowOf(UserSettings(rules, excludePatterns))
+        }
+        return MediaIndexer(
+            scanSource,
+            exifSource,
+            store,
+            syncStateStore,
+            settingsRepository,
+            exifDateParser,
+            dateResolver,
+            clock,
+        )
+    }
 
     private fun previousState(generation: Long = 5, version: String = "v1") =
         SyncState(VOLUME, lastGeneration = generation, mediaStoreVersion = version, lastFullScanMillis = 100)
@@ -51,6 +69,15 @@ class MediaIndexerTest {
         scanSource.images = listOf(scannedImage(1, "DCIM/Camera/"), scannedImage(2, "Pictures/Screenshots/"))
 
         indexer(rules = listOf(FolderRule("Pictures/Screenshots", FolderRule.Type.EXCLUDE))).sync(IndexMode.FULL)
+
+        assertEquals(setOf(1L), store.items.value.keys)
+    }
+
+    @Test
+    fun sync_folderMatchingExcludePattern_isSkipped() = runTest {
+        scanSource.images = listOf(scannedImage(1, "DCIM/Camera/"), scannedImage(2, "Pictures/Thumbs/"))
+
+        indexer(excludePatterns = listOf("*/Thumbs")).sync(IndexMode.FULL)
 
         assertEquals(setOf(1L), store.items.value.keys)
     }

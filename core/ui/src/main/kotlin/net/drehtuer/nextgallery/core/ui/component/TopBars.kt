@@ -43,6 +43,13 @@ fun SelectionOverviewAction(onClick: () -> Unit, modifier: Modifier = Modifier) 
     }
 }
 
+@Composable
+fun SettingsAction(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    IconButton(onClick = onClick, modifier = modifier) {
+        Icon(painterResource(R.drawable.core_ui_ic_settings), stringResource(R.string.core_ui_settings))
+    }
+}
+
 /** Top bar during a selection. [selectionCount] is the app-wide total, not only the images on this screen (D33). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

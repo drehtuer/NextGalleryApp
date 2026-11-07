@@ -21,10 +21,10 @@ class FolderRuleMatcherTest {
     }
 
     @Test
-    fun isIndexed_pathOutsideIncludes_returnsFalse() {
+    fun isIndexed_pathOutsideIncludes_returnsTrue() {
         val matcher = FolderRuleMatcher(listOf(FolderRule("DCIM", INCLUDE)))
 
-        assertFalse(matcher.isIndexed("Pictures/"))
+        assertTrue(matcher.isIndexed("Pictures/"))
     }
 
     @Test
@@ -39,6 +39,41 @@ class FolderRuleMatcherTest {
         val matcher = FolderRuleMatcher(listOf(FolderRule("DCIM", INCLUDE), FolderRule("DCIM/Camera", EXCLUDE)))
 
         assertFalse(matcher.isIndexed("DCIM/Camera/"))
+    }
+
+    @Test
+    fun isIndexed_includeInsideExclude_includeWins() {
+        val matcher = FolderRuleMatcher(listOf(FolderRule("Android", EXCLUDE), FolderRule("Android/media/x", INCLUDE)))
+
+        assertTrue(matcher.isIndexed("Android/media/x/"))
+    }
+
+    @Test
+    fun isIndexed_samePathInBothLists_excludeWins() {
+        val matcher = FolderRuleMatcher(listOf(FolderRule("DCIM", INCLUDE), FolderRule("DCIM", EXCLUDE)))
+
+        assertFalse(matcher.isIndexed("DCIM/"))
+    }
+
+    @Test
+    fun isIndexed_pathMatchingPattern_returnsFalse() {
+        val matcher = FolderRuleMatcher(emptyList(), listOf("*/Thumbs"))
+
+        assertFalse(matcher.isIndexed("Pictures/Thumbs/"))
+    }
+
+    @Test
+    fun isIndexed_pathNotMatchingPattern_returnsTrue() {
+        val matcher = FolderRuleMatcher(emptyList(), listOf("*/Thumbs"))
+
+        assertTrue(matcher.isIndexed("Pictures/Holiday/"))
+    }
+
+    @Test
+    fun isIndexed_includedFolderMatchingPattern_includeWins() {
+        val matcher = FolderRuleMatcher(listOf(FolderRule("Pictures/Thumbs", INCLUDE)), listOf("*/Thumbs"))
+
+        assertTrue(matcher.isIndexed("Pictures/Thumbs/"))
     }
 
     @Test

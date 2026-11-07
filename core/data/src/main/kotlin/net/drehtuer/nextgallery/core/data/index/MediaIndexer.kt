@@ -2,9 +2,10 @@ package net.drehtuer.nextgallery.core.data.index
 
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.first
 import net.drehtuer.nextgallery.core.common.Clock
 import net.drehtuer.nextgallery.core.data.rules.FolderRuleMatcher
-import net.drehtuer.nextgallery.core.data.rules.FolderRulesProvider
+import net.drehtuer.nextgallery.core.data.settings.SettingsRepository
 import net.drehtuer.nextgallery.core.model.MediaItem
 import net.drehtuer.nextgallery.core.model.ScannedImage
 import javax.inject.Inject
@@ -19,13 +20,14 @@ class MediaIndexer @Inject constructor(
     private val exifSource: ExifSource,
     private val indexStore: MediaIndexStore,
     private val syncStateStore: SyncStateStore,
-    private val folderRulesProvider: FolderRulesProvider,
+    private val settingsRepository: SettingsRepository,
     private val exifDateParser: ExifDateParser,
     private val dateResolver: DateResolver,
     private val clock: Clock,
 ) {
     suspend fun sync(mode: IndexMode): IndexStats {
-        val matcher = FolderRuleMatcher(folderRulesProvider.current())
+        val settings = settingsRepository.observeSettings().first()
+        val matcher = FolderRuleMatcher(settings.folderRules, settings.excludePatterns)
         return scanSource.volumes().fold(IndexStats.EMPTY) { stats, volume ->
             stats + syncVolume(volume, mode, matcher)
         }

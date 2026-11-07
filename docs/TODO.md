@@ -213,20 +213,20 @@ _Depends on: Phase 2 (grid, selection)._
 **Goal:** users choose which folders are indexed; changes re-index.
 _Depends on: Phase 1 (FolderRules, IndexScheduler)._
 
-- [ ] **4.1 Settings storage (`:core:data`)**
-  - [ ] `UserSettings` model in `:core:model` (folderRules, gridColumns, theme mode, accent colour). `AccentColor` already exists.
-  - [ ] Proto or Preferences DataStore `SettingsDataSource` (`settings.preferences_pb`), serializer for rules. Tests: read defaults, write/read each field, corrupt-file handler.
-  - [ ] `SettingsRepository`: `observeSettings()`, `addRule()`, `removeRule()`, `setGridColumns()`, `setThemeMode()`, `setAccentColor()`. Tests per function.
-- [ ] **4.2 Rule application**
-  - [ ] `MediaIndexer` reads rules from `SettingsRepository` (replace Phase 1 defaults). Test: rules respected.
-  - [ ] `RuleChangeObserver`: rules change → enqueue full scan (rule change can add items). Test: change → enqueue once.
-  - [ ] `FolderRepository.observeAllDeviceFolders()` – folders from MediaStore regardless of rules (needed to pick includes). Test.
-- [ ] **4.3 `:feature:settings`**
-  - [ ] `SettingsViewModel` / `SettingsScreen` (root list: Folders, Appearance, Nextcloud placeholder, About/licenses), opened from a settings icon in the Folders top bar. About needs `BuildConfig` enabled for the version. Tests: state mapping, navigation callbacks.
-  - [ ] `FolderRulesViewModel` / `FolderRulesScreen`: list of device folders with Include/Exclude/Default toggles, add custom exclude pattern, show `.nomedia` folders as excluded (read-only). Tests: each toggle event; Compose test: toggling updates UI.
-  - [ ] Appearance: theme mode, grid columns (3, 4 or 5; D51), accent colour (the five accents in DESIGN.md; D34). Tests.
-  - [ ] Wire `NextGalleryTheme` and grids to settings. Test: `MainViewModel` emits theme.
-- [ ] **4.4 Update docs** – ARCHITECTURE.md (settings storage) and README match code.
+- [x] **4.1 Settings storage (`:core:data`)**
+  - [x] `UserSettings` model in `:core:model` (folderRules, gridColumns, theme mode, accent colour). `AccentColor` already exists. _Also `excludePatterns`, for the pattern field in DESIGN.md._
+  - [x] Proto or Preferences DataStore `SettingsDataSource` (`settings.preferences_pb`), serializer for rules. Tests: read defaults, write/read each field, corrupt-file handler.
+  - [x] `SettingsRepository`: `observeSettings()`, `addRule()`, `removeRule()`, `setGridColumns()`, `setThemeMode()`, `setAccentColor()`. Tests per function. _Also `setExcludePatterns()`._
+- [x] **4.2 Rule application**
+  - [x] `MediaIndexer` reads rules from `SettingsRepository` (replace Phase 1 defaults). Test: rules respected. _`FolderRulesProvider` is gone. `FolderRuleMatcher` changed to the meaning in DESIGN.md (D52): an include no longer hides all other folders._
+  - [x] `RuleChangeObserver`: rules change → enqueue full scan (rule change can add items). Test: change → enqueue once. _Debounced by 2 s; started from `NextGalleryApplication`._
+  - [x] `FolderRepository.observeAllDeviceFolders()` – folders from MediaStore regardless of rules (needed to pick includes). Test. _Built on the existing `MediaScanSource.fullScan` and `MediaChangeSource`, so no new adapter code._
+- [x] **4.3 `:feature:settings`**
+  - [x] `SettingsViewModel` / `SettingsScreen` (root list: Folders, Appearance, Nextcloud placeholder, About/licenses), opened from a settings icon in the Folders top bar. About needs `BuildConfig` enabled for the version. Tests: state mapping, navigation callbacks. _No `SettingsViewModel` yet: the root has no state until Phase 8 adds the account. `BuildConfig` is enabled in `:app`, which passes the version to the screen, because a library's `BuildConfig` has no version. The licence list is a hand-kept resource until task 10.5 generates it._
+  - [x] `FolderRulesViewModel` / `FolderRulesScreen`: list of device folders with Include/Exclude/Default toggles, add custom exclude pattern, show `.nomedia` folders as excluded (read-only). Tests: each toggle event; Compose test: toggling updates UI. _`.nomedia` folders cannot be listed (D53); a note on the screen says so._
+  - [x] Appearance: theme mode, grid columns (3, 4 or 5; D51), accent colour (the five accents in DESIGN.md; D34). Tests.
+  - [x] Wire `NextGalleryTheme` and grids to settings. Test: `MainViewModel` emits theme. _The column count goes through `NextGalleryTheme.dimensions.gridColumns`, so every grid follows it; the folder list keeps its two covers (DESIGN.md)._
+- [x] **4.4 Update docs** – ARCHITECTURE.md (settings storage) and README match code.
 
 **Definition of done:** excluding a folder removes its items from all views after re-index; including restores them; settings persist across restarts; tests for every function; CI green.
 

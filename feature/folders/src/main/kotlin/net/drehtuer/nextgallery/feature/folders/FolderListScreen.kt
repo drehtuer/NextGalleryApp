@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import net.drehtuer.nextgallery.core.model.Folder
 import net.drehtuer.nextgallery.core.ui.component.EmptyState
 import net.drehtuer.nextgallery.core.ui.component.ScreenBanner
+import net.drehtuer.nextgallery.core.ui.component.SettingsAction
 import net.drehtuer.nextgallery.core.ui.theme.NextGalleryTheme
 import net.drehtuer.nextgallery.core.ui.theme.tabularFigures
 import net.drehtuer.nextgallery.core.ui.thumbnail.LARGE_THUMBNAIL_PX
@@ -37,10 +38,20 @@ private const val PLACEHOLDER_FOLDERS = 8
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FolderListScreen(state: FolderListUiState, onFolderClick: (Long) -> Unit, modifier: Modifier = Modifier) {
+fun FolderListScreen(
+    state: FolderListUiState,
+    onFolderClick: (Long) -> Unit,
+    onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Scaffold(
         modifier = modifier,
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.feature_folders_title)) }) },
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.feature_folders_title)) },
+                actions = { SettingsAction(onClick = onOpenSettings) },
+            )
+        },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             ScreenBanner()

@@ -10,10 +10,14 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import net.drehtuer.nextgallery.core.model.AccentColor
+import net.drehtuer.nextgallery.core.model.ThemeMode
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.annotation.Config
 
 @RunWith(AndroidJUnit4::class)
 class NextGalleryThemeTest {
@@ -69,5 +73,45 @@ class NextGalleryThemeTest {
         }
 
         assertEquals(NextGalleryDimensions(), dimensions)
+    }
+
+    @Test
+    fun nextGalleryTheme_gridColumns_setsDimension() {
+        var columns: Int? = null
+        composeRule.setContent {
+            NextGalleryTheme(gridColumns = 5) { columns = NextGalleryTheme.dimensions.gridColumns }
+        }
+
+        assertEquals(5, columns)
+    }
+
+    @Test
+    @Config(qualifiers = "night")
+    fun isDark_light_isFalseEvenOnDarkSystem() {
+        assertFalse(isDarkOn(ThemeMode.LIGHT))
+    }
+
+    @Test
+    @Config(qualifiers = "notnight")
+    fun isDark_dark_isTrueEvenOnLightSystem() {
+        assertTrue(isDarkOn(ThemeMode.DARK))
+    }
+
+    @Test
+    @Config(qualifiers = "night")
+    fun isDark_systemOnDarkSystem_isTrue() {
+        assertTrue(isDarkOn(ThemeMode.SYSTEM))
+    }
+
+    @Test
+    @Config(qualifiers = "notnight")
+    fun isDark_systemOnLightSystem_isFalse() {
+        assertFalse(isDarkOn(ThemeMode.SYSTEM))
+    }
+
+    private fun isDarkOn(mode: ThemeMode): Boolean {
+        var dark: Boolean? = null
+        composeRule.setContent { dark = mode.isDark() }
+        return dark == true
     }
 }

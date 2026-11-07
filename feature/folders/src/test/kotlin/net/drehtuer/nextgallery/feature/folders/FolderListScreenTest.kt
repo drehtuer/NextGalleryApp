@@ -2,6 +2,7 @@ package net.drehtuer.nextgallery.feature.folders
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -16,8 +17,8 @@ class FolderListScreenTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private fun show(state: FolderListUiState, onFolderClick: (Long) -> Unit = {}) =
-        composeRule.setContent { FolderListScreen(state, onFolderClick) }
+    private fun show(state: FolderListUiState, onOpenSettings: () -> Unit = {}, onFolderClick: (Long) -> Unit = {}) =
+        composeRule.setContent { FolderListScreen(state, onFolderClick, onOpenSettings) }
 
     @Test
     fun loading_showsLoadingIndicator() {
@@ -55,5 +56,15 @@ class FolderListScreenTest {
         composeRule.onNodeWithText("Screenshots").performClick()
 
         assertEquals(8L, clicked)
+    }
+
+    @Test
+    fun settingsIconClicked_opensSettings() {
+        var clicks = 0
+        show(FolderListUiState.Empty, onOpenSettings = { clicks++ })
+
+        composeRule.onNodeWithContentDescription("Settings").performClick()
+
+        assertEquals(1, clicks)
     }
 }

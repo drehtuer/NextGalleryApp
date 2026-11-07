@@ -30,8 +30,10 @@ import net.drehtuer.nextgallery.core.ui.permission.LimitedAccessBanner
 import net.drehtuer.nextgallery.core.ui.permission.MediaAccessRequest
 import net.drehtuer.nextgallery.feature.viewer.ViewerRoute
 import net.drehtuer.nextgallery.navigation.NextGalleryNavHost
+import net.drehtuer.nextgallery.navigation.SettingsGraphRoute
 import net.drehtuer.nextgallery.navigation.TopLevelDestination
 import net.drehtuer.nextgallery.navigation.foldersGraph
+import net.drehtuer.nextgallery.navigation.settingsGraph
 
 @Composable
 fun NextGalleryAppContent(
@@ -40,6 +42,7 @@ fun NextGalleryAppContent(
     onOpenSettings: () -> Unit,
     navController: NavHostController = rememberNavController(),
     folders: NavGraphBuilder.(NavHostController) -> Unit = { foldersGraph(it) },
+    settings: NavGraphBuilder.(NavHostController) -> Unit = { settingsGraph(it) },
 ) {
     when (state.access) {
         null -> LoadingIndicator()
@@ -48,14 +51,17 @@ fun NextGalleryAppContent(
 
         MediaAccess.FULL, MediaAccess.PARTIAL -> {
             val currentEntry by navController.currentBackStackEntryAsState()
-            val fullScreen = currentEntry?.destination?.hasRoute(ViewerRoute::class) == true
+            val fullScreen = currentEntry?.destination?.let { destination ->
+                destination.hasRoute(ViewerRoute::class) ||
+                    destination.hierarchy.any { it.hasRoute(SettingsGraphRoute::class) }
+            } == true
             Scaffold(bottomBar = { if (!fullScreen) BottomBar(navController) }) { padding ->
                 val banner: @Composable () -> Unit = {
                     if (state.access == MediaAccess.PARTIAL) LimitedAccessBanner(onSelectMore = onRequestAccess)
                 }
                 Column(if (fullScreen) Modifier else Modifier.padding(padding).consumeWindowInsets(padding)) {
                     CompositionLocalProvider(LocalScreenBanner provides banner) {
-                        NextGalleryNavHost(navController, folders)
+                        NextGalleryNavHost(navController, folders, settings)
                     }
                 }
             }

@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.drehtuer.nextgallery.core.model.AccentColor
+import net.drehtuer.nextgallery.core.model.ThemeMode
 
 /** Spacing and sizes from DESIGN.md. */
 @Immutable
@@ -40,6 +41,7 @@ data class NextGalleryDimensions(
     val dateRailInset: Dp = 18.dp,
     val iconTileSize: Dp = 72.dp,
     val iconTileIconSize: Dp = 36.dp,
+    val accentSwatchSize: Dp = 52.dp,
 )
 
 private val LocalNextGalleryDimensions = staticCompositionLocalOf { NextGalleryDimensions() }
@@ -82,20 +84,34 @@ object NextGalleryTheme {
 fun NextGalleryTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     accent: AccentColor = AccentColor.BLUE,
+    gridColumns: Int = NextGalleryDimensions().gridColumns,
     content: @Composable () -> Unit,
 ) {
-    AppliedTheme(nextGalleryColorScheme(accent, darkTheme), content)
+    AppliedTheme(nextGalleryColorScheme(accent, darkTheme), NextGalleryDimensions(gridColumns = gridColumns), content)
+}
+
+/** Whether this mode shows the dark theme right now. */
+@Composable
+@ReadOnlyComposable
+fun ThemeMode.isDark(): Boolean = when (this) {
+    ThemeMode.SYSTEM -> isSystemInDarkTheme()
+    ThemeMode.LIGHT -> false
+    ThemeMode.DARK -> true
 }
 
 /** For the viewer and the editor, which stay black in every theme. */
 @Composable
 fun NextGalleryViewerTheme(content: @Composable () -> Unit) {
-    AppliedTheme(viewerColorScheme(), content)
+    AppliedTheme(viewerColorScheme(), NextGalleryDimensions(), content)
 }
 
 @Composable
-private fun AppliedTheme(colorScheme: androidx.compose.material3.ColorScheme, content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalNextGalleryDimensions provides NextGalleryDimensions()) {
+private fun AppliedTheme(
+    colorScheme: androidx.compose.material3.ColorScheme,
+    dimensions: NextGalleryDimensions,
+    content: @Composable () -> Unit,
+) {
+    CompositionLocalProvider(LocalNextGalleryDimensions provides dimensions) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = NextGalleryTypography,
