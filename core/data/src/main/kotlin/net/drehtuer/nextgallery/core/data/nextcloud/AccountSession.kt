@@ -1,6 +1,5 @@
 package net.drehtuer.nextgallery.core.data.nextcloud
 
-import net.drehtuer.nextgallery.core.data.upload.UploadStateStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.first
@@ -8,6 +7,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import net.drehtuer.nextgallery.core.data.upload.UploadStateStore
 import net.drehtuer.nextgallery.core.model.NextcloudAccount
 import net.drehtuer.nextgallery.core.nextcloud.ConnectionEvictor
 import net.drehtuer.nextgallery.core.nextcloud.OcsClient

@@ -1,6 +1,5 @@
 package net.drehtuer.nextgallery.core.data.nextcloud
 
-import net.drehtuer.nextgallery.core.data.upload.UploadStateStore
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -16,6 +15,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
+import net.drehtuer.nextgallery.core.data.upload.UploadStateStore
 import net.drehtuer.nextgallery.core.nextcloud.ConnectionEvictor
 import net.drehtuer.nextgallery.core.nextcloud.OcsClient
 import org.junit.Assert.assertEquals
