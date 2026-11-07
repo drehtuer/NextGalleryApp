@@ -46,6 +46,8 @@ detekt = "2.0.0-alpha.6"
 ktlintGradle = "14.2.0"
 ktlint = "1.8.0"
 baselineprofile = "1.5.0"
+uiautomator = "2.4.1"
+aboutlibraries = "15.3.0"
 
 [libraries]
 # Kotlin / KotlinX
@@ -111,6 +113,10 @@ androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "a
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidxTestRunner" }
 androidx-test-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
 
+# Benchmarks
+androidx-benchmark-macro-junit4 = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "baselineprofile" }
+androidx-test-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "uiautomator" }
+
 # Build logic (convention plugins compile against these)
 android-gradlePlugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
 kotlin-gradlePlugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -122,6 +128,7 @@ ktlint-gradlePlugin = { module = "org.jlleitschuh.gradle:ktlint-gradle", version
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
+android-test = { id = "com.android.test", version.ref = "agp" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
@@ -131,10 +138,12 @@ room = { id = "androidx.room", version.ref = "room" }
 detekt = { id = "dev.detekt", version.ref = "detekt" }
 ktlint = { id = "org.jlleitschuh.gradle.ktlint", version.ref = "ktlintGradle" }
 baselineprofile = { id = "androidx.baselineprofile", version.ref = "baselineprofile" }
+aboutlibraries = { id = "com.mikepenz.aboutlibraries.plugin.android", version.ref = "aboutlibraries" }
 
 # Convention plugins (build-logic)
 nextgallery-android-application = { id = "nextgallery.android.application" }
 nextgallery-android-library = { id = "nextgallery.android.library" }
+nextgallery-android-benchmark = { id = "nextgallery.android.benchmark" }
 nextgallery-android-compose = { id = "nextgallery.android.compose" }
 nextgallery-android-hilt = { id = "nextgallery.android.hilt" }
 nextgallery-android-room = { id = "nextgallery.android.room" }

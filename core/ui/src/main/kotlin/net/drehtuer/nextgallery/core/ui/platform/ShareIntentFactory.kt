@@ -30,7 +30,18 @@ object ShareIntentFactory {
     }
 }
 
-fun Context.shareImages(spec: ShareSpec) = startActivity(Intent.createChooser(ShareIntentFactory.create(spec), null))
+/**
+ * Opens the share sheet. False if the system refuses: an intent with too many images for its transaction limit raises
+ * a plain [RuntimeException] (see [handOffImages]), and "select all" gets there easily.
+ */
+internal fun Context.shareImages(spec: ShareSpec): Boolean = try {
+    startActivity(Intent.createChooser(ShareIntentFactory.create(spec), null))
+    true
+} catch (
+    @Suppress("TooGenericExceptionCaught", "SwallowedException") _: RuntimeException,
+) {
+    false
+}
 
 internal enum class HandoffStart { STARTED, APP_MISSING, FAILED }
 

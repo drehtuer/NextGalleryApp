@@ -14,13 +14,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.itemKey
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaItem
+import net.drehtuer.nextgallery.core.ui.R
 import net.drehtuer.nextgallery.core.ui.theme.NextGalleryTheme
 import net.drehtuer.nextgallery.core.ui.thumbnail.LARGE_THUMBNAIL_PX
 import net.drehtuer.nextgallery.core.ui.thumbnail.ThumbnailCell
+import net.drehtuer.nextgallery.core.ui.thumbnail.thumbnailDescription
 import net.drehtuer.nextgallery.core.ui.thumbnail.thumbnailSizePx
 import net.drehtuer.nextgallery.core.ui.thumbnail.toThumbnail
 
@@ -61,12 +64,13 @@ fun MediaGrid(
                 val item = items[index]
                 ThumbnailCell(
                     thumbnail = item?.toThumbnail(),
-                    contentDescription = item?.displayName,
+                    contentDescription = item?.let { thumbnailDescription(it) },
                     sizePx = sizePx,
                     selected = item?.id in selectedIds,
                     selecting = selecting,
                     modifier = Modifier.combinedClickable(
                         enabled = item != null,
+                        onLongClickLabel = stringResource(R.string.core_ui_select),
                         onClick = { item?.let(onItemClick) },
                         onLongClick = { item?.let(onItemLongClick) },
                     ),

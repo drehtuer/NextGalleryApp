@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -33,6 +34,10 @@ import org.robolectric.annotation.Config
 @RunWith(AndroidJUnit4::class)
 @Config(application = Application::class)
 class NextGalleryAppContentTest {
+    private companion object {
+        const val LICENCES_TIMEOUT_MILLIS = 5_000L
+    }
+
     @get:Rule
     val composeRule = createComposeRule()
 
@@ -214,7 +219,22 @@ class NextGalleryAppContentTest {
 
         composeRule.onNodeWithText("Open-source licences").performScrollTo().performClick()
 
-        composeRule.onNodeWithText("AndroidX and Jetpack Compose").assertIsDisplayed()
+        composeRule.onNodeWithText("Open-source licences").assertIsDisplayed()
+        composeRule.onNodeWithText("GeoNames place data").assertIsDisplayed()
+    }
+
+    @Test
+    fun settingsGraph_licences_listTheLibrariesFromTheGeneratedFile() {
+        val navController = showSettingsGraph()
+        composeRule.runOnIdle { navController.navigate(SettingsGraphRoute) }
+        composeRule.onNodeWithText("About & licences").performScrollTo().performClick()
+        composeRule.onNodeWithText("Open-source licences").performScrollTo().performClick()
+
+        composeRule.waitUntil(LICENCES_TIMEOUT_MILLIS) {
+            composeRule.onAllNodes(hasText("Apache-2.0", substring = true)).fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeRule.onNodeWithText("Activity").assertExists()
     }
 
     /** The real settings graph. Its root, About and licences screens need no Hilt. */

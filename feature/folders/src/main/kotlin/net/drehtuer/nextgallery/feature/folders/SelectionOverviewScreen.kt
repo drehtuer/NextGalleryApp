@@ -31,6 +31,7 @@ import net.drehtuer.nextgallery.core.ui.component.UploadAction
 import net.drehtuer.nextgallery.core.ui.theme.NextGalleryTheme
 import net.drehtuer.nextgallery.core.ui.thumbnail.LARGE_THUMBNAIL_PX
 import net.drehtuer.nextgallery.core.ui.thumbnail.ThumbnailCell
+import net.drehtuer.nextgallery.core.ui.thumbnail.thumbnailDescription
 import net.drehtuer.nextgallery.core.ui.thumbnail.toThumbnail
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -91,7 +92,7 @@ private fun OverviewGrid(
         items(items, key = { it.item.id.value }) { (item, greyedOut) ->
             ThumbnailCell(
                 thumbnail = item.toThumbnail(),
-                contentDescription = item.displayName,
+                contentDescription = thumbnailDescription(item),
                 sizePx = LARGE_THUMBNAIL_PX,
                 selected = true,
                 selecting = true,

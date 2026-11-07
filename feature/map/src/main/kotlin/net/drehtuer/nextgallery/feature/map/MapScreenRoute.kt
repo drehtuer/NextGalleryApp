@@ -31,8 +31,8 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import kotlinx.serialization.Serializable
 import net.drehtuer.nextgallery.core.model.GeoBounds
 import net.drehtuer.nextgallery.core.model.MediaId
+import net.drehtuer.nextgallery.core.ui.platform.rememberShareHandler
 import net.drehtuer.nextgallery.core.ui.platform.rememberTrashEffectHandler
-import net.drehtuer.nextgallery.core.ui.platform.shareImages
 import net.drehtuer.nextgallery.core.ui.theme.NextGalleryOverlayColors
 import net.drehtuer.nextgallery.core.ui.theme.NextGalleryTheme
 
@@ -48,8 +48,8 @@ fun NavGraphBuilder.mapScreen(
     composable<MapScreenRoute> {
         val viewModel = hiltViewModel<MapViewModel>()
         val state by viewModel.state.collectAsStateWithLifecycle()
-        val context = LocalContext.current
         val snackbarHostState = remember { SnackbarHostState() }
+        val handleShare = rememberShareHandler(snackbarHostState)
         val renderer = rememberOsmdroidRenderer()
         val locationUnavailable = stringResource(R.string.feature_map_location_unavailable)
         val handleTrashEffect = rememberTrashEffectHandler(
@@ -82,7 +82,7 @@ fun NavGraphBuilder.mapScreen(
 
                     is MapEffect.OpenViewer -> onOpenViewer(effect.id, effect.bounds)
 
-                    is MapEffect.Share -> context.shareImages(effect.spec)
+                    is MapEffect.Share -> handleShare(effect.spec)
 
                     is MapEffect.Trash -> handleTrashEffect(effect.effect)
                 }

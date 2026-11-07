@@ -7,12 +7,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import net.drehtuer.nextgallery.core.model.RemotePaths
-import net.drehtuer.nextgallery.core.ui.platform.shareImages
+import net.drehtuer.nextgallery.core.ui.platform.rememberShareHandler
 import net.drehtuer.nextgallery.core.ui.remote.remoteMessage
 import net.drehtuer.nextgallery.core.ui.R as CoreUiR
 
@@ -26,7 +25,7 @@ fun RemoteBrowserWithEffects(
     onSignIn: (signInAgain: Boolean) -> Unit,
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
-    val context = LocalContext.current
+    val handleShare = rememberShareHandler(snackbarHostState)
     val resources = LocalResources.current
     val scope = rememberCoroutineScope()
     val rootName = resources.getString(CoreUiR.string.core_ui_remote_root)
@@ -48,7 +47,7 @@ fun RemoteBrowserWithEffects(
             when (effect) {
                 is RemoteBrowserEffect.OpenViewer -> onOpenViewer(effect.path)
 
-                is RemoteBrowserEffect.Share -> context.shareImages(effect.spec)
+                is RemoteBrowserEffect.Share -> handleShare(effect.spec)
 
                 is RemoteBrowserEffect.Moved -> showUndoable(
                     resources.getQuantityString(

@@ -33,6 +33,7 @@ data class NextGalleryDimensions(
     val selectionRingInset: Dp = 6.dp,
     val selectionRingStroke: Dp = 2.dp,
     val selectionIconSize: Dp = 16.dp,
+    val minTouchTarget: Dp = 48.dp,
     val scrollbarThumbWidth: Dp = 6.dp,
     val scrollbarThumbHeight: Dp = 48.dp,
     val scrollbarTouchWidth: Dp = 48.dp,

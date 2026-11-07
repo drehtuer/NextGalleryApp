@@ -4,7 +4,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavGraphBuilder
@@ -15,9 +14,9 @@ import kotlinx.serialization.Serializable
 import net.drehtuer.nextgallery.core.model.GeoBounds
 import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.model.MediaSource
+import net.drehtuer.nextgallery.core.ui.platform.rememberShareHandler
 import net.drehtuer.nextgallery.core.ui.platform.rememberTrashEffectHandler
 import net.drehtuer.nextgallery.core.ui.platform.rememberUploadHandoffHandler
-import net.drehtuer.nextgallery.core.ui.platform.shareImages
 
 /** Pages through the map cluster [mapBounds] ([GeoBounds.encode]) if set, the folder [bucketId], or the timeline. */
 @Serializable
@@ -39,8 +38,8 @@ fun NavGraphBuilder.viewerScreen(onBack: () -> Unit, onOpenEditor: (MediaId) -> 
             creationCallback = { factory -> factory.create(route) },
         )
         val state by viewModel.state.collectAsStateWithLifecycle()
-        val context = LocalContext.current
         val snackbarHostState = remember { SnackbarHostState() }
+        val handleShare = rememberShareHandler(snackbarHostState)
         val handleTrashEffect = rememberTrashEffectHandler(
             snackbarHostState = snackbarHostState,
             onConfirmationResult = { viewModel.onEvent(ViewerEvent.ConfirmationResult(it)) },
@@ -50,7 +49,7 @@ fun NavGraphBuilder.viewerScreen(onBack: () -> Unit, onOpenEditor: (MediaId) -> 
         LaunchedEffect(viewModel) {
             viewModel.effects.collect { effect ->
                 when (effect) {
-                    is ViewerEffect.Share -> context.shareImages(effect.spec)
+                    is ViewerEffect.Share -> handleShare(effect.spec)
                     is ViewerEffect.Upload -> handleUpload(effect.handoff)
                     is ViewerEffect.Trash -> handleTrashEffect(effect.effect)
                     is ViewerEffect.OpenEditor -> onOpenEditor(effect.id)

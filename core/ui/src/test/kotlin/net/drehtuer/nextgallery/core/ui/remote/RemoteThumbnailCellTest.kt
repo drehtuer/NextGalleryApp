@@ -1,7 +1,7 @@
 package net.drehtuer.nextgallery.core.ui.remote
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -36,7 +36,7 @@ class RemoteThumbnailCellTest {
     fun selected_isMarkedSelected() {
         composeRule.setContent { RemoteThumbnailCell(item, url = "https://x/preview", sizePx = 256, selected = true) }
 
-        composeRule.onNodeWithContentDescription("a.jpg", substring = true).assertIsSelected()
+        composeRule.onNode(isSelected()).assertExists()
     }
 
     @Test

@@ -42,6 +42,8 @@ class NextGalleryApplication :
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override fun onCreate() {
+        // First, so that it also sees what the dependency injection does on the main thread.
+        if (BuildConfig.DEBUG) enableStrictMode()
         super.onCreate()
         applicationScope.launch { ruleChangeObserver.get().observe() }
         applicationScope.launch { uploadStateSyncObserver.get().observe() }

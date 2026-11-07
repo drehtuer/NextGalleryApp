@@ -2,7 +2,7 @@
 
 A simple, fast Android gallery app with basic editing, multiple ways to browse your photos, and built-in Nextcloud integration.
 
-> Status: early development. Photo access, background indexing, the folder view, the timeline, the full-screen viewer and settings work; the map is next. See [STATUS.md](docs/STATUS.md). This README describes the intended scope.
+> Status: all features are implemented; hardening for a first release is under way, and what needs a device is still open. See [STATUS.md](docs/STATUS.md).
 
 ## Documentation
 
@@ -10,6 +10,7 @@ A simple, fast Android gallery app with basic editing, multiple ways to browse y
 - [Design decisions & open questions](docs/DESIGN_DECISIONS.md) – what has been decided and what is still open.
 - [Implementation TODO](docs/TODO.md) – ordered, step-by-step implementation plan.
 - [Original design brief](docs/DESIGN_HANDOVER.md) – what Claude Design was asked for (historical).
+- [Changelog](docs/CHANGELOG.md) – what changed in each version.
 - [Status](docs/STATUS.md) – what is implemented, what is next, and what still needs checking on the device.
 - [Design](docs/DESIGN.md) – the visual design: colours, type, dimensions, wording and states of every screen.
 
@@ -130,7 +131,7 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 Before opening a pull request, run the checks CI runs:
 
 ```bash
-./gradlew ktlintFormat detekt lint test :build-logic:convention:test
+./gradlew ktlintFormat detekt lint test :build-logic:convention:test :app:assembleRelease
 ```
 
 `./gradlew coverageReport` writes the JaCoCo line and branch coverage reports (`build/reports/` in each module).
@@ -138,6 +139,29 @@ Before opening a pull request, run the checks CI runs:
 CI sends the coverage and the code analysis to [SonarCloud](https://sonarcloud.io/project/overview?id=drehtuer_NextGalleryApp). This needs Automatic Analysis turned off in the SonarCloud project and a `SONAR_TOKEN` repository secret (see D41 in [DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md)).
 
 Instrumented tests do not run in CI. Run them on the host against an API 37 emulator or the Pixel 10a with `./gradlew connectedDebugAndroidTest` (this needs a local Android SDK).
+
+Benchmarks and the Baseline Profile need a real device with photos and an unlocked screen, also from the host: `./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest` and `./gradlew :app:generateBaselineProfile`. The second writes files under `app/src/release/generated/`, which are then committed.
+
+### Release build
+
+`./gradlew :app:assembleRelease` builds a minified APK. Without a keystore it is unsigned (`app-release-unsigned.apk`) and Android won't install it. To sign it, create a keystore and put a `keystore.properties` next to `settings.gradle.kts`; Git ignores both, so never force-add them:
+
+```properties
+storeFile=/path/to/release.jks
+storePassword=...
+keyAlias=nextgallery
+keyPassword=...
+```
+
+```bash
+keytool -genkeypair -v -keystore /path/to/release.jks -alias nextgallery -keyalg RSA -keysize 4096 -validity 10000
+./gradlew :app:assembleRelease
+adb install app/build/outputs/apk/release/app-release.apk
+```
+
+Keep the keystore safe: an installed app only accepts updates signed with the same key. A relative `storeFile` counts from the repository root, and the path must be visible inside the devcontainer.
+
+The version comes from the nearest Git tag of the form `vMAJOR.MINOR.PATCH`: `v1.2.3` gives the name 1.2.3 and the code 1002003. Tags with a suffix such as `-rc1` stop the build, because their code would equal the final version's. Without a tag, or where Git can't run, the build calls itself 0.1.0; `-PversionTag=v1.2.3` overrides both. Record changes in [CHANGELOG.md](docs/CHANGELOG.md) before tagging.
 
 ## License
 

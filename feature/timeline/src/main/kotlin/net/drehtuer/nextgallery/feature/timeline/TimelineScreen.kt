@@ -51,10 +51,12 @@ import net.drehtuer.nextgallery.core.ui.component.VisibleMediaIdsEffect
 import net.drehtuer.nextgallery.core.ui.theme.NextGalleryTheme
 import net.drehtuer.nextgallery.core.ui.thumbnail.ThumbnailCell
 import net.drehtuer.nextgallery.core.ui.thumbnail.UploadBadge
+import net.drehtuer.nextgallery.core.ui.thumbnail.thumbnailDescription
 import net.drehtuer.nextgallery.core.ui.thumbnail.thumbnailSizePx
 import net.drehtuer.nextgallery.core.ui.thumbnail.toThumbnail
 import java.time.LocalDate
 import java.time.YearMonth
+import net.drehtuer.nextgallery.core.ui.R as CoreUiR
 
 internal const val TIMELINE_GRID_TAG = "timeline-grid"
 internal const val STICKY_MONTH_TAG = "timeline-sticky-month"
@@ -197,12 +199,13 @@ private fun PhotoCell(
     val item = if (row.photoIndex < items.itemCount) items[row.photoIndex] else null
     ThumbnailCell(
         thumbnail = item?.toThumbnail(),
-        contentDescription = item?.displayName,
+        contentDescription = item?.let { thumbnailDescription(it) },
         sizePx = sizePx,
         selected = item?.id in state.selectedIds,
         selecting = state.selecting,
         modifier = Modifier.combinedClickable(
             enabled = item != null,
+            onLongClickLabel = stringResource(CoreUiR.string.core_ui_select),
             onClick = { item?.let { onEvent(TimelineEvent.ItemClicked(it.id)) } },
             onLongClick = { item?.let { onEvent(TimelineEvent.ItemLongPressed(it.id)) } },
         ),

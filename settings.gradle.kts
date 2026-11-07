@@ -20,6 +20,7 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 rootProject.name = "NextGalleryApp"
 
 include(":app")
+include(":benchmark")
 
 include(":core:model")
 include(":core:common")

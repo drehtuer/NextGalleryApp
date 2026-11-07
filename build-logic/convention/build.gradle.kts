@@ -29,6 +29,10 @@ gradlePlugin {
             id = "nextgallery.android.library"
             implementationClass = "AndroidLibraryConventionPlugin"
         }
+        register("androidBenchmark") {
+            id = "nextgallery.android.benchmark"
+            implementationClass = "AndroidBenchmarkConventionPlugin"
+        }
         register("androidCompose") {
             id = "nextgallery.android.compose"
             implementationClass = "AndroidComposeConventionPlugin"

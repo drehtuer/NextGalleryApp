@@ -150,4 +150,22 @@ class SelectionOverviewScreenTest {
 
         assertEquals(1, backs)
     }
+
+    @Test
+    fun thumbnail_isDescribedByNameAndDate() {
+        val taken = mediaItem(1).copy(displayName = "IMG_1.jpg", dateTakenMillis = NOON_23_OCT_2026_UTC)
+        composeRule.setContent {
+            SelectionOverviewScreen(
+                SelectionOverviewUiState(items = listOf(SelectionOverviewItem(taken, greyedOut = false))),
+                {},
+                {},
+            )
+        }
+
+        composeRule.onNodeWithContentDescription("IMG_1.jpg, 23 Oct 2026").assertExists()
+    }
+
+    private companion object {
+        const val NOON_23_OCT_2026_UTC = 1_792_756_800_000L
+    }
 }

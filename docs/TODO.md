@@ -410,29 +410,29 @@ _Depends on: Phases 1–9._
 
 - [x] **10.0 Apply design** – replace the placeholder theme tokens with the values in [DESIGN.md](DESIGN.md) (delivered; can be done now): five accents × light/dark, fixed roles, always-dark viewer colours, type scale, shapes and the new dimension tokens. Adjust screens only where DESIGN.md changes the layout (selection ring, badges, Appearance, About with version and source link). Set a `versionName`. Compose tests: theme per accent and mode. _Done before Phase 4. Applied to all existing screens, with new wording, states, icons and the Select action. The rest comes with the screens that need it: settings icon, Appearance and About in 4.3, upload action and badges in Phase 9. `versionName` was already set._
 - [ ] **10.1 Performance**
-  - [ ] `:benchmark` (`com.android.test`) module with Macrobenchmark: cold start, folder grid scroll, timeline fast-scroll, viewer swipe. Run on the Pixel 10a against the D24 targets.
-  - [ ] Baseline Profile generator (`androidx.baselineprofile` plugin) for `:app`; commit `baseline-prof.txt`. Verify startup improvement.
-  - [ ] Profile indexing on 50k images (time, memory); tune batch size, Room transactions. Record results in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
-  - [ ] StrictMode in debug builds; fix disk/network on main thread.
+  - [ ] `:benchmark` (`com.android.test`) module with Macrobenchmark: cold start, folder grid scroll, timeline fast-scroll, viewer swipe. Run on the Pixel 10a against the D24 targets. _The module and the journeys are written and compile; they have never run, so the selectors may need adjusting. The run and the comparison with D24 are still open._
+  - [ ] Baseline Profile generator (`androidx.baselineprofile` plugin) for `:app`; commit `baseline-prof.txt`. Verify startup improvement. _The generator is written and `:app` is set up to use its output (`./gradlew :app:generateBaselineProfile`). Generating needs a device, so there is no profile yet and nothing is measured._
+  - [ ] Profile indexing on 50k images (time, memory); tune batch size, Room transactions. Record results in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md). _Needs a device._
+  - [ ] StrictMode in debug builds; fix disk/network on main thread. _StrictMode is on in debug builds and logs. Reading the code found no disk or network work on the main thread in the app's own code that was worth moving: only `Context.filesDir`/`cacheDir` lookups while Hilt builds singletons, and osmdroid's setup, because a `MapView` has to be created on the main thread. Nothing was changed for that. What the log says on a device is still open._
 - [ ] **10.2 Accessibility**
-  - [ ] Content descriptions for thumbnails (date/name), badges, actions; TalkBack traversal of grids and viewer.
-  - [ ] Touch targets ≥ 48 dp, contrast check, font scaling 200 %; scrollbar operable via accessibility actions.
-  - [ ] Compose UI tests asserting semantics on key screens; Accessibility Scanner pass.
-- [ ] **10.3 Strings**
-  - [ ] All user strings in `strings.xml` (lint `HardcodedText` as error); plurals for counts.
-  - [ ] English only (D34); no translations or per-app language support in v1.
+  - [ ] Content descriptions for thumbnails (date/name), badges, actions; TalkBack traversal of grids and viewer. _The descriptions are done and tested; the traversal needs TalkBack on a device. Not reachable without sight: the map's markers and the crop handles, see ARCHITECTURE.md §11.1._
+  - [ ] Touch targets ≥ 48 dp, contrast check, font scaling 200 %; scrollbar operable via accessibility actions. _Touch targets, the contrast of the text roles (WCAG AA in all accents and modes) and both scrollbars are done and tested. Font scaling at 200 % needs a look on a device._
+  - [ ] Compose UI tests asserting semantics on key screens; Accessibility Scanner pass. _The tests are done; the scanner needs a device._
+- [x] **10.3 Strings**
+  - [x] All user strings in `strings.xml` (lint `HardcodedText` as error); plurals for counts. _The lint check only sees XML. A search of the Kotlin sources found no user text and no count built by hand. The numbers left in plain strings are units and "x of y"._
+  - [x] English only (D34); no translations or per-app language support in v1.
 - [ ] **10.4 Release build**
-  - [ ] R8 full mode, `isMinifyEnabled`/`isShrinkResources`; keep rules for kotlinx.serialization routes, Tink, osmdroid, Room. Run instrumented smoke tests on `release`-like `benchmark` build type.
-  - [ ] Check that all native libraries in the APK are 16 KB page aligned (D40).
-  - [ ] Verify the dependency tree has no proprietary dependencies (GMS/Firebase) and only GPL-3.0-compatible licenses.
+  - [ ] R8 full mode, `isMinifyEnabled`/`isShrinkResources`; keep rules for kotlinx.serialization routes, Tink, osmdroid, Room. Run instrumented smoke tests on `release`-like `benchmark` build type. _The build and the rules are done, `:app:assembleRelease` runs in CI, and the classes and members the rules are for were checked in the DEX file. Running the result needs a device: see the list in ARCHITECTURE.md §3.1._
+  - [x] Check that all native libraries in the APK are 16 KB page aligned (D40). _`zipalign -c -P 16` passes for all 8 libraries; they are stored uncompressed and all their LOAD segments have `p_align` 0x4000._
+  - [x] Verify the dependency tree has no proprietary dependencies (GMS/Firebase) and only GPL-3.0-compatible licenses. _Of the 150 shipped libraries, 149 are Apache-2.0 and one BSD-3-Clause, according to their POM files. The build now fails on a proprietary group or on any other licence._
   - [ ] _Deferred until distribution (D28):_ reproducible build settings (no build timestamps, `dependenciesInfo { includeInApk = false }`), Fastlane metadata in `fastlane/metadata/android/`, F-Droid submission.
-  - [ ] Release signing with a local keystore via `keystore.properties` (never committed); `signingConfigs.release`.
-  - [ ] Versioning scheme (`versionCode` from tag), CHANGELOG.
+  - [ ] Release signing with a local keystore via `keystore.properties` (never committed); `signingConfigs.release`. _Set up: without the file the release build is unsigned. The wiring was checked with a file naming a missing keystore, which the signing step refuses. A real signed build needs a keystore, which only the owner creates._
+  - [x] Versioning scheme (`versionCode` from tag), CHANGELOG. _`v1.2.3` gives version 1.2.3 and code 1002003. [CHANGELOG.md](CHANGELOG.md) is in `docs/`, as all documentation is. No tag exists yet._
   - [ ] _Deferred until distribution (D28):_ GitHub Actions `release.yml` building signed artifacts on tag.
 - [ ] **10.5 Final checks**
   - [ ] Full manual pass on the reference Pixel 10a (Android 17); instrumented suite green on a local API 37 emulator and on the Pixel 10a.
-  - [ ] Third-party license screen (`:feature:settings` About) generated from dependencies.
-  - [ ] Privacy: confirm no analytics/tracking, network only to user's Nextcloud and OSM tiles.
-- [ ] **10.6 Update docs** – README (status, building, installing the release build), ARCHITECTURE.md final state, DESIGN_DECISIONS.md resolved questions.
+  - [x] Third-party license screen (`:feature:settings` About) generated from dependencies. _The AboutLibraries Gradle plugin writes the list during the build; only its data ships, not its library. GeoNames and OpenStreetMap stay as entries by hand. The screen shows the licence names, not their full texts._
+  - [x] Privacy: confirm no analytics/tracking, network only to user's Nextcloud and OSM tiles. _Confirmed by reading the code and the APK; all entry points are listed in ARCHITECTURE.md §11. The two links that open a browser are what the user tapped. Not watched on the wire._
+- [x] **10.6 Update docs** – README (status, building, installing the release build), ARCHITECTURE.md final state, DESIGN_DECISIONS.md resolved questions.
 
 **Definition of done:** signed, minified release build passes benchmarks and accessibility checks, contains no proprietary dependencies and installs on the Pixel 10a.

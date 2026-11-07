@@ -18,6 +18,7 @@
         <item quantity="other">%,d items</item>
     </plurals>
 
+    <string name="feature_remote_menu_label">Show actions</string>
     <string name="feature_remote_menu_move">Move to folder…</string>
     <string name="feature_remote_menu_share">Share</string>
     <string name="feature_remote_menu_delete">Delete</string>

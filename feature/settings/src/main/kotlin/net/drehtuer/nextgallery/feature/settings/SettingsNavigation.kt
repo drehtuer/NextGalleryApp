@@ -1,5 +1,6 @@
 package net.drehtuer.nextgallery.feature.settings
 
+import androidx.annotation.RawRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -84,6 +85,7 @@ fun NavGraphBuilder.aboutScreen(info: AboutInfo, onBack: () -> Unit, onOpenLicen
     composable<AboutRoute> { AboutScreen(info, onBack, onOpenLicences) }
 }
 
-fun NavGraphBuilder.licencesScreen(onBack: () -> Unit) {
-    composable<LicencesRoute> { LicencesScreen(onBack) }
+/** [licencesJson] is the raw resource that the build generates in `:app`. */
+fun NavGraphBuilder.licencesScreen(@RawRes licencesJson: Int, onBack: () -> Unit) {
+    composable<LicencesRoute> { LicencesScreen(rememberLibraries(licencesJson), onBack) }
 }

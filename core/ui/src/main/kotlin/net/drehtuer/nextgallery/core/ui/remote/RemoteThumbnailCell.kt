@@ -31,7 +31,10 @@ import net.drehtuer.nextgallery.core.ui.thumbnail.SelectionMark
 const val REMOTE_THUMBNAIL_FAILED_TAG = "remote-thumbnail-failed"
 private const val OFFLINE_ALPHA = 0.6f
 
-/** A grid cell with a server preview. [url] is null if the server has none; [offline] dims it (DESIGN.md). */
+/**
+ * A grid cell with a server preview. [url] is null if the server has none; [offline] dims it (DESIGN.md). It merges no
+ * semantics of its own: the clickable parent does, and a merge here would keep the name and the action in two nodes.
+ */
 @Composable
 fun RemoteThumbnailCell(
     item: RemoteItem,
@@ -48,7 +51,7 @@ fun RemoteThumbnailCell(
         modifier
             .aspectRatio(1f)
             .background(if (failed) colors.errorContainer else colors.surfaceVariant)
-            .semantics(mergeDescendants = true) { if (selected) this.selected = true },
+            .semantics { if (selected || selecting) this.selected = selected },
     ) {
         if (url != null) {
             val key = remoteImageCacheKey(item, sizePx)

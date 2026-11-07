@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -27,27 +28,34 @@ fun Breadcrumbs(path: String, onOpen: (String) -> Unit, modifier: Modifier = Mod
     Row(
         modifier
             .horizontalScroll(rememberScrollState())
-            .padding(horizontal = dimensions.spacingMedium, vertical = dimensions.spacingSmall),
+            .padding(horizontal = dimensions.spacingMedium),
         horizontalArrangement = Arrangement.spacedBy(dimensions.spacingSmall),
     ) {
         RemotePaths.ancestors(path).forEach { ancestor ->
             val current = ancestor == path
             val colors = MaterialTheme.colorScheme
             val shape = MaterialTheme.shapes.small
+            // The pill is smaller than the touch target around it. The padding of the row is in the touch target too.
             Box(
                 Modifier
-                    .heightIn(min = dimensions.breadcrumbHeight)
-                    .background(if (current) colors.primaryContainer else colors.surfaceContainer, shape)
-                    .clickable(enabled = !current) { onOpen(ancestor) }
-                    .padding(horizontal = dimensions.spacingSmall),
+                    .sizeIn(minWidth = dimensions.minTouchTarget, minHeight = dimensions.minTouchTarget)
+                    .clickable(enabled = !current) { onOpen(ancestor) },
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    RemotePaths.name(ancestor).ifEmpty { stringResource(R.string.core_ui_remote_root) },
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = if (current) FontWeight.Bold else FontWeight.Normal,
-                    color = if (current) colors.onPrimaryContainer else colors.onSurfaceVariant,
-                )
+                Box(
+                    Modifier
+                        .heightIn(min = dimensions.breadcrumbHeight)
+                        .background(if (current) colors.primaryContainer else colors.surfaceContainer, shape)
+                        .padding(horizontal = dimensions.spacingSmall),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        RemotePaths.name(ancestor).ifEmpty { stringResource(R.string.core_ui_remote_root) },
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (current) FontWeight.Bold else FontWeight.Normal,
+                        color = if (current) colors.onPrimaryContainer else colors.onSurfaceVariant,
+                    )
+                }
             }
         }
     }

@@ -176,6 +176,6 @@ fun NavGraphBuilder.settingsGraph(
             onBack = navController::popBackStack,
             onOpenLicences = { navController.navigate(LicencesRoute) },
         )
-        licencesScreen(onBack = navController::popBackStack)
+        licencesScreen(licencesJson = R.raw.aboutlibraries, onBack = navController::popBackStack)
     }
 }

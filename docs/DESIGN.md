@@ -292,7 +292,7 @@ Rows with an icon, title, secondary line and chevron: "Folders" (Include, exclud
 Nextcloud tab (cloud with an up arrow), settings (two sliders), select (checklist), select all, show selection (eye),
 share, delete, details (i in a circle), upload (arrow onto a line), edit (pencil), refresh, move (folder with an arrow),
 rotate, crop, scale, draw, palette, zoom in, zoom out, my location (crosshair), the three upload badges, broken image, lock.
-Icon-only buttons have content descriptions.
+Icon-only buttons have content descriptions. Where a control's visual is below 48 dp (breadcrumbs, pen swatches), its touch target still is 48 dp and the visual sits inside it.
 
 ## Implementation notes
 

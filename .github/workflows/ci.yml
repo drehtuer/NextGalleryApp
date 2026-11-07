@@ -35,6 +35,7 @@ jobs:
 
       # Builds inside the same devcontainer image as local development (.devcontainer/).
       # Instrumented tests are not run here; they run locally on an emulator or the Pixel 10a.
+      # The release build shows what R8 refuses. Benchmarks need a device, so they are only compiled.
       - name: Check and build in devcontainer
         uses: devcontainers/ci@v0.3
         with:
@@ -44,6 +45,7 @@ jobs:
           runCmd: >-
             ./gradlew --continue --stacktrace
             ktlintCheck detekt lint test :build-logic:convention:test assembleDebug assembleDebugAndroidTest
+            :app:assembleRelease :benchmark:compileBenchmarkReleaseKotlin
             && (./gradlew --continue --stacktrace coverageReport || ./gradlew --continue --stacktrace coverageReport)
 
       # Pull requests and main only: every pull request push also triggers a branch run with the same result.

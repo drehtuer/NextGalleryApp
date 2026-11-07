@@ -10,7 +10,9 @@ import io.mockk.mockk
 import io.mockk.verify
 import net.drehtuer.nextgallery.core.model.ShareSpec
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -23,9 +25,17 @@ class ShareIntentFactoryTest {
     fun shareImages_opensChooser() {
         val context = mockk<Context>(relaxed = true)
 
-        context.shareImages(one)
+        val started = context.shareImages(one)
 
+        assertTrue(started)
         verify { context.startActivity(match { it.action == Intent.ACTION_CHOOSER }) }
+    }
+
+    @Test
+    fun shareImages_systemRefusesTheIntent_saysSo() {
+        val context = mockk<Context> { every { startActivity(any()) } throws RuntimeException("Failure from system") }
+
+        assertFalse(context.shareImages(one))
     }
 
     private val toNextcloud = one.copy(targetPackage = "com.nextcloud.client")

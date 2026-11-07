@@ -7,6 +7,7 @@ import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -34,18 +36,23 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.launch
 import net.drehtuer.nextgallery.core.common.ScrollbarMath
 import net.drehtuer.nextgallery.core.data.timeline.DayRailDates
 import net.drehtuer.nextgallery.core.data.timeline.TimelineIndex
+import net.drehtuer.nextgallery.core.ui.component.scrollbarSemantics
 import net.drehtuer.nextgallery.core.ui.theme.NextGalleryTheme
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
+import net.drehtuer.nextgallery.core.ui.R as CoreUiR
 
 internal const val DATE_RAIL_THUMB_TAG = "date-rail-thumb"
 internal const val DATE_RAIL_CURRENT_TAG = "date-rail-current"
@@ -89,6 +96,9 @@ internal fun DateRail(state: LazyGridState, index: TimelineIndex, modifier: Modi
         derivedStateOf { middleRow(state.layoutInfo)?.let { currentIndex.dayRailAt(it) } }
     }
 
+    val scope = rememberCoroutineScope()
+    val railDate = rememberDateFormatter(R.string.feature_timeline_rail_pattern)
+
     // collectLatest drops positions the grid has not reached yet, so a long drag does not queue up jumps.
     LaunchedEffect(state) {
         snapshotFlow { dragFraction }.filterNotNull().collectLatest {
@@ -98,19 +108,14 @@ internal fun DateRail(state: LazyGridState, index: TimelineIndex, modifier: Modi
 
     Box(modifier.fillMaxSize().onSizeChanged { trackHeightPx = it.height }) {
         val travelPx = (trackHeightPx - thumbHeightPx).coerceAtLeast(1)
-        Box(
-            Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = (dimensions.scrollbarThumbWidth - dimensions.dateRailTrackWidth) / 2)
-                .fillMaxHeight()
-                .width(dimensions.dateRailTrackWidth)
-                .background(MaterialTheme.colorScheme.outlineVariant),
-        )
+        RailTrack()
         dates?.let { current ->
             RailLabels(
                 dates = current,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
+                    // A screen reader gets the date from the thumb, instead of three texts that change while scrolling.
+                    .semantics { hideFromAccessibility() }
                     .padding(end = dimensions.dateRailInset)
                     .onSizeChanged { labelsHeightPx = it.height }
                     .offset {
@@ -122,12 +127,34 @@ internal fun DateRail(state: LazyGridState, index: TimelineIndex, modifier: Modi
         RailThumb(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .offset { IntOffset(0, (fraction * travelPx).roundToInt()) },
+                .offset { IntOffset(0, (fraction * travelPx).roundToInt()) }
+                .scrollbarSemantics(
+                    description = stringResource(CoreUiR.string.core_ui_scroll_position),
+                    fraction = { fraction },
+                    positionText = { dates?.let { railDate.format(it.current) } },
+                    onScrollTo = { target ->
+                        val row = ScrollbarMath.indexForFraction(target, currentIndex.rowCount, visibleCount)
+                        scope.launch { state.scrollToItem(row) }
+                    },
+                ),
             onDragStarted = { dragFraction = fraction },
             onDrag = { delta -> dragFraction = ((dragFraction ?: fraction) + delta / travelPx).coerceIn(0f, 1f) },
             onDragStopped = { dragFraction = null },
         )
     }
+}
+
+@Composable
+private fun BoxScope.RailTrack() {
+    val dimensions = NextGalleryTheme.dimensions
+    Box(
+        Modifier
+            .align(Alignment.CenterEnd)
+            .padding(end = (dimensions.scrollbarThumbWidth - dimensions.dateRailTrackWidth) / 2)
+            .fillMaxHeight()
+            .width(dimensions.dateRailTrackWidth)
+            .background(MaterialTheme.colorScheme.outlineVariant),
+    )
 }
 
 @Composable

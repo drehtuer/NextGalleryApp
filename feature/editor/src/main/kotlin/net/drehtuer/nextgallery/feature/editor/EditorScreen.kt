@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
@@ -202,11 +203,13 @@ private fun ToolBar(state: EditorUiState, onEvent: (EditorEvent) -> Unit) {
 @Composable
 private fun ToolButton(@DrawableRes icon: Int, @StringRes label: Int, active: Boolean, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
+    val dimensions = NextGalleryTheme.dimensions
     Column(
-        Modifier.selectable(selected = active, onClick = onClick),
+        Modifier
+            .heightIn(min = dimensions.minTouchTarget)
+            .selectable(selected = active, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        val dimensions = NextGalleryTheme.dimensions
         val pill = if (active) Modifier.background(colors.primaryContainer, MaterialTheme.shapes.large) else Modifier
         Box(
             Modifier.size(dimensions.editorToolPillWidth, dimensions.editorToolPillHeight).then(pill),

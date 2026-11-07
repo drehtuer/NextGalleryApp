@@ -55,7 +55,7 @@ class ClusterSheetContentTest {
     fun itemClicked_sendsEvent() {
         show()
 
-        composeRule.onNodeWithContentDescription("IMG_1.jpg").performClick()
+        composeRule.onNodeWithContentDescription("IMG_1.jpg", substring = true).performClick()
 
         assertEquals(listOf<MapEvent>(MapSelectionEvent.ItemClicked(MediaId(1))), events)
     }
@@ -64,7 +64,7 @@ class ClusterSheetContentTest {
     fun itemLongPressed_sendsEvent() {
         show()
 
-        composeRule.onNodeWithContentDescription("IMG_1.jpg").performTouchInput { longClick() }
+        composeRule.onNodeWithContentDescription("IMG_1.jpg", substring = true).performTouchInput { longClick() }
 
         assertEquals(listOf<MapEvent>(MapSelectionEvent.ItemLongPressed(MediaId(1))), events)
     }

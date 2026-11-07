@@ -93,7 +93,8 @@ Rules:
 
 - Gradle Kotlin DSL; dependencies and versions in `gradle/libs.versions.toml`.
 - Convention plugins in `build-logic/convention`:
-  - `nextgallery.android.application` – `:app` defaults (SDK levels, application ID, Kotlin toolchain 21, R8 config).
+  - `nextgallery.android.application` – `:app` defaults (SDK levels, application ID, Kotlin toolchain 21, R8 config, version from the Git tag, release signing from `keystore.properties`). It also fails the build if a proprietary group such as `com.google.android.gms` or `com.google.firebase` reaches a shipped classpath.
+  - `nextgallery.android.benchmark` – `:benchmark`, a `com.android.test` module for Macrobenchmark and the Baseline Profile generator. Its debug variant is off, so `assembleDebug` and `connectedDebugAndroidTest` leave it alone; CI only compiles it.
   - `nextgallery.android.library` – Android library defaults.
   - `nextgallery.android.compose` – enables Compose and adds the Compose BOM.
   - `nextgallery.android.feature` – library + compose + Hilt + dependencies every feature needs (`:core:ui`, `:core:data`, `:core:model`, Navigation Compose, lifecycle-viewmodel-compose).
@@ -109,6 +110,16 @@ Rules:
   - The feature plugin fails the build if a `:feature:*` module declares a dependency on another `:feature:*` module.
   - Espresso is pinned to 3.7.0 for tests, because the version pulled in by Compose UI test calls an API removed in SDK 37.
 - The build environment is a devcontainer (`.devcontainer/`: JDK 21, Android SDK platform `android-37.0`, build-tools 36.0.0); CI builds inside the same image (`devcontainers/ci`).
+- **Release build**: R8 full mode with `isMinifyEnabled` and `isShrinkResources`; `app/proguard-rules.pro` holds the app's rules, explained there. Without `keystore.properties` the APK is unsigned. The `androidx.baselineprofile` plugin adds the `nonMinifiedRelease` and `benchmarkRelease` build types to `:app`, which use the debug key; they are for a device only.
+- **Licences**: the AboutLibraries Gradle plugin reads the POM files of what ships, writes `R.raw.aboutlibraries` in `:app` and fails the build on a licence outside `Apache-2.0`, `MIT`, `BSD-2-Clause` and `BSD-3-Clause`. `LicenceCatalog` in `:core:data` parses it for the licences screen; the plugin's runtime library is not used.
+- **Only visible on a device with the release build** (R8 can break what no build notices), so check each of these once with `benchmarkRelease`, or a signed release:
+  - every screen opens, including those with arguments (`ViewerRoute`, `FolderGridRoute`, `EditorRoute`, `RemoteViewerRoute`, `NextcloudAccountRoute`, `SelectionOverviewRoute`), since Navigation finds their serializers by reflection;
+  - the index builds and survives a restart (Room `_Impl` classes), and `IndexWorker` and `UploadStateSyncWorker` run (WorkManager and Hilt workers, found by class name);
+  - signing in, closing the app and still being signed in (Tink and the Android Keystore, its protobuf found by field name), and logging out;
+  - browsing, previews, opening and moving on a server, with a CA certificate and with a self-signed one (OkHttp, the pinning trust manager);
+  - the map: tiles load and stay cached, clusters and their sheet, zoom (osmdroid has no rules of its own, and looks up `bonuspack_bubble` and its archive classes by name);
+  - place names in the details sheet (the GeoNames asset), the licence list (`R.raw.aboutlibraries`), the launcher icon and About's icon (resource shrinking);
+  - editing and saving a copy, and overwriting after the system's confirmation; sharing; the upload hand-off.
 - A JVM module cannot depend on an Android library (Gradle cannot resolve an AAR for a `kotlin("jvm")` module), so the Android-free core is enforced by the build itself.
 
 ### 3.2 Module dependency graph
@@ -189,6 +200,10 @@ graph TD
 ### 3.3 Module responsibilities
 
 Package root and application ID: `net.drehtuer.nextgallery` (D26). Class names below are the intended public surface; internals may grow.
+
+#### `:benchmark`
+
+Macrobenchmarks (`GalleryBenchmarks`), the Baseline Profile generator (`BaselineProfileGenerator`) and the journeys they share (`Journeys.kt`). They need a real device with photos and an unlocked screen, so they are not part of the instrumented suite.
 
 #### `:app`
 
@@ -1009,9 +1024,21 @@ Rules:
 - OkHttp only speaks TLS unless `allowCleartext` (debug builds); server URLs and the URLs in login responses are checked the same way. Nothing logs URLs with credentials or the app password; `toString` of the account and of the login flow's types hides the secrets.
 - Responses are limited, so that a server can't exhaust the memory: login and OCS JSON 1 MiB; a multistatus response 64 MiB of XML (well over 50,000 entries of a folder) and 100,000 entries, keeping only the properties the app reads. Beyond that the call fails with a normal error. A DOCTYPE fails the parse.
 - Everything that comes from the server is treated as untrusted when it ends up in a path: dot segments and encoded slashes in hrefs are dropped, `RemotePathMapper` refuses dot segments, and shared files keep only a sanitised last name part inside the temporary folder.
+- **Network entry points**, which are all there are. No analytics, tracking or crash reporting code or library is in the app, and the build refuses Play Services and Firebase:
+  - `WebDavClient`, `OcsClient` and `LoginFlowV2Client` go through `NextcloudHttpModule` to the server the user entered. Login Flow may name other URLs on that server; the checks above apply.
+  - The remote Coil loader (`RemoteImageLoader`) uses the authenticated client for the account's previews and images. The local loader has no network fetcher at all.
+  - osmdroid's tile downloader goes to the tile server in Settings (OpenStreetMap by default).
+  - Two links open outside the app, when tapped: the login page in a Custom Tab, and the source code link in About, in the browser.
 - **No tracking**: no analytics, no crash reporting SDKs, no Google Play Services. osmdroid tile requests go over HTTPS to the OSM tile server (or the one set in Settings) with the user agent `NextGalleryApp (Android, osmdroid)`, which names the app, as the OSM tile usage policy requires, and carries no personal data. This is the only third-party network traffic and is triggered only by opening the map. Place names are looked up on the phone (D45), and tiles are cached in the app's cache folder.
 - **Least privilege**: only `READ_MEDIA_IMAGES`, `READ_MEDIA_VISUAL_USER_SELECTED`, `ACCESS_MEDIA_LOCATION`, `ACCESS_COARSE_LOCATION` (optional, D44), `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_LOCAL_NETWORK` (D39), plus a `<queries>` entry for `com.nextcloud.client`. No foreground service or notification permission (uploads are done by the Nextcloud app). Destructive actions go through system dialogs.
 - Shared local images use MediaStore content URIs with temporary read grants. Server images are downloaded first and shared through a `FileProvider` limited to one temporary cache folder (D48); the rest of the app's storage stays private.
+
+### 11.1 Accessibility
+
+- Every action has a name and a 48 dp touch target (`minTouchTarget`; screen tests check this on the key screens). Where the design's visual is smaller, as with breadcrumbs and pen swatches, the touch target surrounds it.
+- A thumbnail says its file name and date (`thumbnailDescription`), its upload badge and its state: selected or not while selecting, unavailable in this view, or could not be loaded. A long-press announces what it does.
+- A scrollbar's thumb is a slider for a screen reader (`scrollbarSemantics`): it reads the position, as the date in the timeline, and accepts `ACTION_SET_PROGRESS` and scroll forward and backward. The date rail's texts are hidden from the screen reader, because the thumb says the same.
+- Known gaps: the map's markers are drawn by osmdroid on a `View`, and the crop handles and the pen canvas only follow gestures. So clusters can't be reached with TalkBack, though a photo's place can be read in the viewer's details and all photos are in the other views; and cropping and drawing need sight. Rotating and scaling use ordinary buttons and fields.
 
 ## 12. Performance
 
@@ -1026,7 +1053,8 @@ Targets (measured on the reference Pixel 10a, Android 17): warm start to first f
 - **Indexing**: projection limited to needed columns; batched transactions; EXIF read deferred to a second pass; ContentObserver debounced; incremental sync via generation numbers touches only changed rows.
 - **Map**: clustering computed on `Default` for the viewport only, from a lightweight `(id, lat, lon)` projection; recomputed on zoom/pan with debounce.
 - **Memory**: viewer limits decoded size to screen size except visible tiles; editor preview max 2048 px side.
-- **Baseline profiles** (`:baselineprofile` module, added once screens are stable) and R8 full mode for release builds; Macrobenchmark for startup and grid scrolling.
+- **Baseline profiles** and Macrobenchmark are in `:benchmark` (cold start, folder grid scroll, timeline fast-scroll, viewer swipe), and release builds use R8 full mode. Both need a real device, so they have not run yet and there is no profile in the repository (TODO 10.1).
+- **StrictMode** logs main-thread disk and network use and leaks in debug builds (`enableStrictMode`, tag `StrictMode`).
 - Compose stability: `UiState` classes are immutable data classes with `kotlinx.collections.immutable` collections or `@Immutable` where needed.
 
 ## 13. Testing strategy

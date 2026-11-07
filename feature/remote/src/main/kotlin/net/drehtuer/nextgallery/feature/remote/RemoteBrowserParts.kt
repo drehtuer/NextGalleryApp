@@ -161,6 +161,7 @@ private fun RemoteGridImage(item: RemoteItem, state: RemoteBrowserUiState, onEve
                 }
             }
             .combinedClickable(
+                onLongClickLabel = stringResource(R.string.feature_remote_menu_label),
                 onClick = { onEvent(SelectionEvent.ItemClicked(item)) },
                 onLongClick = { onEvent(SelectionEvent.ItemLongPressed(item)) },
             ),
