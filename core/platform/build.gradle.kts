@@ -17,4 +17,6 @@ dependencies {
     implementation(libs.tink.android)
 
     testImplementation(libs.androidx.work.testing)
+    androidTestImplementation(libs.okhttp.mockwebserver)
+    androidTestImplementation(libs.okhttp.tls)
 }
