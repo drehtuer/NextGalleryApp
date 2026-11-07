@@ -31,9 +31,16 @@ fun LoadingIndicator(modifier: Modifier = Modifier) {
     }
 }
 
+/** [action] is what the user can do about it, shown below the text. */
 @Composable
-fun EmptyState(title: String, modifier: Modifier = Modifier, detail: String? = null, @DrawableRes icon: Int? = null) {
-    CenteredMessage(title, detail, modifier, icon)
+fun EmptyState(
+    title: String,
+    modifier: Modifier = Modifier,
+    detail: String? = null,
+    @DrawableRes icon: Int? = null,
+    action: @Composable () -> Unit = {},
+) {
+    CenteredMessage(title, detail, modifier, icon, actions = action)
 }
 
 @Composable

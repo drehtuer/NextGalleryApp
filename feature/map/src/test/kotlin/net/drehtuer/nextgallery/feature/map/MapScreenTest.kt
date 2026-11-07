@@ -135,7 +135,8 @@ class MapScreenTest {
 
         composeRule.onNodeWithText("No geotagged images").assertIsDisplayed()
         composeRule.onNodeWithText(
-            "None of your photos has a location saved. Turn on location in your camera app to see new photos here.",
+            "None of the photos in the folders you added has a location saved. Add more folders in Settings, " +
+                "or turn on location in your camera app to see new photos here.",
         ).assertIsDisplayed()
     }
 

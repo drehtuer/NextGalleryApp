@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.TestDispatcher
 import net.drehtuer.nextgallery.core.common.Clock
 import net.drehtuer.nextgallery.core.common.DispatcherProvider
+import net.drehtuer.nextgallery.core.common.RelativePaths
 import net.drehtuer.nextgallery.core.data.index.ExifSource
 import net.drehtuer.nextgallery.core.data.index.GeoIndexStore
 import net.drehtuer.nextgallery.core.data.index.IndexMode
@@ -41,6 +42,10 @@ class FakeMediaScanSource(
         private set
     var changesSinceGeneration: Long? = null
         private set
+    var idQueries = 0
+        private set
+    var queriedFolders: List<String>? = null
+        private set
 
     override suspend fun volumes(): Set<String> = images.map { it.volumeName }.toSet().ifEmpty { setOf(VOLUME) }
 
@@ -48,18 +53,26 @@ class FakeMediaScanSource(
 
     override suspend fun currentGeneration(volume: String): Long = generation
 
-    override fun fullScan(volume: String): Flow<List<ScannedImage>> {
+    override fun fullScan(volume: String, folders: List<String>): Flow<List<ScannedImage>> {
         fullScans++
-        return flowOf(images.filter { it.volumeName == volume })
+        queriedFolders = folders
+        return flowOf(images.filter { it.isIn(volume, folders) })
     }
 
-    override fun changesSince(volume: String, generation: Long): Flow<List<ScannedImage>> {
+    override fun changesSince(volume: String, generation: Long, folders: List<String>): Flow<List<ScannedImage>> {
         changesSinceGeneration = generation
-        return flowOf(images.filter { it.volumeName == volume && it.generationModified > generation })
+        queriedFolders = folders
+        return flowOf(images.filter { it.isIn(volume, folders) && it.generationModified > generation })
     }
 
-    override suspend fun allIds(volume: String): Set<Long> =
-        images.filter { it.volumeName == volume }.map { it.id.value }.toSet()
+    override suspend fun allIds(volume: String, folders: List<String>): Set<Long> {
+        idQueries++
+        return images.filter { it.isIn(volume, folders) }.map { it.id.value }.toSet()
+    }
+
+    /** What the selection of the real scanner does. */
+    private fun ScannedImage.isIn(volume: String, folders: List<String>) =
+        volumeName == volume && folders.any { RelativePaths.isUnder(relativePath, it) }
 
     companion object {
         const val VOLUME = "external_primary"
@@ -87,16 +100,16 @@ class FakeMediaIndexStore : MediaIndexStore {
 
     override suspend fun getByIds(ids: Collection<MediaId>): List<MediaItem> = ids.mapNotNull { items.value[it.value] }
 
-    override suspend fun indexInBucket(bucketId: Long, id: MediaId): Int =
-        items.value.values.filter { it.bucketId == bucketId }.indexOfFirst { it.id == id }
-
-    override fun pagedByBucket(bucketId: Long, config: PagingConfig): Flow<PagingData<MediaItem>> {
+    override fun pagedByBuckets(bucketIds: List<Long>, config: PagingConfig): Flow<PagingData<MediaItem>> {
         pagingConfig = config
-        return flowOf(PagingData.from(items.value.values.filter { it.bucketId == bucketId }))
+        return flowOf(PagingData.from(items.value.values.filter { it.bucketId in bucketIds }))
     }
 
-    override suspend fun idsInBucket(bucketId: Long): List<MediaId> =
-        items.value.values.filter { it.bucketId == bucketId }.map { it.id }
+    override suspend fun idsInBuckets(bucketIds: List<Long>): List<MediaId> =
+        items.value.values.filter { it.bucketId in bucketIds }.map { it.id }
+
+    override suspend fun indexInBuckets(bucketIds: List<Long>, id: MediaId): Int =
+        items.value.values.filter { it.bucketId in bucketIds }.indexOfFirst { it.id == id }
 
     override fun observeFolders(): Flow<List<Folder>> = folders
 }

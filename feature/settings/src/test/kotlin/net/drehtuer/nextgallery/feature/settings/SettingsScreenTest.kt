@@ -45,7 +45,7 @@ class SettingsScreenTest {
 
     @Test
     fun rows_showTheirSecondaryLines() {
-        composeRule.onNodeWithText("Include, exclude and hidden folders").assertIsDisplayed()
+        composeRule.onNodeWithText("Choose folders and combine them").assertIsDisplayed()
         composeRule.onNodeWithText("Theme, grid columns and accent colour").assertIsDisplayed()
     }
 

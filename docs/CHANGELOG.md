@@ -17,6 +17,13 @@ No version is tagged yet. Builds call themselves 0.1.0.
 - Screen reader support: names and dates on thumbnails, states on badges and selection, and scrollbars that work
   without dragging.
 - A release build: minified, signed with a local keystore if there is one, with the version from a Git tag.
+- Virtual folders: show the photos of several folders together, for example Camera, WhatsApp and Signal.
+
+### Changed
+
+- You now choose which folders are shown, with Android's folder picker. Only added folders and their subfolders are
+  shown, and the phone is no longer scanned for all folders with images. This replaces folder rules and exclude
+  patterns. They are not carried over, so after updating the app starts with no folders.
 
 ### Fixed
 

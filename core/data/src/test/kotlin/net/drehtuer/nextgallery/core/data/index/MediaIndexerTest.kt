@@ -13,8 +13,8 @@ import net.drehtuer.nextgallery.core.data.fakes.FakeSyncStateStore
 import net.drehtuer.nextgallery.core.data.fakes.mediaItem
 import net.drehtuer.nextgallery.core.data.fakes.scannedImage
 import net.drehtuer.nextgallery.core.data.settings.SettingsRepository
+import net.drehtuer.nextgallery.core.model.AddedFolder
 import net.drehtuer.nextgallery.core.model.DateSource
-import net.drehtuer.nextgallery.core.model.FolderRule
 import net.drehtuer.nextgallery.core.model.GeoPoint
 import net.drehtuer.nextgallery.core.model.RawExif
 import net.drehtuer.nextgallery.core.model.UserSettings
@@ -36,11 +36,10 @@ class MediaIndexerTest {
 
     private fun indexer(
         syncStateStore: FakeSyncStateStore = FakeSyncStateStore(),
-        rules: List<FolderRule> = emptyList(),
-        excludePatterns: List<String> = emptyList(),
+        addedFolders: List<AddedFolder> = listOf(AddedFolder(VOLUME, "DCIM")),
     ): MediaIndexer {
         val settingsRepository = mockk<SettingsRepository> {
-            every { observeSettings() } returns flowOf(UserSettings(rules, excludePatterns))
+            every { observeSettings() } returns flowOf(UserSettings(addedFolders))
         }
         return MediaIndexer(
             scanSource,
@@ -150,19 +149,57 @@ class MediaIndexerTest {
     }
 
     @Test
-    fun sync_excludedFolder_isSkipped() = runTest {
-        scanSource.images = listOf(scannedImage(1, "DCIM/Camera/"), scannedImage(2, "Pictures/Screenshots/"))
+    fun sync_readsOnlyTheAddedFoldersOfThatVolume() = runTest {
+        val folders = listOf(AddedFolder(VOLUME, "DCIM"), AddedFolder("1234-abcd", "Pictures"))
 
-        indexer(rules = listOf(FolderRule("Pictures/Screenshots", FolderRule.Type.EXCLUDE))).sync(IndexMode.FULL)
+        indexer(addedFolders = folders).sync(IndexMode.FULL)
+
+        assertEquals(listOf("DCIM"), scanSource.queriedFolders)
+    }
+
+    @Test
+    fun sync_hiddenFolderBelowAddedFolder_isSkipped() = runTest {
+        scanSource.images = listOf(scannedImage(1, "DCIM/Camera/"), scannedImage(2, "DCIM/.thumbnails/"))
+
+        indexer().sync(IndexMode.FULL)
 
         assertEquals(setOf(1L), store.items.value.keys)
     }
 
     @Test
-    fun sync_folderMatchingExcludePattern_isSkipped() = runTest {
-        scanSource.images = listOf(scannedImage(1, "DCIM/Camera/"), scannedImage(2, "Pictures/Thumbs/"))
+    fun sync_noAddedFolderOnVolume_readsNothingFromMediaStore() = runTest {
+        scanSource.images = listOf(scannedImage(1))
 
-        indexer(excludePatterns = listOf("*/Thumbs")).sync(IndexMode.FULL)
+        indexer(addedFolders = emptyList()).sync(IndexMode.FULL)
+
+        assertEquals(0 to 0, scanSource.fullScans to scanSource.idQueries)
+    }
+
+    @Test
+    fun sync_noAddedFolderOnVolume_removesItsRows() = runTest {
+        store.upsertAll(listOf(mediaItem(1)))
+
+        val stats = indexer(addedFolders = emptyList()).sync(IndexMode.INCREMENTAL)
+
+        assertEquals(IndexStats(upserted = 0, deleted = 1), stats)
+    }
+
+    @Test
+    fun sync_noAddedFolderOnVolume_keepsNoSyncState() = runTest {
+        val syncStateStore = FakeSyncStateStore()
+
+        indexer(syncStateStore, addedFolders = emptyList()).sync(IndexMode.FULL)
+
+        assertTrue(syncStateStore.states.isEmpty())
+    }
+
+    @Test
+    fun sync_fullScan_removesImagesOfRemovedFolder() = runTest {
+        scanSource.images = listOf(scannedImage(1, "DCIM/Camera/"), scannedImage(2, "Pictures/Holiday/"))
+        val both = listOf(AddedFolder(VOLUME, "DCIM"), AddedFolder(VOLUME, "Pictures"))
+        indexer(addedFolders = both).sync(IndexMode.FULL)
+
+        indexer().sync(IndexMode.FULL)
 
         assertEquals(setOf(1L), store.items.value.keys)
     }
@@ -199,13 +236,23 @@ class MediaIndexerTest {
     }
 
     @Test
-    fun sync_incremental_removesImageMovedIntoExcludedFolder() = runTest {
+    fun sync_incremental_removesImageMovedOutOfAddedFolder() = runTest {
         scanSource.images = listOf(scannedImage(1, "DCIM/Camera/"))
         indexer().sync(IndexMode.FULL)
-        scanSource.images = listOf(scannedImage(1, "Hidden/", generationModified = 9))
+        scanSource.images = listOf(scannedImage(1, "Pictures/", generationModified = 9))
 
-        indexer(FakeSyncStateStore(previousState()), listOf(FolderRule("Hidden", FolderRule.Type.EXCLUDE)))
-            .sync(IndexMode.INCREMENTAL)
+        indexer(FakeSyncStateStore(previousState())).sync(IndexMode.INCREMENTAL)
+
+        assertTrue(store.items.value.isEmpty())
+    }
+
+    @Test
+    fun sync_incremental_removesImageMovedIntoHiddenFolder() = runTest {
+        scanSource.images = listOf(scannedImage(1, "DCIM/Camera/"))
+        indexer().sync(IndexMode.FULL)
+        scanSource.images = listOf(scannedImage(1, "DCIM/.hidden/", generationModified = 9))
+
+        indexer(FakeSyncStateStore(previousState())).sync(IndexMode.INCREMENTAL)
 
         assertTrue(store.items.value.isEmpty())
     }

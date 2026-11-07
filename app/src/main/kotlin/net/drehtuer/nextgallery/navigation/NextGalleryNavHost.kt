@@ -33,7 +33,7 @@ import net.drehtuer.nextgallery.feature.remote.remoteViewerScreen
 import net.drehtuer.nextgallery.feature.settings.AboutInfo
 import net.drehtuer.nextgallery.feature.settings.AboutRoute
 import net.drehtuer.nextgallery.feature.settings.AppearanceRoute
-import net.drehtuer.nextgallery.feature.settings.FolderRulesRoute
+import net.drehtuer.nextgallery.feature.settings.FoldersSettingsRoute
 import net.drehtuer.nextgallery.feature.settings.LicencesRoute
 import net.drehtuer.nextgallery.feature.settings.MapTilesRoute
 import net.drehtuer.nextgallery.feature.settings.NextcloudAccountRoute
@@ -42,7 +42,7 @@ import net.drehtuer.nextgallery.feature.settings.TrustedCertificatesRoute
 import net.drehtuer.nextgallery.feature.settings.aboutScreen
 import net.drehtuer.nextgallery.feature.settings.accountLabelFromViewModel
 import net.drehtuer.nextgallery.feature.settings.appearanceScreen
-import net.drehtuer.nextgallery.feature.settings.folderRulesScreen
+import net.drehtuer.nextgallery.feature.settings.foldersSettingsScreen
 import net.drehtuer.nextgallery.feature.settings.licencesScreen
 import net.drehtuer.nextgallery.feature.settings.mapTilesScreen
 import net.drehtuer.nextgallery.feature.settings.nextcloudAccountScreen
@@ -83,12 +83,18 @@ fun NavGraphBuilder.foldersGraph(navController: NavHostController) {
     navigation<FoldersRoute>(startDestination = FolderListRoute) {
         folderListScreen(
             onFolderClick = { bucketId -> navController.navigate(FolderGridRoute(bucketId)) },
+            onVirtualFolderClick = { id -> navController.navigate(FolderGridRoute(virtualFolderId = id)) },
             onOpenSettings = { navController.navigate(SettingsGraphRoute) },
+            onOpenFolderSettings = { navController.navigate(FoldersSettingsRoute) },
         )
         folderGridScreen(
             onBack = navController::popBackStack,
-            onOpenViewer = { id, bucketId -> navController.navigate(ViewerRoute(id.value, bucketId)) },
-            onOpenSelectionOverview = { bucketId -> navController.navigate(SelectionOverviewRoute(bucketId)) },
+            onOpenViewer = { id, bucketId, virtualBucketIds ->
+                navController.navigate(ViewerRoute(id.value, bucketId, bucketIds = virtualBucketIds))
+            },
+            onOpenSelectionOverview = { bucketId, virtualBucketIds ->
+                navController.navigate(SelectionOverviewRoute(bucketId, bucketIds = virtualBucketIds))
+            },
         )
     }
 }
@@ -151,7 +157,7 @@ fun NavGraphBuilder.settingsGraph(
     navigation<SettingsGraphRoute>(startDestination = SettingsRoute) {
         settingsScreen(
             onBack = navController::popBackStack,
-            onOpenFolders = { navController.navigate(FolderRulesRoute) },
+            onOpenFolders = { navController.navigate(FoldersSettingsRoute) },
             onOpenAppearance = { navController.navigate(AppearanceRoute) },
             onOpenNextcloud = { navController.navigate(NextcloudAccountRoute()) },
             onOpenMapTiles = { navController.navigate(MapTilesRoute) },
@@ -163,7 +169,7 @@ fun NavGraphBuilder.settingsGraph(
             onOpenCertificates = { navController.navigate(TrustedCertificatesRoute) },
         )
         trustedCertificatesScreen(onBack = navController::popBackStack)
-        folderRulesScreen(onBack = navController::popBackStack)
+        foldersSettingsScreen(onBack = navController::popBackStack)
         appearanceScreen(onBack = navController::popBackStack)
         mapTilesScreen(onBack = navController::popBackStack)
         aboutScreen(

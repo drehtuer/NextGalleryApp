@@ -52,6 +52,17 @@ class DefaultMediaRepositoryTest {
     }
 
     @Test
+    fun pagedItems_virtualFolder_returnsItemsOfItsMembers() = runTest {
+        store.upsertAll(
+            listOf(mediaItem(id = 1, bucketId = 7), mediaItem(id = 2, bucketId = 8), mediaItem(id = 3, bucketId = 9)),
+        )
+
+        val snapshot = repository().pagedItems(MediaSource.VirtualFolder(listOf(7, 8))).asSnapshot()
+
+        assertEquals(listOf(MediaId(1), MediaId(2)), snapshot.map { it.id })
+    }
+
+    @Test
     fun pagedItems_timeline_returnsItemsOfAllFolders() = runTest {
         timelineStore.items = listOf(mediaItem(id = 1, bucketId = 7), mediaItem(id = 2, bucketId = 8))
 
@@ -79,6 +90,13 @@ class DefaultMediaRepositoryTest {
         store.upsertAll(listOf(mediaItem(id = 1), mediaItem(id = 2)))
 
         assertEquals(1, repository().indexOf(folder, MediaId(2)))
+    }
+
+    @Test
+    fun indexOf_virtualFolder_returnsPositionInIt() = runTest {
+        store.upsertAll(listOf(mediaItem(id = 1, bucketId = 7), mediaItem(id = 2, bucketId = 8)))
+
+        assertEquals(1, repository().indexOf(MediaSource.VirtualFolder(listOf(7, 8)), MediaId(2)))
     }
 
     @Test
@@ -133,6 +151,13 @@ class DefaultMediaRepositoryTest {
         store.upsertAll(listOf(mediaItem(id = 1, bucketId = 7), mediaItem(id = 2, bucketId = 8)))
 
         assertEquals(listOf(MediaId(1)), repository().folderItemIds(7))
+    }
+
+    @Test
+    fun virtualFolderItemIds_returnsIdsOfItsMembers() = runTest {
+        store.upsertAll(listOf(mediaItem(id = 1, bucketId = 7), mediaItem(id = 2, bucketId = 9)))
+
+        assertEquals(listOf(MediaId(1)), repository().virtualFolderItemIds(listOf(7, 8)))
     }
 
     @Test

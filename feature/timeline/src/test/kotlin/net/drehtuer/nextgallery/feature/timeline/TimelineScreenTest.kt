@@ -126,7 +126,7 @@ class TimelineScreenTest {
     fun noImages_showsEmptyMessage() {
         show(TimelineUiState(index = TimelineIndex(emptyList())), items = emptyList())
 
-        composeRule.onNodeWithText("No photos yet").assertIsDisplayed()
+        composeRule.onNodeWithText("No photos to show").assertIsDisplayed()
     }
 
     @Test

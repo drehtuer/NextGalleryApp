@@ -209,7 +209,7 @@ Macrobenchmarks (`GalleryBenchmarks`), the Baseline Profile generator (`Baseline
 
 | Class | Responsibility |
 | --- | --- |
-| `NextGalleryApplication` | `@HiltAndroidApp`; implements `Configuration.Provider` (HiltWorkerFactory) and `SingletonImageLoader.Factory` (Coil). Starts `RuleChangeObserver` in a scope not tied to an activity. |
+| `NextGalleryApplication` | `@HiltAndroidApp`; implements `Configuration.Provider` (HiltWorkerFactory) and `SingletonImageLoader.Factory` (Coil). Starts `AddedFolderObserver` in a scope not tied to an activity. |
 | `MainActivity` | Single activity, edge-to-edge, hosts `NextGalleryNavHost`, applies the theme mode, accent and grid columns from `MainViewModel` to `NextGalleryTheme` and the system bars. Handles `ACTION_VIEW`/`ACTION_SEND` intents later. |
 | `NextGalleryNavHost` | Navigation Compose graph; maps each feature's navigation callbacks to routes of other features. |
 | `TopLevelDestination` | Enum of bottom-bar destinations (Folders, Timeline, Map, Nextcloud). |
@@ -221,8 +221,8 @@ Macrobenchmarks (`GalleryBenchmarks`), the Baseline Profile generator (`Baseline
 | --- | --- |
 | `MediaItem` | `id: Long` (MediaStore `_ID`), `contentUri: String`, `relativePath`, `displayName`, `mimeType`, `sizeBytes`, `width`, `height`, `orientation`, `dateTakenMillis` (resolved, see 5.1), `dateModifiedMillis`, `location: GeoPoint?`, `bucketId`. |
 | `Folder` | `bucketId`, `name`, `relativePath`, `itemCount`, `coverItem: MediaItem` (newest image). |
-| `FolderRule` | `relativePath`, `type: Type { INCLUDE, EXCLUDE }`. Covers the folder and its subfolders. |
-| `DeviceFolder` | `name`, `relativePath`, `itemCount`: a folder MediaStore has images in, whether indexed or not. |
+| `AddedFolder` | `volumeName`, `relativePath`: a folder the user added (D55). Covers the folder and its subfolders. |
+| `VirtualFolder`, `VirtualFolderSummary` | `id`, `name`, `bucketIds`: shows several real folders together (D55); the summary adds `itemCount` and `coverItem` (newest image of the members, or null). |
 | `GeoPoint` | `latitude`, `longitude` (validated ranges); `formatted()` gives "45.62° N, 10.68° E". |
 | `GeoBounds` | `south`, `west`, `north`, `east`; `west > east` crosses the antimeridian. `encode()` / `decode()` for route arguments. |
 | `MapCamera`, `Viewport` | What the map should show (centre, zoom), and what it shows right now (with bounds). |
@@ -234,11 +234,11 @@ Macrobenchmarks (`GalleryBenchmarks`), the Baseline Profile generator (`Baseline
 | `RemoteImageUrls` | Preview and original URL of an item. Screens get this instead of the account, so its secret stays out of UI state. |
 | `UploadState` | sealed: `Unknown`, `NotUploaded`, `Uploaded(verifiedByChecksum: Boolean)`. |
 | `CertificateInfo` | `host`, `subject`, `issuer`, `notBeforeMillis`, `notAfterMillis`, `sha256Fingerprint`, `pinnedFingerprint` (the certificate accepted earlier, if this one differs), `changedFromPinned`. |
-| `MediaSource` | The list a viewer pages through: `Folder(bucketId)`, `Timeline`, `Map(bounds)`. |
+| `MediaSource` | The list a viewer pages through: `Folder(bucketId)`, `VirtualFolder(bucketIds)`, `Timeline`, `Map(bounds)`. |
 | `ImageDetails` | What the image info sheet shows: file values plus formatted EXIF values. |
 | `ShareSpec` | Content URIs and MIME type to share; `:core:ui` turns it into an intent. |
 | `TrashEffect` | The next UI step when moving images to the trash: confirmation, message with undo, or failure. |
-| `ViewContext` | `Folder(bucketId)`, `Timeline`, `Map` – used by the selection overview to decide which selected items the current view can show. |
+| `ViewContext` | `Folder(bucketId)`, `VirtualFolder(bucketIds)`, `Timeline`, `Map` – used by the selection overview to decide which selected items the current view can show. |
 | `EditOperation` | sealed: `Rotate(quarterTurns)`, `Crop(rect: NormalizedRect)`, `Scale(targetWidth, targetHeight)`, `PenStroke(points: List<NormalizedPoint>, colorArgb, widthFraction)`. Coordinates are normalized (0..1) relative to the image *after* previous operations, so they are resolution independent. |
 | `EditHistory`, `CropMath`, `ScaleMath`, `GeometryMapper` | Undo and redo over the operations; the crop frame and its ratios; sizes for the scale tool; normalized coordinates through operations. |
 | `PreviewImage` | Opaque wrapper (`handle: Any`, width, height) around a rendered image. `:core:media` puts a `Bitmap` inside, `:core:ui` draws it. |
@@ -247,7 +247,7 @@ Macrobenchmarks (`GalleryBenchmarks`), the Baseline Profile generator (`Baseline
 | `DayCount` | `date`, `count`: the number of images of a local date, from which `TimelineIndex` builds the timeline's layout. |
 | `MediaAccess` | `Full`, `Partial`, `Denied`. |
 | `PlatformConfirmation` | Opaque wrapper (`handle: Any`) around a system confirmation request. The `:core:media` adapter puts an `IntentSender` inside; `:core:ui` launches it. Core and ViewModels only pass it through, and tests use any placeholder object. |
-| `UserSettings`, `ThemeMode` | User preferences: `folderRules`, `excludePatterns`, `gridColumns`, `themeMode`, `accentColor`, `remoteRoot`, `tileUrl`, `currentLocationAsked`, with their defaults. |
+| `UserSettings`, `ThemeMode` | User preferences: `addedFolders`, `virtualFolders`, `gridColumns`, `themeMode`, `accentColor`, `remoteRoot`, `tileUrl`, `currentLocationAsked`, with their defaults. |
 
 #### `:core:common` (pure Kotlin)
 
@@ -293,7 +293,7 @@ Repositories (interfaces + `Default…` implementations with `@Inject` construct
 | --- | --- |
 | `MediaRepository` | Paged lists per `MediaSource` (grid and viewer), position of an image in a list, item lookup, image details (EXIF on demand, with the place name). |
 | `MapRepository` | `observeClusters(viewport)` (debounced, computed on `Default`, with titles and covers), `observeHasGeotagged()`, `startCamera(location)` (D44). |
-| `FolderRepository` | Folder list with counts/covers from the index; `observeAllDeviceFolders()` lists the folders in MediaStore regardless of the rules, for the folder rules screen. |
+| `FolderRepository` | Folder list with counts/covers from the index; `observeVirtualFolders()` combines the stored virtual folders with the index into a live count and cover. |
 | `IndexRepository` | Full scan, incremental sync, deletion detection (`MediaIndexer`); publishes `IndexStatus` flow. |
 | `MediaActionsRepository` | Delete/trash and restore requests, removes rows and deselects after a confirmed result, `ShareSpec` for images. `TrashFlow` (one instance per ViewModel) holds the steps of request, confirmation and undo. |
 | `EditRepository` | Edit pipeline: opening, preview, memory checks, and saving through `EditedImageWriter` (`EditGeometry` → `ImageRenderer` → `MediaWriteSink`, EXIF policy), then the index; cleanup after a crash. |
@@ -307,6 +307,7 @@ Repositories (interfaces + `Default…` implementations with `@Inject` construct
 | `UploadHandoffRepository` | `prepare(ids)`: filters out items already uploaded, returns an `UploadHandoff` (`Ready` with a `ShareSpec` targeted at `com.nextcloud.client`, `NothingToUpload`, `NextcloudAppMissing`). `observeAvailability()`: how the Upload action is shown (`HIDDEN` while logged out, `APP_MISSING`, `AVAILABLE`). `onAppResumed()`: looks for the Nextcloud app again and, after a hand-off, requests an upload-state refresh. One instance for all screens. |
 | `SelectionRepository` | App-wide selection (`StateFlow<Set<MediaId>>`): toggle, range, select all, clear, and `observeOverview(context: ViewContext)` marking which selected items the given view can show. In-memory singleton. |
 | `TrustedCertificateRepository` | Pinned certificates per host (`TrustedCertificateStore`, DataStore): accept, remove, list. |
+| `FolderSettingsRepository` | Adds and removes added folders, and creates, updates and deletes virtual folders (D55), on the same `SettingsDataSource`. |
 | `SettingsRepository` | `observeSettings()` and one setter per setting, on top of `SettingsDataSource` (Preferences DataStore, JVM artifact), which maps `UserSettings` to preference keys; `:core:platform` provides the file location. To add a setting: a field in `UserSettings`, a key in `SettingsDataSource` and a setter here. |
 | `AccountStore` | Account + app password in DataStore, encrypted as one blob through `SecretCipher`. Data that can't be decrypted reads as logged out. |
 
@@ -317,9 +318,9 @@ Pure logic (each class unit-tested on the JVM):
 - `LocationBackfill` – the second indexing pass (see 5.1). `GpsParser` – raw GPS tags → `GeoPoint`.
 - `MapPermissions` – granted permissions → may the app read photo locations, and the device's position.
 - `DateResolver`, `ExifDateParser` – `DATE_TAKEN` → EXIF `DateTimeOriginal` (+ offset) → `DATE_MODIFIED`.
-- `FolderRuleMatcher` – is a relative path indexed? The nearest rule decides; without one the folder is indexed unless an exclude pattern matches (D52). (`.nomedia` folders are already hidden by MediaStore, so there is no own `.nomedia` handling.)
-- `ExcludePatterns` – the "Also exclude folders matching" field: text to patterns, pattern to `Regex` (`*` matches any characters, case-insensitive).
-- `RuleChangeObserver` – rules or patterns changed → one debounced full scan, because a change can bring images back.
+- `AddedFolderMatcher` – is an image indexed? Its volume has to match, its path has to be an added folder or below one, and no folder below the added one may start with a dot (D55). Also gives the added folders per volume for the queries. (`.nomedia` folders are already hidden by MediaStore, so there is no own `.nomedia` handling.)
+- `TreeDocumentIds` – the folder picker's document id to an `AddedFolder`: `primary:DCIM/Camera` → `external_primary`, `DCIM/Camera`; `1234-ABCD:DCIM` → `1234-abcd`, `DCIM`; null for a root or anything else. The `Uri` itself stays in `:feature:settings`.
+- `AddedFolderObserver` – added folders changed → one debounced full scan, because a new folder has images an incremental sync would not look at.
 - `MediaAccessRepository` – granted permissions → `MediaAccess`, and the permissions to request.
 - `RemoteTargetResolver` – local image → `<remoteRoot>/<relative path>/<displayName>`.
 - `UploadStateMatcher`, `ChecksumCalculator` (streams SHA-1 / MD5 of an `InputStream`), `ChecksumParser`, `LocalChecksums` (a checksum of a local image; null if it can't be read).
@@ -357,7 +358,7 @@ Pure logic (each class unit-tested on the JVM):
 - `GalleryDatabase` (Room, `exportSchema = true`, explicit `Migration`s from v1 on; schemas checked in).
 - Entities: `MediaEntity`, `UploadStateEntity`, `RemoteCacheEntity`, `SyncStateEntity`. Schema version 2 added `remote_cache` (`MIGRATION_1_2`), version 3 `upload_state` (`MIGRATION_2_3`).
 - DAOs:
-  - `MediaDao` – `upsertAll`, `deleteByIds`, `deleteNotIn(generation)`, `pagingByBucket(bucketId): PagingSource<Int, MediaEntity>`, `observeWithLocation(bounds)`, `getById`, `observeIdsInBucket` (viewer pager).
+  - `MediaDao` – `upsertAll`, `deleteByIds`, `deleteNotIn(generation)`, `pagingByBuckets(bucketIds): PagingSource<Int, MediaEntity>`, `observeWithLocation(bounds)`, `getById`, `observeIdsInBucket` (viewer pager).
   - `TimelineDao` – `paging()`, `ids()`, `indexOf(id)`, `observeDayCounts()`: all images by local date, behind the `TimelineStore` port.
   - `GeoDao` – the location side of the `media` table: `observeGeotagged()`, `unscanned(limit)`, `setLocations(rows)`, `pagingInBounds(...)`, `indexInBounds(...)`.
   - `FolderDao` – `observeFolders()`: `FolderRow` (the folder's newest image plus the image count), sorted by name.
@@ -370,7 +371,7 @@ Pure logic (each class unit-tested on the JVM):
 
 | Class | Implements | Responsibility |
 | --- | --- | --- |
-| `MediaStoreScanner` | `MediaScanSource` | Queries `MediaStore.Images.Media` per external volume in batches of 500, using `GENERATION_MODIFIED` for incremental scans. |
+| `MediaStoreScanner` | `MediaScanSource` | Queries `MediaStore.Images.Media` per external volume in batches of 500, using `GENERATION_MODIFIED` for incremental scans. `MediaStoreQuery` limits every query to the added folders (`RELATIVE_PATH LIKE ? ESCAPE`, with `%`, `_` and the escape character escaped). |
 | `MediaStoreChangeObserver` | `MediaChangeSource` | `ContentObserver` on `MediaStore.Images.Media.EXTERNAL_CONTENT_URI` as `callbackFlow`. |
 | `AndroidExifSource` | `ExifSource` | `androidx.exifinterface` on content URI streams, with `MediaStore.setRequireOriginal(uri)` when `ACCESS_MEDIA_LOCATION` is granted (D16); returns raw tag values, parsing happens in `ExifDateParser` and `GpsParser`. |
 | `ContentResolverContentSource` | `MediaContentSource` | Opens content URIs. |
@@ -413,19 +414,19 @@ Each feature contains: `XxxRoute` (serializable route object/class), `XxxScreen`
 
 | Module | Screens | Notes |
 | --- | --- | --- |
-| `:feature:folders` | Folder list, folder grid, selection overview | Default start destination. The selection overview (D33) lists all selected images and greys out those the calling view (`ViewContext`) cannot show; other features open it through `:app` navigation. |
+| `:feature:folders` | Folder list, folder grid, selection overview | Default start destination. The grid shows a real or a virtual folder (`FolderGridRoute`), and passes a virtual folder's members on to the viewer and the overview. The selection overview (D33) lists all selected images and greys out those the calling view (`ViewContext`) cannot show; other features open it through `:app` navigation. |
 | `:feature:timeline` | Timeline grid | Sticky month headers, scrolling day headers ("Today · Friday 6 November"), `DateRail` (D43), selection as in the folder grid; opens the viewer and the selection overview through `:app`. |
 | `:feature:map` | Map, cluster sheet | `MapRenderer` interface + `OsmdroidMapRenderer` (AndroidView), so that the map library can be replaced (D23). `MapRendererBinding` connects any renderer to the state; `OsmdroidSetup` (user agent, cache, zoom range, repetition) and the marker drawing are separate, so they can be tested without a map. Clusters come from `MapRepository`; tapping a cluster opens a sheet with a grid of its items, and tapping an image opens the viewer with `MediaSource.Map(cluster.bounds)`. Selecting works as elsewhere (D33). |
 | `:feature:viewer` | Full-screen pager, info sheet | `HorizontalPager` + Telephoto `ZoomableAsyncImage`; also used for remote images through a different source argument. |
 | `:feature:editor` | Editor | Tools, crop overlay, pen canvas, scale dialog, save menu; `EditHistory` from `:core:model`, in the ViewModel. |
 | `:feature:remote` | Nextcloud tab: login hint, remote browser (selection, context menu, move sheet, conflict dialog, sharing), remote viewer | Grid with preview API thumbnails through `@RemoteImageLoader`; the viewer shows the preview, then the original through Telephoto. The login form itself is in `:feature:settings`. |
-| `:feature:settings` | Settings root, folder rules, appearance (theme, grid columns, accent colour), map tile server (D23), About & licences, Nextcloud account (sign in, log out, remote root), accepted certificates | The screens open from the Folders top bar in a navigation graph of their own, without the bottom navigation. The Nextcloud row is a placeholder until Phase 8. The version comes from `:app`'s `BuildConfig` through `AboutInfo`. |
+| `:feature:settings` | Settings root, folders (added folders through the system picker, virtual folders), appearance (theme, grid columns, accent colour), map tile server (D23), About & licences, Nextcloud account (sign in, log out, remote root), accepted certificates | The screens open from the Folders top bar in a navigation graph of their own, without the bottom navigation. The Nextcloud row is a placeholder until Phase 8. The version comes from `:app`'s `BuildConfig` through `AboutInfo`. |
 
 ## 4. Data model
 
 ### 4.1 Room schema
 
-`media` is a mirror of the subset of MediaStore that passes the folder rules, enriched with resolved date and GPS. Folders are derived from `media` (an aggregated query in `FolderDao`, no table or view), so no separate write path can get out of sync.
+`media` is a mirror of the images in the folders the user added (D55), enriched with resolved date and GPS. Folders are derived from `media` (an aggregated query in `FolderDao`, no table or view), so no separate write path can get out of sync.
 
 ```mermaid
 erDiagram
@@ -497,13 +498,13 @@ Notes:
 - `local_year/month/day` are computed at index time in the device time zone. On time zone change (`ACTION_TIMEZONE_CHANGED`) `IndexWorker` recomputes them (cheap bulk update; no MediaStore access).
 - `sync_state.media_store_version` stores `MediaStore.getVersion(volume)`; if it changes, generation numbers are invalid and a full scan runs.
 - `remote_cache` is keyed by full remote path; `checksums` is the raw `oc:checksums` string (e.g. `SHA1:… MD5:…`).
-- Grids query `media` only. A folder excluded by rules is never inserted, and a rule change runs a full scan that deletes and inserts the affected rows (index-time filtering). There is no query-time filtering: until that scan has finished, views show the previous state.
+- Grids query `media` only. An image outside the added folders is never inserted, and a change to the added folders runs a full scan that deletes and inserts the affected rows (index-time filtering). A virtual folder is only a query over its members' `bucket_id IN (...)`, with the same sort as a folder, so it needs no schema change. There is no query-time filtering: until that scan has finished, views show the previous state.
 
 ### 4.2 DataStore
 
 | Store | Content |
 | --- | --- |
-| `settings.preferences_pb` | Folder rules (default: exclude `Android/data` and WhatsApp's `.Statuses`, removable like any rule), exclude patterns, grid columns, theme mode, accent colour, tile server address, whether the location prompt was shown, the remote root; later phases add the save-copy-vs-overwrite default and pen colour/width. A corrupt file is replaced by the defaults. |
+| `settings.preferences_pb` | Added folders and virtual folders (string sets with one entry per folder; default none; an unreadable entry is skipped; the old `folder_rules` and `exclude_patterns` values are ignored), grid columns, theme mode, accent colour, tile server address, whether the location prompt was shown, the remote root; later phases add the save-copy-vs-overwrite default and pen colour/width. A corrupt file is replaced by the defaults. |
 | `trusted_certs.preferences_pb` | Pinned certificates: host → SHA-256 fingerprint and the details shown when it was accepted. |
 | `credentials.preferences_pb` | One Tink-encrypted, Base64-encoded blob: server URL, login name, user id, app password. |
 
@@ -529,15 +530,15 @@ sequenceDiagram
     Sched->>W: enqueueUniqueWork APPEND_OR_REPLACE, INCREMENTAL
     W->>Idx: sync()
     Idx->>DB: read sync_state
-    Note over Idx: folder rules come from SettingsRepository
+    Note over Idx: added folders come from SettingsRepository. A volume without one is not queried, its rows are deleted
     alt no sync_state or MediaStore version changed
-        Idx->>Scan: fullScan() in batches of 500
+        Idx->>Scan: fullScan(added folders) in batches of 500
     else incremental
-        Idx->>Scan: changesSince(GENERATION_MODIFIED greater than last)
+        Idx->>Scan: changesSince(GENERATION_MODIFIED greater than last, added folders)
     end
     loop each batch
         Scan-->>Idx: List of ScannedImage
-        Idx->>Idx: filter by FolderRuleMatcher
+        Idx->>Idx: filter by AddedFolderMatcher
         Idx->>Idx: DateResolver step 1 uses DATE_TAKEN
         opt DATE_TAKEN missing or location needed
             Idx->>Exif: read DateTimeOriginal and GPS via setRequireOriginal
@@ -545,7 +546,7 @@ sequenceDiagram
         end
         Idx->>DB: upsertAll in one transaction
     end
-    Idx->>Scan: allIds()
+    Idx->>Scan: allIds(added folders)
     Scan-->>Idx: current id set
     Idx->>DB: delete rows not in id set
     Idx->>DB: update sync_state
@@ -554,12 +555,12 @@ sequenceDiagram
 
 Details:
 
-- Deletions are not reported by generation queries, so each sync compares ID sets (`allIds()` is a projection-only cursor; ~fast even at 50k rows). Rows are removed in chunks of 900 (SQLite variable limit).
+- Deletions are not reported by generation queries, so each sync compares ID sets (`allIds()` is a projection-only cursor; ~fast even at 50k rows). It only covers the added folders, so this also removes images moved out of them and the images of a removed folder. An image moved into a dot folder below an added folder is removed because the matcher rejects it in the batch. Rows are removed in chunks of 900 (SQLite variable limit).
 - EXIF reading is the expensive part. GPS is read only for JPEG/HEIF/WebP, in a **second pass** (`LocationBackfill`, on `exif_scanned = false` rows, 200 at a time) at the end of every sync, after the grid-relevant data is committed, so folders appear quickly on first launch. An interrupted pass continues at the next sync. A later scan keeps the stored location unless the file's size or modification date changed. Date fallback order: `DATE_TAKEN` → EXIF `DateTimeOriginal` (with `OffsetTimeOriginal` when present) → `DATE_MODIFIED`.
 - Without `ACCESS_MEDIA_LOCATION` Android hides the GPS tags, so the second pass does nothing and the rows stay unscanned, and the map shows a card asking for the permission. When it is granted, `IndexScheduler.onPhotoLocationsAllowed()` queues a sync, which runs the pass.
 - With partial access, the scan only sees user-selected images. The selection cannot be read from the permission state, so the index is rebuilt (full scan) whenever the permission dialog or photo selection closes (`MainEvent.AccessRequestFinished`) and whenever the access level changes.
-- `.nomedia`: MediaStore already excludes folders that contain a `.nomedia` file from the image collection, so the indexer does not check for it, and the folder rules screen cannot list these folders (D53) (confirmed on the Pixel 10a by the instrumented `MediaStoreScannerTest`). MediaStore applies it when it scans, so the image disappears after the next scan of that folder, not at the moment the `.nomedia` file is created.
-- Rule changes: `RuleChangeObserver` runs from `NextGalleryApplication`, so a change still reaches the index when the user leaves the app right after it. Only killing the process within the 2 s debounce loses the rescan, until the next full scan.
+- `.nomedia`: MediaStore already excludes folders that contain a `.nomedia` file from the image collection, so the indexer does not check for it, and adding such a folder shows no images (D53) (confirmed on the Pixel 10a by the instrumented `MediaStoreScannerTest`). MediaStore applies it when it scans, so the image disappears after the next scan of that folder, not at the moment the `.nomedia` file is created.
+- Added folders: `AddedFolderObserver` runs from `NextGalleryApplication`, so a change still reaches the index when the user leaves the app right after it. Only killing the process within the 2 s debounce loses the rescan: a newly added folder then stays empty until the next full scan, for example after removing and adding it again.
 - `IndexWorker` does not report progress yet.
 - `IndexWorker` is expedited for the first scan, runs as normal work otherwise, and reports progress through `setProgress` for the UI's indexing indicator.
 
@@ -576,7 +577,7 @@ sequenceDiagram
 
     UI->>VM: created with FolderGridRoute bucketId
     VM->>Repo: pagedFolderItems(bucketId)
-    Repo->>DAO: pagingByBucket(bucketId) PagingSource
+    Repo->>DAO: pagingByBuckets(bucketIds) PagingSource
     Repo-->>VM: Flow of PagingData of MediaItem
     VM->>VM: cachedIn viewModelScope
     VM-->>UI: StateFlow FolderGridUiState plus paging flow
@@ -857,8 +858,8 @@ flowchart LR
         Remote["RemoteRoute"]
     end
 
-    Folders --> FolderGrid["FolderGridRoute bucketId"]
-    FolderGrid --> Viewer["ViewerRoute mediaId, bucketId or null"]
+    Folders --> FolderGrid["FolderGridRoute bucketId or virtualFolderId"]
+    FolderGrid --> Viewer["ViewerRoute mediaId, bucketId or bucketIds or null"]
     Timeline --> Viewer
     Map --> ClusterGrid["MapClusterGridRoute ids"]
     ClusterGrid --> Viewer
@@ -871,13 +872,14 @@ flowchart LR
     RemoteBrowser --> RemoteViewer["RemoteViewerRoute path"]
 
     Folders --> Settings["SettingsRoute"]
-    Settings --> FolderRules["FolderRulesRoute"]
+    Folders --> FoldersSettings
+    Settings --> FoldersSettings["FoldersSettingsRoute"]
     Settings --> Appearance["AppearanceRoute"]
     Settings --> About["AboutRoute"]
     About --> Licences["LicencesRoute"]
     Settings --> Account["NextcloudAccountRoute"]
     Account --> Certs["TrustedCertificatesRoute"]
-    FolderGrid --> SelOverview["SelectionOverviewRoute bucketId or null"]
+    FolderGrid --> SelOverview["SelectionOverviewRoute bucketId or bucketIds or null"]
     Timeline --> SelOverview
     Map --> SelOverview
 ```
@@ -949,17 +951,17 @@ Other screens (abbreviated):
 
 | Screen | UiState fields |
 | --- | --- |
-| Folders | `folders: List<Folder>`, `access: MediaAccess`, `isIndexing`, `indexProgress` |
+| Folders | `Loading`, `NoFolders`, `NoImages` or `Content(folders, virtualFolders)` |
 | Timeline | `index: TimelineIndex?`, `today`, `selectedIds`, `selecting` (+ separate paging flow of the images) |
 | Map | `clusters: List<MapCluster>` for current viewport + zoom, `camera`, `currentLocation`, `openCluster`, `showPhotoLocationCard`, `showNoGeotaggedCard`, `tileUrl`, `selectedIds` (+ separate paging flow for the open cluster) |
 | Viewer | `ids: List<Long>`, `currentIndex`, `current: MediaItem?`, `details: ImageDetails?`, `chromeVisible`, `infoSheetVisible` |
 | Editor | `preview: PreviewImage?`, `tool: EditTool`, `cropRect`, `aspect`, `penColor`, `penWidth`, `canUndo`, `canRedo`, `isSaving`, `saveMode` |
 | Remote browser | `path`, `entries: List<RemoteFile>`, `isRefreshing`, `isOffline` (shows cached `remote_cache` data), `error` |
 | Login | `serverUrl`, `step: Idle / WaitingForBrowser / Verifying / Done`, `error` |
-| Folder rules | `rows: List<FolderRuleRow>` (device folders plus folders that only have a rule, each Include / Default / Exclude), `patterns` |
+| Folders settings | `addedFolders`, `virtualFolders`, `folders` (real folders with images, to choose members from), `addFailed`, `editor: VirtualFolderEditor?` |
 | Appearance | `themeMode`, `gridColumns`, `accentColor` |
 
-Process death: the route is restored by Navigation and passed in again through the assisted factory (`hiltViewModel<FolderGridViewModel, FolderGridViewModel.Factory> { it.create(route.bucketId) }`); transient UI (selection, editor operations) is saved via `SavedStateHandle` where cheap (selection as `LongArray`, editor operations serialized with kotlinx.serialization).
+Process death: the route is restored by Navigation and passed in again through the assisted factory (`hiltViewModel<FolderGridViewModel, FolderGridViewModel.Factory> { it.create(route) }`); transient UI (selection, editor operations) is saved via `SavedStateHandle` where cheap (selection as `LongArray`, editor operations serialized with kotlinx.serialization).
 
 ## 8. Threading and concurrency
 
@@ -1034,7 +1036,7 @@ Rules:
   - osmdroid's tile downloader goes to the tile server in Settings (OpenStreetMap by default).
   - Two links open outside the app, when tapped: the login page in the default browser, and the source code link in About, in the browser.
 - **No tracking**: no analytics, no crash reporting SDKs, no Google Play Services. osmdroid tile requests go over HTTPS to the OSM tile server (or the one set in Settings) with the user agent `NextGalleryApp (Android, osmdroid)`, which names the app, as the OSM tile usage policy requires, and carries no personal data. This is the only third-party network traffic and is triggered only by opening the map. Place names are looked up on the phone (D45), and tiles are cached in the app's cache folder.
-- **Least privilege**: only `READ_MEDIA_IMAGES`, `READ_MEDIA_VISUAL_USER_SELECTED`, `ACCESS_MEDIA_LOCATION`, `ACCESS_COARSE_LOCATION` (optional, D44), `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_LOCAL_NETWORK` (D39), plus a `<queries>` entry for `com.nextcloud.client`. No foreground service or notification permission (uploads are done by the Nextcloud app). Destructive actions go through system dialogs.
+- **Least privilege**: only `READ_MEDIA_IMAGES`, `READ_MEDIA_VISUAL_USER_SELECTED`, `ACCESS_MEDIA_LOCATION`, `ACCESS_COARSE_LOCATION` (optional, D44), `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_LOCAL_NETWORK` (D39), plus a `<queries>` entry for `com.nextcloud.client`. No foreground service or notification permission (uploads are done by the Nextcloud app). The folder picker needs no permission and no URI grant is kept (D55); without an added folder, the app reads no image data from MediaStore. Destructive actions go through system dialogs.
 - Shared local images use MediaStore content URIs with temporary read grants. Server images are downloaded first and shared through a `FileProvider` limited to one temporary cache folder (D48); the rest of the app's storage stays private.
 
 ### 11.1 Accessibility
@@ -1068,7 +1070,7 @@ Principles: every function gets a unit test; tests are small, independent and no
 | Layer / module | What is tested | How | Runs on CI |
 | --- | --- | --- | --- |
 | `:core:model`, `:core:common` | Model validation (`GeoPoint` ranges, `NormalizedRect`), `AppResult` helpers, `RelativePaths`, `runCatchingCancellable`, `ScrollbarMath` | Plain JVM JUnit | Yes |
-| `:core:data` | All domain logic: `MediaIndexer` (full vs incremental vs version change), `IndexScheduler`, `DateResolver`/`ExifDateParser`, `FolderRuleMatcher`, `MediaAccessRepository`, `RemoteTargetResolver`, `UploadStateMatcher`, `UploadHandoffRepository`, `SelectionRepository` and `SelectionRepresentability`, checksums, `EditGeometry`/`MemoryBudget`/`DefaultEditRepository`, `GridClusterer`, repositories, `AccountStore` (fake `SecretCipher`) | Plain JVM JUnit + hand-written fake ports, MockK, Turbine | Yes |
+| `:core:data` | All domain logic: `MediaIndexer` (full vs incremental vs version change), `IndexScheduler`, `DateResolver`/`ExifDateParser`, `AddedFolderMatcher`, `TreeDocumentIds`, `MediaAccessRepository`, `RemoteTargetResolver`, `UploadStateMatcher`, `UploadHandoffRepository`, `SelectionRepository` and `SelectionRepresentability`, checksums, `EditGeometry`/`MemoryBudget`/`DefaultEditRepository`, `GridClusterer`, repositories, `AccountStore` (fake `SecretCipher`) | Plain JVM JUnit + hand-written fake ports, MockK, Turbine | Yes |
 | `:core:nextcloud` | PROPFIND parsing, request building (headers, depth, body), Login Flow v2 polling states, error mapping, auth interceptor host check incl. redirects, URL normalisation, `PinningTrustManager` and `PinningHostnameVerifier` through real TLS handshakes (CA-signed, pinned, unknown, changed, expired, hostname mismatch, removed pin) | Plain JVM JUnit, `MockWebServer` (with `okhttp-tls` `HeldCertificate`s), kxml2 parser | Yes |
 | ViewModels (feature modules) | Event → state transitions, effects emitted, paging flow wiring | Local unit tests without Robolectric: `runTest` + Turbine, fake repositories, route passed to the constructor | Yes |
 | `:core:database` | Each DAO query (paging order, rule filtering, section aggregation, cascade deletes), migrations, entity ↔ model mapping | Robolectric + in-memory Room; `MigrationTestHelper` with exported schemas | Yes |

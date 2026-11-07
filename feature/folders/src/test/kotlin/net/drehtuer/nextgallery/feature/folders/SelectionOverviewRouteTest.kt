@@ -11,6 +11,13 @@ class SelectionOverviewRouteTest {
     }
 
     @Test
+    fun viewContext_bucketIds_isThatVirtualFolder() {
+        val route = SelectionOverviewRoute(bucketId = null, bucketIds = listOf(7, 8))
+
+        assertEquals(ViewContext.VirtualFolder(listOf(7, 8)), route.viewContext())
+    }
+
+    @Test
     fun viewContext_noBucket_isTimeline() {
         assertEquals(ViewContext.Timeline, SelectionOverviewRoute(bucketId = null).viewContext())
     }

@@ -14,6 +14,13 @@ class ViewerRouteTest {
     }
 
     @Test
+    fun source_bucketIds_isThatVirtualFolder() {
+        val route = ViewerRoute(mediaId = 1, bucketId = null, bucketIds = listOf(7, 8))
+
+        assertEquals(MediaSource.VirtualFolder(listOf(7, 8)), route.source())
+    }
+
+    @Test
     fun source_noBucket_isTimeline() {
         assertEquals(MediaSource.Timeline, ViewerRoute(mediaId = 1, bucketId = null).source())
     }

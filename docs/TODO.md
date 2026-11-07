@@ -436,3 +436,21 @@ _Depends on: Phases 1–9._
 - [x] **10.6 Update docs** – README (status, building, installing the release build), ARCHITECTURE.md final state, DESIGN_DECISIONS.md resolved questions.
 
 **Definition of done:** signed, minified release build passes benchmarks and accessibility checks, contains no proprietary dependencies and installs on the Pixel 10a.
+
+---
+
+## Added folders and virtual folders (D55)
+
+**Goal:** the user decides what is shown: only folders added with Android's picker, plus virtual folders over several of them.
+
+- [x] `AddedFolder`, `VirtualFolder`, `VirtualFolderSummary`; `UserSettings` loses `folderRules` and `excludePatterns`. No migration of old rules.
+- [x] Persistence with `AddedFolderCodec` and `VirtualFolderCodec`; `FolderSettingsRepository` to add, remove, create, update and delete.
+- [x] `TreeDocumentIds` parser; `rememberFolderPicker` with `OpenDocumentTree`, without a persistable URI permission.
+- [x] `AddedFolderMatcher` replaces `FolderRuleMatcher` and `ExcludePatterns`; dot folders below an added folder are left out.
+- [x] `MediaStoreQuery` puts the paths in the selection for full scans, changes and IDs; `MediaIndexer` makes no query for a volume without an added folder and deletes its rows. _The real MediaStore is only covered by `MediaStoreScannerTest`, which needs a device._
+- [x] `AddedFolderObserver` replaces `RuleChangeObserver`; `DeviceFolder` and `observeAllDeviceFolders` are gone.
+- [x] `MediaSource.VirtualFolder`, `ViewContext.VirtualFolder`, DAO and store queries over `bucket_id IN (...)`, which also replace the single-folder ones, optional route arguments, `FolderGridViewModel` for both kinds of folder.
+- [x] `FolderRepository.observeVirtualFolders()` with live cover and count.
+- [x] Settings "Folders" screen with the picker and the virtual folder editor; folder list with virtual folders first and new empty states; timeline and map wording.
+- [ ] Checks on the device, see [STATUS.md](STATUS.md).
+- [x] Update docs.

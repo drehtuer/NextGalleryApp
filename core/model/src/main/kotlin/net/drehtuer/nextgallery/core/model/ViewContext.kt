@@ -4,6 +4,8 @@ package net.drehtuer.nextgallery.core.model
 sealed interface ViewContext {
     data class Folder(val bucketId: Long) : ViewContext
 
+    data class VirtualFolder(val bucketIds: List<Long>) : ViewContext
+
     data object Timeline : ViewContext
 
     data object Map : ViewContext

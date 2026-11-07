@@ -28,13 +28,14 @@ class MediaStoreScanner @Inject constructor(
         MediaStore.getGeneration(context, volume)
     }
 
-    override fun fullScan(volume: String): Flow<List<ScannedImage>> = query(volume, MediaStoreQuery.allImages())
+    override fun fullScan(volume: String, folders: List<String>): Flow<List<ScannedImage>> =
+        query(volume, MediaStoreQuery.imagesIn(folders))
 
-    override fun changesSince(volume: String, generation: Long): Flow<List<ScannedImage>> =
-        query(volume, MediaStoreQuery.changedSince(generation))
+    override fun changesSince(volume: String, generation: Long, folders: List<String>): Flow<List<ScannedImage>> =
+        query(volume, MediaStoreQuery.changedSince(generation, folders))
 
-    override suspend fun allIds(volume: String): Set<Long> = withContext(dispatchers.io) {
-        val selection = MediaStoreQuery.allImages()
+    override suspend fun allIds(volume: String, folders: List<String>): Set<Long> = withContext(dispatchers.io) {
+        val selection = MediaStoreQuery.imagesIn(folders)
         context.contentResolver.query(
             MediaStore.Images.Media.getContentUri(volume),
             arrayOf(MediaStore.Images.Media._ID),

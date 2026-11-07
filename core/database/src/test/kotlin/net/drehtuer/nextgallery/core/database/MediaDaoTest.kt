@@ -68,52 +68,82 @@ class MediaDaoTest {
     }
 
     @Test
-    fun pagingByBucket_ordersByTakenDateDescending() = runTest {
+    fun pagingByBuckets_ordersByTakenDateDescending() = runTest {
         dao.upsertAll(listOf(mediaEntity(1).copy(dateTakenMillis = 10), mediaEntity(2).copy(dateTakenMillis = 20)))
 
-        val page = dao.pagingByBucket(7).load(refresh(loadSize = 2)) as PagingSource.LoadResult.Page
+        val page = dao.pagingByBuckets(listOf(7)).load(refresh(loadSize = 2)) as PagingSource.LoadResult.Page
 
         assertEquals(listOf(2L, 1L), page.data.map { it.id })
     }
 
     @Test
-    fun pagingByBucket_equalTakenDates_ordersByIdDescending() = runTest {
-        dao.upsertAll(listOf(mediaEntity(1), mediaEntity(2)))
-
-        val page = dao.pagingByBucket(7).load(refresh(loadSize = 2)) as PagingSource.LoadResult.Page
-
-        assertEquals(listOf(2L, 1L), page.data.map { it.id })
-    }
-
-    @Test
-    fun pagingByBucket_limitsPageToLoadSize() = runTest {
+    fun pagingByBuckets_limitsPageToLoadSize() = runTest {
         dao.upsertAll(listOf(mediaEntity(1), mediaEntity(2), mediaEntity(3)))
 
-        val page = dao.pagingByBucket(7).load(refresh(loadSize = 2)) as PagingSource.LoadResult.Page
+        val page = dao.pagingByBuckets(listOf(7)).load(refresh(loadSize = 2)) as PagingSource.LoadResult.Page
 
         assertEquals(2, page.data.size)
     }
 
     @Test
-    fun pagingByBucket_skipsOtherBuckets() = runTest {
-        dao.upsertAll(listOf(mediaEntity(1), mediaEntity(2).copy(bucketId = 8)))
+    fun pagingByBuckets_severalBuckets_ordersNewestFirst() = runTest {
+        dao.upsertAll(
+            listOf(
+                mediaEntity(1).copy(dateTakenMillis = 10),
+                mediaEntity(2).copy(bucketId = 8, dateTakenMillis = 20),
+                mediaEntity(3).copy(dateTakenMillis = 30),
+            ),
+        )
 
-        val page = dao.pagingByBucket(7).load(refresh(loadSize = 2)) as PagingSource.LoadResult.Page
+        val page = dao.pagingByBuckets(listOf(7, 8)).load(refresh(loadSize = 3)) as PagingSource.LoadResult.Page
+
+        assertEquals(listOf(3L, 2L, 1L), page.data.map { it.id })
+    }
+
+    @Test
+    fun pagingByBuckets_equalTakenDates_ordersByIdDescending() = runTest {
+        dao.upsertAll(
+            listOf(mediaEntity(1).copy(dateTakenMillis = 10), mediaEntity(2).copy(bucketId = 8, dateTakenMillis = 10)),
+        )
+
+        val page = dao.pagingByBuckets(listOf(7, 8)).load(refresh(loadSize = 2)) as PagingSource.LoadResult.Page
+
+        assertEquals(listOf(2L, 1L), page.data.map { it.id })
+    }
+
+    @Test
+    fun pagingByBuckets_skipsOtherBuckets() = runTest {
+        dao.upsertAll(listOf(mediaEntity(1), mediaEntity(2).copy(bucketId = 9)))
+
+        val page = dao.pagingByBuckets(listOf(7, 8)).load(refresh(loadSize = 2)) as PagingSource.LoadResult.Page
 
         assertEquals(listOf(1L), page.data.map { it.id })
     }
 
     @Test
-    fun idsInBucket_returnsIdsOfThatBucketNewestFirst() = runTest {
+    fun idsInBuckets_returnsIdsOfThoseBucketsNewestFirst() = runTest {
         dao.upsertAll(
             listOf(
                 mediaEntity(1).copy(dateTakenMillis = 10),
-                mediaEntity(2).copy(dateTakenMillis = 20),
-                mediaEntity(3).copy(bucketId = 8),
+                mediaEntity(2).copy(bucketId = 8, dateTakenMillis = 20),
+                mediaEntity(3).copy(bucketId = 9),
             ),
         )
 
-        assertEquals(listOf(2L, 1L), dao.idsInBucket(7))
+        assertEquals(listOf(2L, 1L), dao.idsInBuckets(listOf(7, 8)))
+    }
+
+    @Test
+    fun indexInBuckets_countsNewerImagesOfThoseBuckets() = runTest {
+        dao.upsertAll(
+            listOf(
+                mediaEntity(1).copy(dateTakenMillis = 10),
+                mediaEntity(2).copy(bucketId = 8, dateTakenMillis = 20),
+                mediaEntity(3).copy(bucketId = 9, dateTakenMillis = 30),
+            ),
+        )
+
+        assertEquals(1, dao.indexInBuckets(listOf(7, 8), 1))
     }
 
     @Test
@@ -124,7 +154,7 @@ class MediaDaoTest {
     }
 
     @Test
-    fun indexInBucket_countsNewerImages() = runTest {
+    fun indexInBuckets_countsNewerImages() = runTest {
         dao.upsertAll(
             listOf(
                 mediaEntity(1).copy(dateTakenMillis = 30),
@@ -133,21 +163,21 @@ class MediaDaoTest {
             ),
         )
 
-        assertEquals(1, dao.indexInBucket(7, 2))
+        assertEquals(1, dao.indexInBuckets(listOf(7), 2))
     }
 
     @Test
-    fun indexInBucket_equalDates_matchesPagingOrder() = runTest {
+    fun indexInBuckets_equalDates_matchesPagingOrder() = runTest {
         dao.upsertAll(listOf(mediaEntity(1), mediaEntity(2), mediaEntity(3)))
 
-        assertEquals(2, dao.indexInBucket(7, 1))
+        assertEquals(2, dao.indexInBuckets(listOf(7), 1))
     }
 
     @Test
-    fun indexInBucket_ignoresOtherBuckets() = runTest {
+    fun indexInBuckets_ignoresOtherBuckets() = runTest {
         dao.upsertAll(listOf(mediaEntity(1), mediaEntity(2).copy(bucketId = 8, dateTakenMillis = Long.MAX_VALUE)))
 
-        assertEquals(0, dao.indexInBucket(7, 1))
+        assertEquals(0, dao.indexInBuckets(listOf(7), 1))
     }
 
     private fun refresh(loadSize: Int) =

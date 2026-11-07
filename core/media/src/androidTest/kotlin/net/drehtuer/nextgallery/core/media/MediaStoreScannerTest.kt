@@ -54,24 +54,48 @@ class MediaStoreScannerTest {
     }
 
     private val insertedId get() = inserted.lastPathSegment!!.toLong()
+    private val testFolder = listOf("Pictures/NextGalleryTest")
+    private val otherFolder = listOf("Pictures/NextGalleryTestOther")
 
     @Test
     fun fullScan_containsInsertedImage() = runBlocking {
-        val ids = scanner.fullScan(volume).toList().flatten().map { it.id.value }
+        val ids = scanner.fullScan(volume, testFolder).toList().flatten().map { it.id.value }
+
+        assertTrue(insertedId in ids)
+    }
+
+    @Test
+    fun fullScan_otherFolder_doesNotContainInsertedImage() = runBlocking {
+        val ids = scanner.fullScan(volume, otherFolder).toList().flatten().map { it.id.value }
+
+        assertFalse(insertedId in ids)
+    }
+
+    @Test
+    fun fullScan_parentFolder_containsInsertedImage() = runBlocking {
+        val ids = scanner.fullScan(volume, listOf("Pictures")).toList().flatten().map { it.id.value }
 
         assertTrue(insertedId in ids)
     }
 
     @Test
     fun changesSince_generationBeforeInsert_containsInsertedImage() = runBlocking {
-        val ids = scanner.changesSince(volume, generationBeforeInsert).toList().flatten().map { it.id.value }
+        val ids = scanner.changesSince(volume, generationBeforeInsert, testFolder)
+            .toList()
+            .flatten()
+            .map { it.id.value }
 
         assertTrue(insertedId in ids)
     }
 
     @Test
     fun allIds_containsInsertedImage() = runBlocking {
-        assertTrue(insertedId in scanner.allIds(volume))
+        assertTrue(insertedId in scanner.allIds(volume, testFolder))
+    }
+
+    @Test
+    fun allIds_otherFolder_doesNotContainInsertedImage() = runBlocking {
+        assertFalse(insertedId in scanner.allIds(volume, otherFolder))
     }
 
     /** MediaStore applies `.nomedia` when it scans, so this needs a real file on disk and a real scan (D6). */
@@ -89,7 +113,10 @@ class MediaStoreScannerTest {
             scan(imagePath)
             scan(imagePath.substringBeforeLast('/'))
 
-            val ids = scanner.fullScan(volume).toList().flatten().map { it.id.value }
+            val ids = scanner.fullScan(volume, listOf("Download/NextGalleryTestHidden"))
+                .toList()
+                .flatten()
+                .map { it.id.value }
 
             assertFalse(image.lastPathSegment!!.toLong() in ids)
         } finally {

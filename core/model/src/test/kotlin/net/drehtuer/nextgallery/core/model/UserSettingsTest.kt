@@ -25,13 +25,12 @@ class UserSettingsTest {
     }
 
     @Test
-    fun defaults_excludeAndroidDataAndWhatsAppStatuses() {
-        assertEquals(
-            listOf(
-                FolderRule("Android/data", FolderRule.Type.EXCLUDE),
-                FolderRule("Android/media/com.whatsapp/WhatsApp/Media/.Statuses", FolderRule.Type.EXCLUDE),
-            ),
-            UserSettings().folderRules,
-        )
+    fun defaults_noFolderIsAdded() {
+        assertEquals(emptyList<AddedFolder>(), UserSettings().addedFolders)
+    }
+
+    @Test
+    fun defaults_noVirtualFolderExists() {
+        assertEquals(emptyList<VirtualFolder>(), UserSettings().virtualFolders)
     }
 }

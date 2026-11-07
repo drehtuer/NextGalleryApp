@@ -54,17 +54,17 @@ class RoomMediaIndexStoreTest {
     }
 
     @Test
-    fun indexInBucket_passesIdToDao() = runTest {
-        coEvery { dao.indexInBucket(7, 1) } returns 4
+    fun indexInBuckets_passesIdToDao() = runTest {
+        coEvery { dao.indexInBuckets(listOf(7), 1) } returns 4
 
-        assertEquals(4, store.indexInBucket(7, MediaId(1)))
+        assertEquals(4, store.indexInBuckets(listOf(7), MediaId(1)))
     }
 
     @Test
-    fun idsInBucket_mapsDaoIdsToMediaIds() = runTest {
-        coEvery { dao.idsInBucket(7) } returns listOf(1L)
+    fun idsInBuckets_mapsDaoIdsToMediaIds() = runTest {
+        coEvery { dao.idsInBuckets(listOf(7)) } returns listOf(1L)
 
-        assertEquals(listOf(MediaId(1)), store.idsInBucket(7))
+        assertEquals(listOf(MediaId(1)), store.idsInBuckets(listOf(7)))
     }
 
     @Test

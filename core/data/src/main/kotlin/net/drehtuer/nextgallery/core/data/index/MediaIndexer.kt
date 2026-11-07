@@ -4,7 +4,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
 import net.drehtuer.nextgallery.core.common.Clock
-import net.drehtuer.nextgallery.core.data.rules.FolderRuleMatcher
+import net.drehtuer.nextgallery.core.data.folders.AddedFolderMatcher
 import net.drehtuer.nextgallery.core.data.settings.SettingsRepository
 import net.drehtuer.nextgallery.core.model.MediaItem
 import net.drehtuer.nextgallery.core.model.ScannedImage
@@ -13,7 +13,8 @@ import javax.inject.Inject
 /**
  * Keeps the local index in sync with MediaStore (ARCHITECTURE.md §5.1): a full scan on first run or when the
  * MediaStore version changed, otherwise only rows with a newer `GENERATION_MODIFIED`. Deletions are found by
- * comparing ID sets, because generation queries do not report them.
+ * comparing ID sets, because generation queries do not report them. Only the folders the user added are read: a volume
+ * without one is not queried at all, its rows are just removed (D55).
  */
 class MediaIndexer @Inject constructor(
     private val scanSource: MediaScanSource,
@@ -26,14 +27,25 @@ class MediaIndexer @Inject constructor(
     private val clock: Clock,
 ) {
     suspend fun sync(mode: IndexMode): IndexStats {
-        val settings = settingsRepository.observeSettings().first()
-        val matcher = FolderRuleMatcher(settings.folderRules, settings.excludePatterns)
+        val matcher = AddedFolderMatcher(settingsRepository.observeSettings().first().addedFolders)
         return scanSource.volumes().fold(IndexStats.EMPTY) { stats, volume ->
-            stats + syncVolume(volume, mode, matcher)
+            val folders = matcher.pathsOn(volume)
+            stats + if (folders.isEmpty()) clearVolume(volume) else syncVolume(volume, mode, folders, matcher)
         }
     }
 
-    private suspend fun syncVolume(volume: String, mode: IndexMode, matcher: FolderRuleMatcher): IndexStats {
+    private suspend fun clearVolume(volume: String): IndexStats {
+        val stored = indexStore.idsForVolume(volume)
+        if (stored.isNotEmpty()) indexStore.deleteByIds(stored)
+        return IndexStats(upserted = 0, deleted = stored.size)
+    }
+
+    private suspend fun syncVolume(
+        volume: String,
+        mode: IndexMode,
+        folders: List<String>,
+        matcher: AddedFolderMatcher,
+    ): IndexStats {
         val previous = syncStateStore.get(volume)
         val version = scanSource.mediaStoreVersion(volume)
         // Read before scanning, so changes made during the scan are picked up by the next sync.
@@ -41,16 +53,16 @@ class MediaIndexer @Inject constructor(
         val full = mode == IndexMode.FULL || previous == null || previous.mediaStoreVersion != version
 
         val batches = if (full) {
-            scanSource.fullScan(volume)
+            scanSource.fullScan(volume, folders)
         } else {
-            scanSource.changesSince(volume, previous.lastGeneration)
+            scanSource.changesSince(volume, previous.lastGeneration, folders)
         }
         val seen = HashSet<Long>()
         val excluded = HashSet<Long>()
         var upserted = 0
         batches.collect { batch ->
             currentCoroutineContext().ensureActive()
-            val (indexed, skipped) = batch.partition { matcher.isIndexed(it.relativePath) }
+            val (indexed, skipped) = batch.partition { matcher.isIndexed(volume, it.relativePath) }
             val known = indexStore.getByIds(indexed.map { it.id }).associateBy { it.id }
             indexStore.upsertAll(indexed.map { it.toMediaItem(known[it.id]) })
             indexed.mapTo(seen) { it.id.value }
@@ -59,7 +71,12 @@ class MediaIndexer @Inject constructor(
         }
 
         val stored = indexStore.idsForVolume(volume)
-        val toDelete = if (full) stored - seen else (stored - scanSource.allIds(volume)) + (excluded intersect stored)
+        // allIds only covers the added folders, so this also finds images moved out of them and removed folders.
+        val toDelete = if (full) {
+            stored - seen
+        } else {
+            (stored - scanSource.allIds(volume, folders)) + (excluded intersect stored)
+        }
         if (toDelete.isNotEmpty()) indexStore.deleteByIds(toDelete)
 
         val lastFullScan = if (full) clock.nowMillis() else previous.lastFullScanMillis

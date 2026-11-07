@@ -29,12 +29,14 @@ class RoomMediaIndexStore @Inject constructor(private val mediaDao: MediaDao, pr
         .flatMap { mediaDao.getByIds(it) }
         .map { it.toModel() }
 
-    override suspend fun indexInBucket(bucketId: Long, id: MediaId): Int = mediaDao.indexInBucket(bucketId, id.value)
+    override fun pagedByBuckets(bucketIds: List<Long>, config: PagingConfig): Flow<PagingData<MediaItem>> =
+        Pager(config) { mediaDao.pagingByBuckets(bucketIds) }.flow.map { page -> page.map { it.toModel() } }
 
-    override fun pagedByBucket(bucketId: Long, config: PagingConfig): Flow<PagingData<MediaItem>> =
-        Pager(config) { mediaDao.pagingByBucket(bucketId) }.flow.map { page -> page.map { it.toModel() } }
+    override suspend fun idsInBuckets(bucketIds: List<Long>): List<MediaId> =
+        mediaDao.idsInBuckets(bucketIds).map { MediaId(it) }
 
-    override suspend fun idsInBucket(bucketId: Long): List<MediaId> = mediaDao.idsInBucket(bucketId).map { MediaId(it) }
+    override suspend fun indexInBuckets(bucketIds: List<Long>, id: MediaId): Int =
+        mediaDao.indexInBuckets(bucketIds, id.value)
 
     override fun observeFolders(): Flow<List<Folder>> =
         folderDao.observeFolders().map { rows -> rows.map { it.toModel() } }

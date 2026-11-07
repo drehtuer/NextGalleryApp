@@ -34,10 +34,29 @@ object MediaStoreQuery {
     private val mimeTypes = SupportedMimeTypes.all.sorted()
     private val mimeTypeSql = "${Media.MIME_TYPE} IN (${mimeTypes.joinToString(",") { "?" }})"
 
-    fun allImages() = Selection(mimeTypeSql, mimeTypes.toTypedArray())
+    private const val LIKE_ESCAPE = '\\'
 
-    fun changedSince(generation: Long) = Selection(
-        "$mimeTypeSql AND ${Media.GENERATION_MODIFIED} > ?",
-        (mimeTypes + generation.toString()).toTypedArray(),
+    /** Images in [folders] and below them. [folders] are relative paths and must not be empty (D55). */
+    fun imagesIn(folders: List<String>) = Selection(
+        "$mimeTypeSql AND ${pathSql(folders)}",
+        (mimeTypes + pathArgs(folders)).toTypedArray(),
     )
+
+    fun changedSince(generation: Long, folders: List<String>) = Selection(
+        "$mimeTypeSql AND ${pathSql(folders)} AND ${Media.GENERATION_MODIFIED} > ?",
+        (mimeTypes + pathArgs(folders) + generation.toString()).toTypedArray(),
+    )
+
+    private fun pathSql(folders: List<String>): String {
+        require(folders.isNotEmpty()) { "A query needs at least one folder" }
+        return folders.joinToString(" OR ", "(", ")") { "${Media.RELATIVE_PATH} LIKE ? ESCAPE '$LIKE_ESCAPE'" }
+    }
+
+    /** A folder name can contain the wildcards of LIKE. The `/` keeps `DCIM/Cam` from matching `DCIM/Camera/`. */
+    private fun pathArgs(folders: List<String>): List<String> = folders.map { folder ->
+        val escaped = folder.replace("$LIKE_ESCAPE", "$LIKE_ESCAPE$LIKE_ESCAPE")
+            .replace("%", "$LIKE_ESCAPE%")
+            .replace("_", "${LIKE_ESCAPE}_")
+        "$escaped/%"
+    }
 }

@@ -12,14 +12,17 @@ private const val WAIT_MILLIS = 5_000L
 private const val SWIPES = 3
 private const val FLINGS = 3
 
-/** The device needs some photos. Access is granted here, because a dialog would stop the journey. */
+/**
+ * The app needs an added folder with some photos: the journeys cannot drive the system folder picker, so add one by
+ * hand before running them (STATUS.md). Access is granted here, because a dialog would stop the journey.
+ */
 internal fun MacrobenchmarkScope.grantPhotoAccess() {
     device.executeShellCommand("pm grant $packageName ${Manifest.permission.READ_MEDIA_IMAGES}")
 }
 
 private fun MacrobenchmarkScope.waitFor(description: String, selector: () -> UiObject2?): UiObject2 {
     device.wait(Until.hasObject(By.pkg(packageName)), WAIT_MILLIS)
-    return checkNotNull(selector()) { "$description is not on the screen. Does the device have photos?" }
+    return checkNotNull(selector()) { "$description is not on the screen. Is a folder with photos added in Settings?" }
 }
 
 private fun MacrobenchmarkScope.grid(): UiObject2 = waitFor("A scrolling grid") {

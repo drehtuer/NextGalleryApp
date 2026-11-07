@@ -32,7 +32,8 @@ A simple, fast Android gallery app with basic editing, multiple ways to browse y
 | **Map** | Images with GPS location (EXIF) shown as clustered markers on a map, from the whole globe down to street level. It opens at your current location. Clusters are named after the nearest town ("near Bolzano"), looked up offline. Images without location data are skipped. |
 | **Nextcloud** | Browse and view images stored on a Nextcloud server, without downloading them first. |
 
-- **Configurable sources** – every folder with images is shown by default; include or exclude single folders, or exclude by pattern (e.g. `WhatsApp/.Statuses`, app caches).
+- **Your choice of folders** – add folders with Android's folder picker; only those and their subfolders are shown, and the phone is not scanned for other folders.
+- **Virtual folders** – show the photos of several folders together, e.g. Camera, WhatsApp and Signal.
 - **Appearance** – light or dark theme, or follow the system; 3, 4 or 5 grid columns; five accent colours.
 - **Selection** – one selection across all views; a selection overview lists everything selected and greys out images the current view cannot show.
 - **Fast scroll** – draggable scrollbar on every grid; in the timeline it shows the date in the middle of the screen, with the dates before and after.
@@ -91,7 +92,7 @@ NextGalleryApp does not duplicate what the official Nextcloud Android app alread
 
 ## Permissions
 
-- `READ_MEDIA_IMAGES` – read photos; `READ_MEDIA_VISUAL_USER_SELECTED` – limited access to selected photos only.
+- `READ_MEDIA_IMAGES` – read photos; `READ_MEDIA_VISUAL_USER_SELECTED` – limited access to selected photos only. Only the folders you added are read. The folder picker only chooses a path and needs no permission of its own.
 - `ACCESS_MEDIA_LOCATION` – read GPS data from EXIF for the map view.
 - `ACCESS_COARSE_LOCATION` – optional; opens the map at your current location. Without it, the map opens where most of your photos are.
 - `INTERNET` and `ACCESS_NETWORK_STATE` – map tiles and Nextcloud; traffic is https only.
@@ -104,7 +105,7 @@ NextGalleryApp does not duplicate what the official Nextcloud Android app alread
 1. Project skeleton, permissions, MediaStore indexing into Room.
 2. Folder view with thumbnail grid and fast scroll.
 3. Full-screen viewer, delete, share.
-4. Settings: folder include/exclude list.
+4. Settings: choosing folders, virtual folders.
 5. Timeline view (year/month/day).
 6. Map view.
 7. Editor: rotate, crop, scale, pen.

@@ -7,9 +7,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import net.drehtuer.nextgallery.core.common.AppResult
 import net.drehtuer.nextgallery.core.model.AccentColor
-import net.drehtuer.nextgallery.core.model.FolderRule
-import net.drehtuer.nextgallery.core.model.FolderRule.Type.EXCLUDE
-import net.drehtuer.nextgallery.core.model.FolderRule.Type.INCLUDE
 import net.drehtuer.nextgallery.core.model.ThemeMode
 import net.drehtuer.nextgallery.core.model.UserSettings
 import org.junit.Assert.assertEquals
@@ -18,7 +15,7 @@ import org.junit.Test
 import java.io.IOException
 
 class DefaultSettingsRepositoryTest {
-    private var stored = UserSettings(folderRules = emptyList())
+    private var stored = UserSettings()
     private val dataSource = mockk<SettingsDataSource> {
         coEvery { update(any()) } coAnswers { stored = firstArg<(UserSettings) -> UserSettings>()(stored) }
     }
@@ -58,46 +55,6 @@ class DefaultSettingsRepositoryTest {
         every { dataSource.settings } returns settings
 
         assertEquals(settings, repository.observeSettings())
-    }
-
-    @Test
-    fun addRule_storesNormalizedPath() = runTest {
-        repository.addRule(FolderRule("DCIM/Camera/", INCLUDE))
-
-        assertEquals(listOf(FolderRule("DCIM/Camera", INCLUDE)), stored.folderRules)
-    }
-
-    @Test
-    fun addRule_samePathInOtherCase_replacesRule() = runTest {
-        stored = stored.copy(folderRules = listOf(FolderRule("dcim", INCLUDE)))
-
-        repository.addRule(FolderRule("DCIM/", EXCLUDE))
-
-        assertEquals(listOf(FolderRule("DCIM", EXCLUDE)), stored.folderRules)
-    }
-
-    @Test
-    fun addRule_writeFails_returnsFailure() = runTest {
-        coEvery { dataSource.update(any()) } throws IOException("disk")
-
-        assertTrue(repository.addRule(FolderRule("DCIM", INCLUDE)) is AppResult.Failure)
-    }
-
-    @Test
-    fun removeRule_removesOnlyThatPath() = runTest {
-        val other = FolderRule("DCIM/Camera", EXCLUDE)
-        stored = stored.copy(folderRules = listOf(FolderRule("DCIM", INCLUDE), other))
-
-        repository.removeRule("DCIM/")
-
-        assertEquals(listOf(other), stored.folderRules)
-    }
-
-    @Test
-    fun setExcludePatterns_storesPatterns() = runTest {
-        repository.setExcludePatterns(listOf("Old*"))
-
-        assertEquals(listOf("Old*"), stored.excludePatterns)
     }
 
     @Test
