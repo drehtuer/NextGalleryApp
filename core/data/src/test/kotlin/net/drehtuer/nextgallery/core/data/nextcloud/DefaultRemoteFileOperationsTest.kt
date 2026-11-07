@@ -9,6 +9,7 @@ import net.drehtuer.nextgallery.core.common.AppError
 import net.drehtuer.nextgallery.core.common.AppResult
 import net.drehtuer.nextgallery.core.model.RemoteItem
 import net.drehtuer.nextgallery.core.nextcloud.NextcloudHttpException
+import net.drehtuer.nextgallery.core.nextcloud.OcsClient
 import net.drehtuer.nextgallery.core.nextcloud.RemoteFolder
 import net.drehtuer.nextgallery.core.nextcloud.TrashItem
 import net.drehtuer.nextgallery.core.nextcloud.WebDavClient
@@ -16,11 +17,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 
 class DefaultRemoteFileOperationsTest {
     private val webDav = mockk<WebDavClient>(relaxed = true)
     private val store = FakeAccountStore()
-    private val operations = DefaultRemoteFileOperations(testRunner(store), webDav)
+    private val ocs = mockk<OcsClient>()
+    private val operations = DefaultRemoteFileOperations(testRunner(store), webDav, ocs)
 
     private val item = RemoteItem("/A/IMG_1.jpg", "IMG_1.jpg", false, fileId = 42)
     private val existing = RemoteItem("/B/IMG_1.jpg", "IMG_1.jpg", false)
@@ -302,6 +305,57 @@ class DefaultRemoteFileOperationsTest {
 
         assertEquals(listOf(item to AppError.NotLoggedIn), result.failures)
         coVerify(exactly = 0) { webDav.delete(any(), any()) }
+    }
+
+    @Test
+    fun isTrashBinEnabled_asksTheServerWithTheAccount() = runTest {
+        coEvery { ocs.isTrashBinEnabled(TEST_ACCOUNT.serverUrl, "anna", "app-password") } returns true
+
+        assertTrue(operations.isTrashBinEnabled())
+    }
+
+    @Test
+    fun isTrashBinEnabled_answerIsKeptForTheAccount() = runTest {
+        coEvery { ocs.isTrashBinEnabled(any(), any(), any()) } returns true
+        operations.isTrashBinEnabled()
+
+        operations.isTrashBinEnabled()
+
+        coVerify(exactly = 1) { ocs.isTrashBinEnabled(any(), any(), any()) }
+    }
+
+    @Test
+    fun isTrashBinEnabled_anotherAccount_asksAgain() = runTest {
+        coEvery { ocs.isTrashBinEnabled(any(), any(), any()) } returns true
+        operations.isTrashBinEnabled()
+        store.account.value = TEST_ACCOUNT.copy(userId = "ben-id", loginName = "ben")
+        coEvery { ocs.isTrashBinEnabled(any(), "ben", any()) } returns false
+
+        assertFalse(operations.isTrashBinEnabled())
+    }
+
+    @Test
+    fun isTrashBinEnabled_failure_isFalse() = runTest {
+        coEvery { ocs.isTrashBinEnabled(any(), any(), any()) } throws IOException("invalid")
+
+        assertFalse(operations.isTrashBinEnabled())
+    }
+
+    @Test
+    fun isTrashBinEnabled_failure_isNotKept() = runTest {
+        coEvery { ocs.isTrashBinEnabled(any(), any(), any()) } throws IOException("invalid")
+        operations.isTrashBinEnabled()
+        coEvery { ocs.isTrashBinEnabled(any(), any(), any()) } returns true
+
+        assertTrue(operations.isTrashBinEnabled())
+    }
+
+    @Test
+    fun isTrashBinEnabled_loggedOut_isFalseWithoutRequest() = runTest {
+        store.account.value = null
+
+        assertFalse(operations.isTrashBinEnabled())
+        coVerify(exactly = 0) { ocs.isTrashBinEnabled(any(), any(), any()) }
     }
 
     private fun trashEntry(name: String, time: Long, fileId: Long? = null) =

@@ -174,7 +174,7 @@ The version comes from the nearest Git tag of the form `vMAJOR.MINOR.PATCH`: `v1
 
 ### Documentation site
 
-Publishing a GitHub release runs [.github/workflows/pages.yml](.github/workflows/pages.yml), which builds `README.md` and `docs/` with GitHub's Jekyll and deploys them to GitHub Pages; it can also be started by hand from the Actions tab. The Jekyll config is in [.github/pages/](.github/pages/). The repository's Pages source must be "GitHub Actions", and the `github-pages` environment must allow the release tags (`v*`) as well as `main` (D56 in [DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md)).
+Publishing a GitHub release runs [.github/workflows/pages.yml](.github/workflows/pages.yml), which builds `README.md` and `docs/` with GitHub's Jekyll and deploys them to GitHub Pages; it can also be started by hand from the Actions tab. The Jekyll config is in [.github/pages/](.github/pages/). The repository's Pages source must be "GitHub Actions", and the `github-pages` environment must allow the release tags (`v*`) as well as `main` (D58 in [DESIGN_DECISIONS.md](docs/DESIGN_DECISIONS.md)).
 
 ## License
 

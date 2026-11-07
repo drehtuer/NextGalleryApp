@@ -267,7 +267,12 @@ Black. Top bar: close, undo, redo (38 % when unavailable) and a filled "Save" th
   other conflict", and stacked buttons "Keep both" (filled), "Replace the one in Italy", "Skip this image".
 - Share (D48): the images are downloaded first, with a progress bar and "Downloading 2 of 3…", then the Android share
   sheet opens. Offline, images that are not cached show "You're offline. Sharing needs a connection to your server."
-- Delete: snackbar "1 image moved to the Nextcloud trash bin" with Undo (restores from the trash bin).
+- Delete, with the server's trash bin on: snackbar "1 image moved to the Nextcloud trash bin" with Undo (restores from
+  the trash bin).
+- Delete, with the trash bin off or not known (D56): first a dialog "Delete permanently?", "The trash bin on your
+  Nextcloud is off or couldn't be checked, so this image can't be restored." (for several: "so these 3 images can't be
+  restored."), with "Cancel" (filled) and "Delete" (text button in `error`), as in the certificate dialog. Tapping
+  outside or Back cancels. After deleting: snackbar "3 images deleted", without Undo.
 - Offline: Move shows "You're offline. Moving needs a connection to your server."
 
 ### Settings

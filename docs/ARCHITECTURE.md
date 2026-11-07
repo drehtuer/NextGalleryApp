@@ -312,7 +312,7 @@ Repositories (interfaces + `Default…` implementations with `@Inject` construct
 | `NextcloudAccountRepository` | Account state, `login(serverUrl, foreground: Flow<Boolean>): Flow<LoginState>` (`Started` → `Polling` → `Success`/`Failed`), `resumeLogin(pending, foreground)` after the app was killed, `logout()` (wipe first, then revoke in the background; D35), `RemoteImageUrls` of the account. |
 | `RemoteBrowseRepository` | `list(path): Flow<RemoteListing>`: the cached listing first, then the server's (`remote_cache`); folders and supported images only. |
 | `AccountSession` | Singleton. Account changes (`replaceAccount`, `logOut`, not cancellable) and writes of an account's data (`writeFor`) exclude each other. A new login wipes the remote data unless the readable previous account is the same user on the same server. `AppPasswordRevoker` ends unused app passwords in its own scope, which outlives the screens. |
-| `RemoteFileOperations` | Moving with a `ConflictPolicy` (`ASK`, `KEEP_BOTH`, `REPLACE`, `SKIP`; never overwrites a folder), `undoMove`, `delete`/`undoDelete` through the trash bin, `listFolder`, `createFolder`, `canWrite`, `nextFreeName` (D46). `RemoteMoveFlow` (one instance per ViewModel) holds the steps of a move: conflicts, "do the same for the others" (a "replace" never silently hits an image this move brought there: that asks again), undo (last moved first). |
+| `RemoteFileOperations` | Moving with a `ConflictPolicy` (`ASK`, `KEEP_BOTH`, `REPLACE`, `SKIP`; never overwrites a folder), `undoMove`, `delete`/`undoDelete` through the trash bin, `isTrashBinEnabled` (from the OCS capabilities, kept per account for the session; unknown is false, D56), `listFolder`, `createFolder`, `canWrite`, `nextFreeName` (D46). `RemoteMoveFlow` (one instance per ViewModel) holds the steps of a move: conflicts, "do the same for the others" (a "replace" never silently hits an image this move brought there: that asks again), undo (last moved first). |
 | `RemoteShareRepository` | `prepare(items)`: downloads to the temporary folder with progress and returns a `ShareSpec`; removes old files first (D48). |
 | `RemoteDownloads` | Progress of the original image being downloaded, for the viewer. |
 | `UploadStateRepository` | `refreshAll()`: folder mapping, PROPFIND comparison, checksum confirmation, `upload_state` cache. `observeBadges(visibleIds)`: the badges of the images on screen; empty while logged out. |
@@ -353,7 +353,7 @@ Pure logic (each class unit-tested on the JVM):
 | `NextcloudHttpModule` | The OkHttp clients: `base` (no credentials, for the login flow), `authenticated` (reads), `noRedirects` (changes on the server, never repeated elsewhere), `unauthenticatedNoRedirects` (for requests carrying credentials not yet stored). TLS only, unless `allowCleartext` (debug builds); no https → http redirects; user agent `NextGalleryApp/<version>`. `evictConnections()` also drops resumable TLS sessions, so a removed pin takes effect. |
 | `AuthInterceptor` | Network interceptor: adds Basic auth and `OCS-APIRequest` through a `CredentialsProvider`, only for the account's scheme, host and port. It runs for each redirect, so credentials can't follow one to another host. |
 | `LoginFlowV2Client` | `start(serverUrl)` → `LoginFlowSession(loginUrl, pollEndpoint, token)`; `check(pollEndpoint, token)` asks once and returns a `LoginFlowResult` or null while the login is pending. The 2 s loop and the 20 min timeout are in `DefaultNextcloudAccountRepository`. URLs from the server are only accepted as https. Token and password are hidden in `toString`. |
-| `OcsClient` | The user id (`ocs/v2.php/cloud/user`) and revoking the app password (`ocs/v2.php/core/apppassword`). |
+| `OcsClient` | The user id (`ocs/v2.php/cloud/user`), revoking the app password (`ocs/v2.php/core/apppassword`), and whether the trash bin is on (`ocs/v2.php/cloud/capabilities`, `files.undelete`; D56). Answers are read up to 1 MiB; a malformed answer is an `IOException`. |
 | `WebDavClient` | `list(path)`, `stat(path)`, `download(path, sink)`; `move` (`Overwrite: F` unless asked otherwise), `createFolder`, `delete`, `listTrash` and `restore` for reorganising server images (D46). Uploading is done by the Nextcloud app (D31). Paths are under `remote.php/dav/files/<userId>/`; the trash bin is under `remote.php/dav/trashbin/<userId>/`. |
 | `PropfindRequestBuilder` | The PROPFIND bodies: `d:getcontentlength`, `d:getcontenttype`, `d:getetag`, `d:getlastmodified`, `d:resourcetype`, `oc:fileid`, `oc:checksums`, `oc:permissions`, `nc:has-preview`, `nc:contained-file-count`; for the trash bin the `nc:trashbin-*` properties. |
 | `MultistatusParser` | Multistatus parser on the XmlPullParser API (`compileOnly`; provided by Android at runtime, kxml2 on the JVM test classpath). Only propstats with status 200 count. Hrefs outside the root and impossible names (dot segments, encoded slashes) are dropped. |
@@ -865,7 +865,45 @@ sequenceDiagram
 - If all images are on the server, a tap shows "Already on your Nextcloud." If the system refuses the intent (for example too many images for one transaction), a tap shows a message instead of ending the app.
 - While logged out, the action is not shown at all (D35).
 
-### 5.9 Adding a folder
+### 5.9 Deleting on the server
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant UI as RemoteBrowserScreen
+    participant VM as RemoteBrowserViewModel
+    participant Ops as RemoteFileOperations
+    participant OCS as OcsClient
+    participant DAV as WebDavClient
+
+    UI->>VM: MenuDelete
+    VM->>Ops: isTrashBinEnabled()
+    alt no answer kept for this account
+        Ops->>OCS: GET ocs/v2.php/cloud/capabilities
+        OCS-->>Ops: files.undelete true, or missing
+    end
+    alt trash bin on
+        VM->>Ops: delete(items)
+        Ops->>DAV: DELETE per image
+        VM-->>UI: Deleted, snackbar with Undo
+        UI->>VM: UndoDelete
+        VM->>Ops: undoDelete(items)
+        Ops->>DAV: listTrash, restore
+    else off or unknown
+        VM-->>UI: state deleteConfirmation
+        UI->>VM: ConfirmDelete or CancelDelete
+        VM->>Ops: delete(items), only on ConfirmDelete
+        Ops->>DAV: DELETE per image
+        VM-->>UI: DeletedPermanently, snackbar without Undo
+    end
+```
+
+- `RemoteActionsController` holds the steps. Unknown counts as off (D56): not reported, `false`, a failed or unreadable answer, or logged out.
+- `DefaultRemoteFileOperations` is a singleton, and its `TrashBinCheck` keeps a known answer with the server and user id, never the password, until the process ends; a failed check is asked again at the next delete. Nothing is stored on disk.
+- The capabilities request goes through the client without redirects, with the account's credentials put on by `OcsClient`, like the other OCS calls.
+- An account change closes an open confirmation, so it cannot delete paths on the next account.
+
+### 5.10 Adding a folder
 
 ```mermaid
 sequenceDiagram
@@ -1164,7 +1202,7 @@ Test doubles: hand-written fakes live in each module's `src/test` (for example t
 
 CI (`.github/workflows/ci.yml`) runs on every branch push (direct pushes and merges into `main`) and on pull requests: ktlint, detekt, lint, `test` (the JVM modules' tests and the Android modules' local unit tests, including Robolectric), the build-logic tests, the debug and instrumented-test builds, and the JaCoCo coverage reports (`coverageReport`). On pull requests and on `main` it then runs the SonarCloud scan (`sonar-project.properties`, D41), which needs the `SONAR_TOKEN` repository secret and is skipped without it. There is no emulator in CI: instrumented tests run locally with `./gradlew connectedDebugAndroidTest` on an API 37 emulator or the Pixel 10a before merging changes that touch an adapter.
 
-The documentation site (`.github/workflows/pages.yml`, D56) is built when a GitHub release is published, or by hand from the Actions tab. It copies `README.md`, `docs/` and the Jekyll config in `.github/pages/` into one folder, builds it with GitHub's Jekyll (`actions/jekyll-build-pages`) and deploys it to GitHub Pages. `README.md` becomes the start page, links between the Markdown files become links between pages, and links to other repository files point to GitHub at the released commit. Mermaid diagrams are drawn in the browser by a script in `.github/pages/_includes/head-custom.html`.
+The documentation site (`.github/workflows/pages.yml`, D58) is built when a GitHub release is published, or by hand from the Actions tab. It copies `README.md`, `docs/` and the Jekyll config in `.github/pages/` into one folder, builds it with GitHub's Jekyll (`actions/jekyll-build-pages`) and deploys it to GitHub Pages. `README.md` becomes the start page, links between the Markdown files become links between pages, and links to other repository files point to GitHub at the released commit. Mermaid diagrams are drawn in the browser by a script in `.github/pages/_includes/head-custom.html`.
 
 ### 13.1 Robolectric and on-device tests
 

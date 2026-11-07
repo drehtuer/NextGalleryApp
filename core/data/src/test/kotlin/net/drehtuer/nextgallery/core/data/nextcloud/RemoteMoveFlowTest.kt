@@ -158,7 +158,7 @@ class RemoteMoveFlowTest {
                 if (path in files) RemoteItem(path, path.substringAfterLast('/'), false) else null
             }
         }
-        val flow = RemoteMoveFlow(DefaultRemoteFileOperations(testRunner(), webDav))
+        val flow = RemoteMoveFlow(DefaultRemoteFileOperations(testRunner(), webDav, mockk()))
     }
 
     private val old = RemoteItem("/A/old.jpg", "old.jpg", false)
