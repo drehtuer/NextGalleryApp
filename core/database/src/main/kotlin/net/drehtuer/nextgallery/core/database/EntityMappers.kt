@@ -1,6 +1,7 @@
 package net.drehtuer.nextgallery.core.database
 
 import net.drehtuer.nextgallery.core.data.index.SyncState
+import net.drehtuer.nextgallery.core.model.DayCount
 import net.drehtuer.nextgallery.core.model.Folder
 import net.drehtuer.nextgallery.core.model.GeoPoint
 import net.drehtuer.nextgallery.core.model.MediaId
@@ -52,6 +53,8 @@ internal fun MediaItem.toEntity() = MediaEntity(
     longitude = location?.longitude,
     exifScanned = false,
 )
+
+internal fun DayCountRow.toModel() = DayCount(LocalDate.of(year, month, day), count)
 
 internal fun FolderRow.toModel() = Folder(
     bucketId = cover.bucketId,

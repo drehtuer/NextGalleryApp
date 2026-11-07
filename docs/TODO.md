@@ -162,7 +162,7 @@ _Depends on: Phase 1._
   - [x] `ThumbnailCell` composable (fixed aspect, placeholder, content description, selection overlay slot, badge slot for Phase 9, greyed-out state). Compose UI test: placeholder, selected state, greyed-out state.
 - [x] **2.4 Shared grid components (`:core:ui`)**
   - [x] `MediaGrid` (`LazyVerticalGrid`, adaptive columns, stable keys, `LazyPagingItems`). Compose test: renders N items, keys stable.
-  - [x] `ScrollbarMath.indexForFraction()` / `fractionForIndex()` in `:core:data` (JVM tests), and the `FastScrollbar` composable (draggable thumb, optional `label: (index) -> String?` bubble). Compose test: drag scrolls grid. _`ScrollbarMath` is in `:core:common`, because `:core:ui` does not depend on `:core:data`. The folder grid shows no label; the timeline will (Phase 5)._
+  - [x] `ScrollbarMath.indexForFraction()` / `fractionForIndex()` in `:core:data` (JVM tests), and the `FastScrollbar` composable (draggable thumb, optional `label: (index) -> String?` bubble). Compose test: drag scrolls grid. _`ScrollbarMath` is in `:core:common`, because `:core:ui` does not depend on `:core:data`. The folder grid shows no label; the timeline has its own date rail (Phase 5)._
   - [x] `SelectionRepository` in `:core:data` – app-wide in-memory selection (D33): `observe()`, toggle, range, select all, clear (JVM tests per function); `SelectionTopBar` in `:core:ui` (total count, actions slot). Unit tests per function; Compose test: long-press enters selection. _No gesture uses `selectRange` yet._
 - [x] **2.5 `:feature:folders`**
   - [x] `FolderListViewModel` → `StateFlow<FolderListUiState>` (Loading/Empty/Content). Tests with Turbine: each state.
@@ -183,7 +183,7 @@ _Depends on: Phase 1._
 _Depends on: Phase 2 (grid, selection)._
 
 - [x] **3.1 Model & data**
-  - [x] `MediaSource` sealed type (`Folder(bucketId)`, `Timeline`, `Map(bounds?)`) so the viewer pages over the same list as the caller. Test: serialization round-trip (used in routes). _Only `Folder` for now; Phases 5 and 6 add theirs. `ViewerRoute` carries `mediaId` and `bucketId` as plain values, so nothing needs serializing._
+  - [x] `MediaSource` sealed type (`Folder(bucketId)`, `Timeline`, `Map(bounds?)`) so the viewer pages over the same list as the caller. Test: serialization round-trip (used in routes). _`Folder` and, since Phase 5, `Timeline`; Phase 6 adds its own. `ViewerRoute` carries `mediaId` and `bucketId` as plain values, so nothing needs serializing._
   - [x] `MediaRepository.pagedItems(source)` and `indexOf(source, mediaId)`. Tests per source. _Replaces `pagedFolderItems`._
   - [x] `ImageDetails` model (date, size, resolution, mime, path, lat/long, camera make/model, exposure, ISO, focal length…). `ImageDetailsMapper.from(rawExif, item)` in `:core:data` (JVM tests per field, missing values); `AndroidExifSource` extended with the camera tags (Robolectric fixture test).
 - [x] **3.2 Delete (`:core:media` + `:core:data`)**
@@ -193,14 +193,14 @@ _Depends on: Phase 2 (grid, selection)._
 - [x] **3.3 Share**
   - [x] `ShareSpec.from(items)` in `:core:data` (single vs multiple, common mime or `image/*`; JVM tests) and `ShareIntentFactory` in `:core:ui` turning it into `ACTION_SEND`/`ACTION_SEND_MULTIPLE` with `FLAG_GRANT_READ_URI_PERMISSION` and `ClipData` (Robolectric test). _`ShareSpec` is in `:core:model`, because `:core:ui` does not depend on `:core:data`._
 - [x] **3.4 `:feature:viewer`**
-  - [x] `ViewerRoute(source: MediaSource, mediaId: Long)`. _`ViewerRoute(mediaId, bucketId)`, see 3.1._
+  - [x] `ViewerRoute(source: MediaSource, mediaId: Long)`. _`ViewerRoute(mediaId, bucketId)`, see 3.1; a null `bucketId` means the timeline._
   - [x] `ViewerViewModel`: paging over source, current index, `ViewerUiState(currentItem, chromeVisible, details?, pendingDelete?)`; events `PageChanged`, `ToggleChrome`, `ShowInfo`, `Delete`, `Share`, `DeleteConfirmed`. Tests per event.
   - [x] `ViewerScreen`: `HorizontalPager` + Telephoto `ZoomableAsyncImage` (Coil, subsampling, double-tap zoom); system-bars hide/show; top bar (back, share, delete, edit placeholder, info). Compose UI tests: swipe changes page, tap toggles chrome, delete shows confirmation flow. _No edit placeholder; the button comes with the editor (Phase 7). The confirmation flow is tested in `TrashEffectHandlerTest`. Zooming itself has only been compiled; it needs the device checks._
   - [x] `ImageInfoSheet` (ModalBottomSheet with `ImageDetails`). Compose test: fields rendered, missing values hidden.
   - [x] Handle item disappearing (deleted externally) → move to neighbour or close. Test in ViewModel.
 - [x] **3.5 Multi-select actions in grids**
   - [x] Add delete/share actions to `SelectionTopBar` in `FolderGridScreen`; `FolderGridViewModel` uses `MediaActionsRepository` / `ShareIntentFactory`. Actions apply to the whole app-wide selection. Tests: events → outcomes.
-  - [x] Selection overview (D33): `SelectionRepresentability.canShow(item, context)` in `:core:data` (Folder: same bucket; Timeline: always; Map: has GPS – added in Phase 6). JVM tests per context. `SelectionRepository.overview(context)` → items with a `greyedOut` flag. JVM test. `SelectionOverviewRoute(context)` screen (grid, greyed-out items, same actions). ViewModel tests; Compose test: greyed-out item rendered. _`SelectionOverviewRoute(bucketId)` until the timeline opens it too (Phase 5). Tapping an image removes it from the selection._
+  - [x] Selection overview (D33): `SelectionRepresentability.canShow(item, context)` in `:core:data` (Folder: same bucket; Timeline: always; Map: has GPS – added in Phase 6). JVM tests per context. `SelectionRepository.overview(context)` → items with a `greyedOut` flag. JVM test. `SelectionOverviewRoute(context)` screen (grid, greyed-out items, same actions). ViewModel tests; Compose test: greyed-out item rendered. _`SelectionOverviewRoute(bucketId)`, where null means the timeline (Phase 5). Tapping an image removes it from the selection._
 - [x] **3.6 `:app`** – route `ViewerRoute` from folder grid; handle `ACTION_VIEW` intent for `image/*` content URIs (open viewer for a single external item). Test: intent parsing. _`ExternalImageScreen` shows only the zoomable image: the file need not be in the index, so it has no info, share or delete._
 - [x] **3.7 Update docs** – ARCHITECTURE.md (viewer, delete flow) and README match code.
 
@@ -237,18 +237,18 @@ _Depends on: Phase 1 (FolderRules, IndexScheduler)._
 **Goal:** all indexed images grouped by year → month → day with sticky headers and a date-labelled fast scroll.
 _Depends on: Phases 2 (grid), 3 (viewer)._
 
-- [ ] **5.1 Database**
-  - [ ] `MediaDao.pagingTimeline(): PagingSource<Int, MediaEntity>` ordered by `taken_local_date DESC, date_taken DESC`. Test.
-  - [ ] `MediaDao.observeDayCounts(): Flow<List<DayCount>>` (date, count) for headers and scrollbar map. Test.
-- [ ] **5.2 Repository**
-  - [ ] `TimelineRepository.pagedTimeline(): Flow<PagingData<TimelineEntry>>` inserting `Header(year, month, day)` separators via `insertSeparators`. Tests: separators at day/month/year boundaries.
-  - [ ] `TimelineIndex` built from day counts: `labelForPosition(index): "MMMM yyyy"`, `positionForMonth(yearMonth)`, `dayRailLabels(centerIndex)` → previous, current and next day ("24 Oct 2026"; null at the ends) for the date rail (D43). Tests per function.
-  - [ ] Grouping granularity enum (`Day`, `Month`, `Year`) for pinch-to-change density (optional, behind setting). Tests.
-- [ ] **5.3 `:feature:timeline`**
-  - [ ] `TimelineViewModel` → `TimelineUiState` (paging flow, granularity, app-wide selection count). Tests per event.
-  - [ ] `TimelineScreen`: `LazyVerticalGrid` with full-span `stickyHeader`-style headers (Compose `LazyGrid` header items + overlay sticky header), date rail (D43: track, thumb, current day large in a pill, neighbouring days small; drawn above the sticky headers), multi-select delete/share. Compose UI tests: headers shown, rail shows the day in the middle of the screen and its neighbours.
-  - [ ] Open viewer with `MediaSource.Timeline`. Test.
-- [ ] **5.4 Update docs** – ARCHITECTURE.md (timeline date resolution, separators) and README match code.
+- [x] **5.1 Database**
+  - [x] `MediaDao.pagingTimeline(): PagingSource<Int, MediaEntity>` ordered by `taken_local_date DESC, date_taken DESC`. Test. _In its own `TimelineDao` as `paging()`, behind the `TimelineStore` port. Uses the existing `local_year/month/day` columns; no schema change. Also `ids()` (select all) and `indexOf(id)` (viewer)._
+  - [x] `MediaDao.observeDayCounts(): Flow<List<DayCount>>` (date, count) for headers and scrollbar map. Test. _In `TimelineDao`._
+- [x] **5.2 Repository**
+  - [x] `TimelineRepository.pagedTimeline(): Flow<PagingData<TimelineEntry>>` inserting `Header(year, month, day)` separators via `insertSeparators`. Tests: separators at day/month/year boundaries. _No separators: `insertSeparators` only sees loaded pages, so the row count and the position of every header would change while scrolling, and the date rail could not jump. `TimelineRepository.observeIndex()` gives a `TimelineIndex` that knows all rows from the day counts; the images are the plain `MediaRepository.pagedItems(MediaSource.Timeline)`, the same list the viewer pages through._
+  - [x] `TimelineIndex` built from day counts: `labelForPosition(index): "MMMM yyyy"`, `positionForMonth(yearMonth)`, `dayRailLabels(centerIndex)` → previous, current and next day ("24 Oct 2026"; null at the ends) for the date rail (D43). Tests per function. _As `rowAt`, `isHeader`, `monthAt` and `dayRailAt`, which return dates; the feature module formats them. `positionForMonth` is left out, because nothing jumps to a month._
+  - [ ] Grouping granularity enum (`Day`, `Month`, `Year`) for pinch-to-change density (optional, behind setting). Tests. _Not done: optional, and it would need its own layout per level and a setting._
+- [x] **5.3 `:feature:timeline`**
+  - [x] `TimelineViewModel` → `TimelineUiState` (paging flow, granularity, app-wide selection count). Tests per event. _The paging flow is separate from the state, as in the folder grid; no granularity (see 5.2). The state also has today's date, for "Today · …"._
+  - [x] `TimelineScreen`: `LazyVerticalGrid` with full-span `stickyHeader`-style headers (Compose `LazyGrid` header items + overlay sticky header), date rail (D43: track, thumb, current day large in a pill, neighbouring days small; drawn above the sticky headers), multi-select delete/share. Compose UI tests: headers shown, rail shows the day in the middle of the screen and its neighbours. _Month headers stick; day headers scroll (DESIGN.md). The wording of the empty and failed states is new, modelled on the folder screens, because DESIGN.md has none for the timeline._
+  - [x] Open viewer with `MediaSource.Timeline`. Test. _`ViewerRoute(mediaId, bucketId = null)`, and `SelectionOverviewRoute(bucketId = null)` for the overview. Both screens now sit outside the Folders graph, so the bottom navigation is hidden on the overview too._
+- [x] **5.4 Update docs** – ARCHITECTURE.md (timeline date resolution, separators) and README match code.
 
 **Definition of done:** timeline shows correct local dates (EXIF fallback verified), sticky headers, the date rail shows the current day and its neighbours (D43), smooth on 10k+ items; tests for every function; CI green.
 

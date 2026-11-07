@@ -2,7 +2,7 @@
 
 A simple, fast Android gallery app with basic editing, multiple ways to browse your photos, and built-in Nextcloud integration.
 
-> Status: early development. Photo access, background indexing, the folder view, the full-screen viewer and settings work; the timeline is next. See [STATUS.md](docs/STATUS.md). This README describes the intended scope.
+> Status: early development. Photo access, background indexing, the folder view, the timeline, the full-screen viewer and settings work; the map is next. See [STATUS.md](docs/STATUS.md). This README describes the intended scope.
 
 ## Documentation
 
@@ -27,7 +27,7 @@ A simple, fast Android gallery app with basic editing, multiple ways to browse y
 | View | Description |
 |---|---|
 | **Folders** (default) | Images grouped by folder, shown as a thumbnail grid. |
-| **Timeline** | Images grouped by year → month → day, with sticky date headers. |
+| **Timeline** | Images grouped by month and day, newest first, with sticky month headers. |
 | **Map** | Images with GPS location (EXIF) shown as clustered markers on a map, from the whole globe down to street level. It opens at your current location. Clusters are named after the nearest town ("near Bolzano"), looked up offline. Images without location data are skipped. |
 | **Nextcloud** | Browse and view images stored on a Nextcloud server, without downloading them first. |
 

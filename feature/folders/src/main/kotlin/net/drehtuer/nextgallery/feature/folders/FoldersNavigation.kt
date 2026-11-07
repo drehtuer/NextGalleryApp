@@ -22,8 +22,9 @@ data object FolderListRoute
 @Serializable
 data class FolderGridRoute(val bucketId: Long)
 
+/** Opened from the folder [bucketId], or from the timeline if it is null. */
 @Serializable
-data class SelectionOverviewRoute(val bucketId: Long)
+data class SelectionOverviewRoute(val bucketId: Long?)
 
 fun NavGraphBuilder.folderListScreen(onFolderClick: (bucketId: Long) -> Unit, onOpenSettings: () -> Unit) {
     composable<FolderListRoute> {

@@ -15,9 +15,9 @@ import kotlinx.serialization.Serializable
 import net.drehtuer.nextgallery.core.ui.platform.rememberTrashEffectHandler
 import net.drehtuer.nextgallery.core.ui.platform.shareImages
 
-/** Pages through the folder [bucketId]. The timeline and the map add their own sources in Phases 5 and 6. */
+/** Pages through the folder [bucketId], or the timeline if it is null. The map adds its own source in Phase 6. */
 @Serializable
-data class ViewerRoute(val mediaId: Long, val bucketId: Long)
+data class ViewerRoute(val mediaId: Long, val bucketId: Long?)
 
 fun NavGraphBuilder.viewerScreen(onBack: () -> Unit) {
     composable<ViewerRoute> { entry ->

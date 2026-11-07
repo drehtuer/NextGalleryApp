@@ -49,6 +49,14 @@ class SelectionOverviewViewModelTest {
     private fun viewModel() = SelectionOverviewViewModel(7, selectionRepository, actions, trashFlow)
 
     @Test
+    fun state_withoutBucket_usesTimelineContext() = runTest {
+        every { selectionRepository.observeOverview(ViewContext.Timeline) } returns flowOf(emptyList())
+        val viewModel = SelectionOverviewViewModel(null, selectionRepository, actions, trashFlow)
+
+        assertEquals(emptyList<SelectionOverviewItem>(), viewModel.state.first { it.items != null }.items)
+    }
+
+    @Test
     fun state_containsOverviewForCallingFolder() = runTest {
         assertEquals(overview, viewModel().state.first { it.items != null }.items)
     }

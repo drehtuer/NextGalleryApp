@@ -33,24 +33,29 @@ import net.drehtuer.nextgallery.feature.settings.appearanceScreen
 import net.drehtuer.nextgallery.feature.settings.folderRulesScreen
 import net.drehtuer.nextgallery.feature.settings.licencesScreen
 import net.drehtuer.nextgallery.feature.settings.settingsScreen
+import net.drehtuer.nextgallery.feature.timeline.timelineScreen
 import net.drehtuer.nextgallery.feature.viewer.ViewerRoute
 import net.drehtuer.nextgallery.feature.viewer.viewerScreen
 
 /**
  * Navigation graph. The feature screens replace the placeholders in the following phases.
- * [folders] and [settings] build those destinations; tests replace them, because the real screens need Hilt.
+ * [folders], [timeline], [settings] and [shared] build those destinations; tests replace them, because the real
+ * screens need Hilt.
  */
 @Composable
 fun NextGalleryNavHost(
     navController: NavHostController,
     folders: NavGraphBuilder.(NavHostController) -> Unit,
+    timeline: NavGraphBuilder.(NavHostController) -> Unit,
     settings: NavGraphBuilder.(NavHostController) -> Unit,
+    shared: NavGraphBuilder.(NavHostController) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     NavHost(navController = navController, startDestination = FoldersRoute, modifier = modifier) {
         folders(navController)
+        timeline(navController)
         settings(navController)
-        composable<TimelineRoute> { PlaceholderScreen(stringResource(R.string.destination_timeline)) }
+        shared(navController)
         composable<MapRoute> { PlaceholderScreen(stringResource(R.string.destination_map)) }
         composable<NextcloudRoute> { PlaceholderScreen(stringResource(R.string.destination_nextcloud)) }
     }
@@ -68,9 +73,20 @@ fun NavGraphBuilder.foldersGraph(navController: NavHostController) {
             onOpenViewer = { id, bucketId -> navController.navigate(ViewerRoute(id.value, bucketId)) },
             onOpenSelectionOverview = { bucketId -> navController.navigate(SelectionOverviewRoute(bucketId)) },
         )
-        selectionOverviewScreen(onBack = navController::popBackStack)
-        viewerScreen(onBack = navController::popBackStack)
     }
+}
+
+fun NavGraphBuilder.timelineGraph(navController: NavHostController) {
+    timelineScreen(
+        onOpenViewer = { id -> navController.navigate(ViewerRoute(id.value, bucketId = null)) },
+        onOpenSelectionOverview = { navController.navigate(SelectionOverviewRoute(bucketId = null)) },
+    )
+}
+
+/** Screens that several tabs open, so they belong to none of them. They hide the bottom navigation. */
+fun NavGraphBuilder.sharedScreens(navController: NavHostController) {
+    selectionOverviewScreen(onBack = navController::popBackStack)
+    viewerScreen(onBack = navController::popBackStack)
 }
 
 fun NavGraphBuilder.settingsGraph(navController: NavHostController) {
