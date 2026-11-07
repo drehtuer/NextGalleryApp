@@ -28,6 +28,7 @@ import net.drehtuer.nextgallery.core.ui.component.LoadingIndicator
 import net.drehtuer.nextgallery.core.ui.component.LocalScreenBanner
 import net.drehtuer.nextgallery.core.ui.permission.LimitedAccessBanner
 import net.drehtuer.nextgallery.core.ui.permission.MediaAccessRequest
+import net.drehtuer.nextgallery.feature.editor.EditorRoute
 import net.drehtuer.nextgallery.feature.folders.SelectionOverviewRoute
 import net.drehtuer.nextgallery.feature.viewer.ViewerRoute
 import net.drehtuer.nextgallery.navigation.NextGalleryNavHost
@@ -59,6 +60,7 @@ fun NextGalleryAppContent(
             val fullScreen = currentEntry?.destination?.let { destination ->
                 destination.hasRoute(ViewerRoute::class) ||
                     destination.hasRoute(SelectionOverviewRoute::class) ||
+                    destination.hasRoute(EditorRoute::class) ||
                     destination.hierarchy.any { it.hasRoute(SettingsGraphRoute::class) }
             } == true
             Scaffold(bottomBar = { if (!fullScreen) BottomBar(navController) }) { padding ->

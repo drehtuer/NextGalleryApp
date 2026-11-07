@@ -12,6 +12,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import androidx.paging.compose.collectAsLazyPagingItems
 import kotlinx.serialization.Serializable
+import net.drehtuer.nextgallery.core.model.MediaId
 import net.drehtuer.nextgallery.core.ui.platform.rememberTrashEffectHandler
 import net.drehtuer.nextgallery.core.ui.platform.shareImages
 
@@ -19,7 +20,7 @@ import net.drehtuer.nextgallery.core.ui.platform.shareImages
 @Serializable
 data class ViewerRoute(val mediaId: Long, val bucketId: Long?)
 
-fun NavGraphBuilder.viewerScreen(onBack: () -> Unit) {
+fun NavGraphBuilder.viewerScreen(onBack: () -> Unit, onOpenEditor: (MediaId) -> Unit) {
     composable<ViewerRoute> { entry ->
         val route = entry.toRoute<ViewerRoute>()
         val viewModel = hiltViewModel<ViewerViewModel, ViewerViewModel.Factory>(
@@ -38,6 +39,7 @@ fun NavGraphBuilder.viewerScreen(onBack: () -> Unit) {
                 when (effect) {
                     is ViewerEffect.Share -> context.shareImages(effect.spec)
                     is ViewerEffect.Trash -> handleTrashEffect(effect.effect)
+                    is ViewerEffect.OpenEditor -> onOpenEditor(effect.id)
                     ViewerEffect.Close -> onBack()
                 }
             }

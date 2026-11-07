@@ -16,6 +16,7 @@ import androidx.navigation.toRoute
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import net.drehtuer.nextgallery.core.model.MediaAccess
 import net.drehtuer.nextgallery.core.ui.component.ScreenBanner
+import net.drehtuer.nextgallery.feature.editor.EditorRoute
 import net.drehtuer.nextgallery.feature.folders.SelectionOverviewRoute
 import net.drehtuer.nextgallery.feature.timeline.TimelineRoute
 import net.drehtuer.nextgallery.feature.viewer.ViewerRoute
@@ -134,6 +135,15 @@ class NextGalleryAppContentTest {
         composeRule.onNodeWithText("Timeline").assertDoesNotExist()
     }
 
+    @Test
+    fun editorOpen_hidesBottomNavigation() {
+        val navController = showSharedStandIns()
+
+        composeRule.runOnIdle { navController.navigate(EditorRoute(mediaId = 1)) }
+
+        composeRule.onNodeWithText("Timeline").assertDoesNotExist()
+    }
+
     private fun showSharedStandIns(): NavHostController {
         lateinit var navController: NavHostController
         composeRule.setContent {
@@ -149,6 +159,7 @@ class NextGalleryAppContentTest {
                     composable<SelectionOverviewRoute> {
                         Text("Overview of bucket ${it.toRoute<SelectionOverviewRoute>().bucketId}")
                     }
+                    composable<EditorRoute> { Text("Editor screen") }
                 },
             )
         }

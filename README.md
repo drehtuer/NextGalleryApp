@@ -46,7 +46,7 @@ A simple, fast Android gallery app with basic editing, multiple ways to browse y
 - **Pen** – freehand drawing with selectable colour and stroke width, with undo/redo.
 - Editing is available for JPEG and PNG images; edits are saved in the same format.
 - Images too large to edit within the available memory are refused with an explanation instead of risking a crash or silently lowering quality.
-- Edits are saved as a **new copy** by default, with an option to overwrite the original. EXIF data is preserved where possible.
+- Edits are saved as a **new copy** by default, with an option to overwrite the original after the system's confirmation. EXIF data is preserved where possible, with the orientation reset and the new dimensions.
 
 ### File actions
 

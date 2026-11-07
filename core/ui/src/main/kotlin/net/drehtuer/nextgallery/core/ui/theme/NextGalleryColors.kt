@@ -133,4 +133,16 @@ fun viewerColorScheme(): ColorScheme = darkScheme(AccentColor.BLUE).copy(backgro
 object NextGalleryOverlayColors {
     val badgeBacking = Color.Black.copy(alpha = 0.6f)
     val badgeOn = Color.White
+    val cropFrame = Color.White
+    val cropScrim = Color.Black.copy(alpha = 0.6f)
+
+    /** White, black, coral, orange, green and blue (DESIGN.md). */
+    val penColors = listOf(
+        Color.White,
+        Color.Black,
+        Color(0xFFFF7A66),
+        Color(0xFFFF9800),
+        Color(0xFF4CAF50),
+        Color(0xFF2196F3),
+    )
 }

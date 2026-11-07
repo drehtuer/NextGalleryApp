@@ -6,6 +6,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import net.drehtuer.nextgallery.core.data.access.DefaultMediaAccessRepository
 import net.drehtuer.nextgallery.core.data.access.MediaAccessRepository
+import net.drehtuer.nextgallery.core.data.edit.DefaultEditRepository
+import net.drehtuer.nextgallery.core.data.edit.EditRepository
 import net.drehtuer.nextgallery.core.data.index.DefaultIndexRepository
 import net.drehtuer.nextgallery.core.data.index.IndexRepository
 import net.drehtuer.nextgallery.core.data.media.DefaultFolderRepository
@@ -51,4 +53,7 @@ interface RepositoryModule {
 
     @Binds
     fun bindSettingsRepository(repository: DefaultSettingsRepository): SettingsRepository
+
+    @Binds
+    fun bindEditRepository(repository: DefaultEditRepository): EditRepository
 }

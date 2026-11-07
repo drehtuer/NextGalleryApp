@@ -16,6 +16,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import net.drehtuer.nextgallery.BuildConfig
 import net.drehtuer.nextgallery.R
+import net.drehtuer.nextgallery.feature.editor.EditorRoute
+import net.drehtuer.nextgallery.feature.editor.editorScreen
 import net.drehtuer.nextgallery.feature.folders.FolderGridRoute
 import net.drehtuer.nextgallery.feature.folders.FolderListRoute
 import net.drehtuer.nextgallery.feature.folders.SelectionOverviewRoute
@@ -86,7 +88,18 @@ fun NavGraphBuilder.timelineGraph(navController: NavHostController) {
 /** Screens that several tabs open, so they belong to none of them. They hide the bottom navigation. */
 fun NavGraphBuilder.sharedScreens(navController: NavHostController) {
     selectionOverviewScreen(onBack = navController::popBackStack)
-    viewerScreen(onBack = navController::popBackStack)
+    viewerScreen(
+        onBack = navController::popBackStack,
+        onOpenEditor = { id -> navController.navigate(EditorRoute(id.value)) },
+    )
+    editorScreen(
+        onClose = navController::popBackStack,
+        onOpenCopy = { id, bucketId ->
+            navController.navigate(ViewerRoute(id.value, bucketId)) {
+                popUpTo<ViewerRoute> { inclusive = true }
+            }
+        },
+    )
 }
 
 fun NavGraphBuilder.settingsGraph(navController: NavHostController) {

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import net.drehtuer.nextgallery.core.data.access.MediaAccessRepository
+import net.drehtuer.nextgallery.core.data.edit.EditRepository
 import net.drehtuer.nextgallery.core.data.index.IndexScheduler
 import net.drehtuer.nextgallery.core.data.settings.SettingsRepository
 import net.drehtuer.nextgallery.core.model.AccentColor
@@ -38,6 +39,7 @@ sealed interface MainEvent {
 class MainViewModel @Inject constructor(
     private val mediaAccessRepository: MediaAccessRepository,
     private val indexScheduler: IndexScheduler,
+    private val editRepository: EditRepository,
     settingsRepository: SettingsRepository,
 ) : ViewModel() {
     private val access = MutableStateFlow<MediaAccess?>(null)
@@ -56,7 +58,10 @@ class MainViewModel @Inject constructor(
         access.value = current
         viewModelScope.launch {
             when {
-                previous == null -> indexScheduler.onAppStart(current)
+                previous == null -> {
+                    indexScheduler.onAppStart(current)
+                    editRepository.cleanupPending()
+                }
 
                 event == MainEvent.AccessRequestFinished || previous != current -> indexScheduler.onAccessChanged(
                     current,
