@@ -15,10 +15,10 @@ Where the implementation stands against the plan in [TODO.md](TODO.md). TODO.md 
 | – | Visual design from Claude Design (task 10.0) | Applied to the existing screens. Open: checks on the device. |
 | 4 | Settings: folder include/exclude list | Done in code; the CI checks pass locally in the devcontainer. Open: checks on the device. |
 | 5 | Timeline view | Done in code; the CI checks pass locally in the devcontainer. Open: checks on the device. |
-| 6 | Map view | Next |
+| 6 | Map view | Done in code; the CI checks pass locally in the devcontainer. Open: checks on the device. |
 | 7 | Editor | Done in code; the CI checks pass locally in the devcontainer. Open: checks on the device. |
 | 8 | Nextcloud login and remote viewer | Done in code; the CI checks pass locally in the devcontainer. Open: checks on the device with a real server. |
-| 9 | Upload status and hand-off to the Nextcloud app | Not started |
+| 9 | Upload status and hand-off to the Nextcloud app | Next |
 | 10 | Hardening and release | Not started |
 
 ## What works now
@@ -33,7 +33,8 @@ Where the implementation stands against the plan in [TODO.md](TODO.md). TODO.md 
 - Other apps can open an image in NextGallery ("Open with"). This shows only the zoomable image.
 - The Timeline tab shows all images, newest first, grouped by day under month headers. The month header stays at the top and day headers scroll ("Today · Friday 6 November"). A date rail on the right shows the day in the middle of the screen with the days above and below, and its thumb can be dragged to jump.
 - Tapping a timeline image opens the viewer, which swipes through the whole timeline. Selecting works as in the folders, and the selection is shared with them.
-- The Map tab is still a placeholder.
+- The Map tab shows geotagged images as clusters that split on zoom, on OpenStreetMap tiles over HTTPS, with zoom 0–19 and a repeating world. It opens at the current location at zoom 8, or on the area with the most photos; without photo location access a card asks for it.
+- Locations are read in a second pass after indexing. Tapping a cluster opens a sheet named by the bundled GeoNames list ("Near Bolzano and 7 more places"), and tapping an image opens the viewer on that cluster. The viewer's details show "near <town>, <country> · coordinates". Settings has a Map row for the tile server.
 - Nextcloud: you sign in through the browser (Login Flow v2), so the app never sees your password; the app password is stored encrypted with Tink and the Android Keystore. The tab shows a login hint while logged out. Signed in, it browses folders with breadcrumbs and server previews, pull-to-refresh, an offline banner over the last loaded listing, and a session-ended banner.
 - The remote viewer shows the preview first, then the original with "Loading full image · x of y MB". Long-press or Select offers Move to folder…, Share and Delete. Moving and deleting offer Undo; name conflicts ask per file. Share downloads to a temporary folder, then opens the share sheet.
 - Unknown or changed certificates show a warning; accepted ones are pinned per host and can be removed in Settings.
@@ -44,7 +45,7 @@ Where the implementation stands against the plan in [TODO.md](TODO.md). TODO.md 
 - The Folders top bar opens Settings: Folders, Appearance, Nextcloud ("Not connected") and About & licences.
 - Folder rules offer Include, Default or Exclude per folder, plus exclude patterns; a change re-indexes after about 2 s.
 - Appearance sets the theme mode, 3, 4 or 5 grid columns and the accent colour, applied live and kept across restarts.
-- 1652 tests run with the CI command (plain JVM, Robolectric, Compose UI).
+- 1945 tests run with the CI command (plain JVM, Robolectric, Compose UI).
 
 ## To verify on the device
 
@@ -79,6 +80,9 @@ These need the Pixel 10a or an API 37 emulator (`./gradlew connectedDebugAndroid
 - [ ] Nextcloud, needs a real server: login in Custom Tabs, also behind a reverse proxy or on a custom port (a server reporting another address is refused); LAN IP, `.local` and VPN/Tailscale addresses, and how a blocked connection fails without `ACCESS_LOCAL_NETWORK` (D39).
 - [ ] Nextcloud, needs a real server: an accepted self-signed certificate with Certificate Transparency on (D40); move, conflict, replace and undo, including whether a replaced file lands in the trash bin; trash-bin restore; read-only shares disabled through real `oc:permissions`; logout removes the password from the server's security settings.
 - [ ] Nextcloud: the share sheet works with the temporary files; Telephoto zoom on originals with the progress bar; landscape.
+- [ ] Map: tiles load; pinch, two-finger drag and the world repetition work; the attribution is visible; markers show cover, border and count pill at the right size; the location dot looks right, in both themes.
+- [ ] Map: the first open shows the location prompt once; allowing photo locations fills the map, also with partial media access; without `ACCESS_MEDIA_LOCATION` no locations are read; a custom tile server applies.
+- [ ] Map: Back from the viewer and the selection overview returns to the map with the camera kept, also after switching tabs; the location pass on a large library, interrupted and resumed.
 - [ ] Design: the Select action starts a selection with "0 selected"; the limited access banner sits under the top bar.
 - [x] `MainActivityTest` (`:app`), `MediaStoreScannerTest` (`:core:media`) and `MediaThumbnailFetcherTest` (`:core:ui`) pass on the Pixel 10a (2026-11-06).
 - [x] Images in a folder with a `.nomedia` file are not returned by the scanner, after a media scan (D6; `MediaStoreScannerTest`).
@@ -90,6 +94,7 @@ These need the Pixel 10a or an API 37 emulator (`./gradlew connectedDebugAndroid
 - The editor's history does not survive process death.
 - Previews being downloaded during logout can still reach the image cache afterwards; a running move batch is not tied to one account; if the process dies right after logout, the password is not revoked on the server.
 - With the server's trash bin disabled, Delete is permanent, although the design has no confirmation and Undo then reports "not found".
+- Map markers are not reachable with TalkBack, because osmdroid overlays are not exposed to it.
 - The licence list is kept by hand until task 10.5 generates it.
 - SonarCloud coverage only counts the tests CI runs, so adapters covered only by instrumented tests show as uncovered (D41).
 - detekt 2.0 is an alpha release, because detekt 1.23 does not work with AGP 9 (D18).
