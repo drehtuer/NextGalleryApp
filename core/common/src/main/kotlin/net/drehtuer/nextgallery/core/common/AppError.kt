@@ -45,6 +45,9 @@ sealed interface AppError {
     /** The address the user entered is not a usable https address. */
     data object InvalidServerUrl : AppError
 
+    /** The server's login responses name another server than the one the user entered. */
+    data object ServerMismatch : AppError
+
     /** The user did not finish signing in in time. */
     data object LoginExpired : AppError
 

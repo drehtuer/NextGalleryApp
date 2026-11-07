@@ -20,9 +20,9 @@ object RemotePaths {
 
     fun join(parent: String, name: String): String = normalize("$parent$SEPARATOR$name")
 
-    /** A single file or folder name: not blank, not a dot name, and without a path separator. */
+    /** A single file or folder name: not blank, not a dot name, without a path separator or control character. */
     fun isValidName(name: String): Boolean =
-        name.isNotBlank() && name !in DOT_NAMES && name.none { it in FORBIDDEN_CHARACTERS }
+        name.isNotBlank() && name !in DOT_NAMES && name.none { it in FORBIDDEN_CHARACTERS || it.isISOControl() }
 
     /** The folders from the root down to [path], including both. */
     fun ancestors(path: String): List<String> =

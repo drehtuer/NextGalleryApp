@@ -1,10 +1,10 @@
 package net.drehtuer.nextgallery.core.data.nextcloud
 
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import net.drehtuer.nextgallery.core.common.AppError
 import net.drehtuer.nextgallery.core.common.AppResult
+import net.drehtuer.nextgallery.core.model.NextcloudAccount
 import net.drehtuer.nextgallery.core.model.RemoteItem
 import net.drehtuer.nextgallery.core.model.RemotePaths
 import net.drehtuer.nextgallery.core.model.SupportedMimeTypes
@@ -25,29 +25,40 @@ interface RemoteBrowseRepository {
 }
 
 class DefaultRemoteBrowseRepository @Inject constructor(
-    private val accounts: AccountStore,
     private val runner: RemoteCallRunner,
     private val webDav: WebDavClient,
     private val cache: RemoteCacheStore,
+    private val session: AccountSession,
 ) : RemoteBrowseRepository {
     override fun list(path: String): Flow<RemoteListing> = flow {
         val normalized = RemotePaths.normalize(path)
-        if (accounts.observeAccount().first() == null) {
-            emit(RemoteListing(normalized, emptyList(), error = AppError.NotLoggedIn))
+        val owner = runner.currentAccount()
+        if (owner == null) {
+            emit(signedOut(normalized))
             return@flow
         }
         val cached = cache.get(normalized)
         emit(RemoteListing(normalized, cached, isRefreshing = true))
-        when (val result = runner.call { account -> webDav.list(account, normalized) }) {
+        emit(refreshed(owner, normalized, cached))
+    }
+
+    /** If [owner] left while waiting for the server, nothing of it is stored or shown under whoever came next. */
+    private suspend fun refreshed(owner: NextcloudAccount, path: String, cached: List<RemoteItem>): RemoteListing =
+        when (val result = runner.call(owner) { webDav.list(it, path) }) {
             is AppResult.Success -> {
                 val items = visible(result.value.children)
-                cache.replaceFolder(normalized, items)
-                emit(RemoteListing(normalized, items))
+                val stored = session.writeFor(owner) { cache.replaceFolder(path, items) }
+                if (stored) RemoteListing(path, items) else signedOut(path)
             }
 
-            is AppResult.Failure -> emit(RemoteListing(normalized, cached, error = result.error))
+            is AppResult.Failure -> if (result.error == AppError.NotLoggedIn) {
+                signedOut(path)
+            } else {
+                RemoteListing(path, cached, error = result.error)
+            }
         }
-    }
+
+    private fun signedOut(path: String) = RemoteListing(path, emptyList(), error = AppError.NotLoggedIn)
 
     /** Folders by name, then the images the app can show, newest first. */
     private fun visible(items: List<RemoteItem>): List<RemoteItem> {

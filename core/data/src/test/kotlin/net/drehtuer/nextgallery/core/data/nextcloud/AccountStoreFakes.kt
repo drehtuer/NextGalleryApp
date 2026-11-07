@@ -1,5 +1,8 @@
 package net.drehtuer.nextgallery.core.data.nextcloud
 
+import io.mockk.mockk
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import net.drehtuer.nextgallery.core.model.NextcloudAccount
@@ -37,3 +40,9 @@ internal fun testRunner(store: AccountStore = FakeAccountStore()) =
 internal object GrantedLocalNetwork : LocalNetworkPermissionSource {
     override fun isGranted() = true
 }
+
+internal fun testSession(store: AccountStore = FakeAccountStore()) = AccountSession(
+    store,
+    mockk(relaxed = true),
+    AppPasswordRevoker(mockk(relaxed = true), CoroutineScope(Dispatchers.Unconfined)),
+)

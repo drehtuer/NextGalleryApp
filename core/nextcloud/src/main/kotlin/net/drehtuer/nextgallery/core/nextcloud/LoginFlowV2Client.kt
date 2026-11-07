@@ -30,7 +30,8 @@ data class LoginFlowResult(val serverUrl: String, val loginName: String, val app
 
 /**
  * Nextcloud Login Flow v2. The URLs in the responses come from the network and are opened in a browser or receive the
- * token, so only https is accepted, or http if [allowCleartext] (D19).
+ * token, so only https is accepted, or http if [allowCleartext] (D19). The token only goes to the server the user
+ * entered: to the same scheme, host and port, as Nextcloud does it, and never along a redirect.
  */
 class LoginFlowV2Client(
     private val client: OkHttpClient,
@@ -39,11 +40,14 @@ class LoginFlowV2Client(
     private val timeoutMillis: Long = DEFAULT_TIMEOUT_MILLIS,
     private val io: CoroutineDispatcher = Dispatchers.IO,
 ) {
+    private val pollClient = client.newBuilder().followRedirects(false).build()
+    private val normalizer = ServerUrlNormalizer(allowCleartext)
+
     suspend fun start(serverUrl: String): LoginFlowSession = withContext(io) {
         val request = Request.Builder().url("$serverUrl/index.php/login/v2").post(EMPTY_BODY).build()
         client.newCall(request).await().use { response ->
             response.requireSuccess()
-            parseSession(response.body.string())
+            parseSession(response.bodyAsLimitedString(), serverUrl)
         }
     }
 
@@ -59,19 +63,22 @@ class LoginFlowV2Client(
     private suspend fun pollOnce(session: LoginFlowSession): LoginFlowResult? = withContext(io) {
         val body = FormBody.Builder().add("token", session.token).build()
         val request = Request.Builder().url(session.pollEndpoint).post(body).build()
-        client.newCall(request).await().use { response ->
+        pollClient.newCall(request).await().use { response ->
             if (response.code == HttpURLConnection.HTTP_NOT_FOUND) return@withContext null
+            if (response.isRedirect) throw ServerMismatchException()
             response.requireSuccess()
-            parseResult(response.body.string())
+            parseResult(response.bodyAsLimitedString())
         }
     }
 
-    private fun parseSession(body: String): LoginFlowSession = parsing {
+    private fun parseSession(body: String, serverUrl: String): LoginFlowSession = parsing {
         val root = Json.parseToJsonElement(body).jsonObject
         val poll = root.getValue("poll").jsonObject
+        val pollEndpoint = requireAllowedUrl(poll.getValue("endpoint").jsonPrimitive.content)
+        if (!isSameOrigin(pollEndpoint, serverUrl)) throw ServerMismatchException()
         LoginFlowSession(
             loginUrl = requireAllowedUrl(root.getValue("login").jsonPrimitive.content),
-            pollEndpoint = requireAllowedUrl(poll.getValue("endpoint").jsonPrimitive.content),
+            pollEndpoint = pollEndpoint,
             token = poll.getValue("token").jsonPrimitive.content,
         )
     }
@@ -79,7 +86,7 @@ class LoginFlowV2Client(
     private fun parseResult(body: String): LoginFlowResult = parsing {
         val root = Json.parseToJsonElement(body).jsonObject
         LoginFlowResult(
-            serverUrl = requireAllowedUrl(root.getValue("server").jsonPrimitive.content).trimEnd('/'),
+            serverUrl = normalizer.normalize(requireAllowedUrl(root.getValue("server").jsonPrimitive.content)),
             loginName = root.getValue("loginName").jsonPrimitive.content,
             appPassword = root.getValue("appPassword").jsonPrimitive.content,
         )

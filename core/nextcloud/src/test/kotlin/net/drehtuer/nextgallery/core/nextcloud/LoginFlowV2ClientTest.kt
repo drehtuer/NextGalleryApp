@@ -23,7 +23,7 @@ class LoginFlowV2ClientTest {
 
     private fun sessionJson(
         login: String = "https://cloud.example.com/login",
-        endpoint: String = "https://cloud.example.com/poll",
+        endpoint: String = server.url("/poll").toString(),
     ) = """{"poll":{"token":"t0k3n","endpoint":"$endpoint"},"login":"$login"}"""
 
     @Test
@@ -44,7 +44,7 @@ class LoginFlowV2ClientTest {
         val result = client.start(server.url("/").toString().trimEnd('/'))
 
         assertEquals(
-            LoginFlowSession("https://cloud.example.com/login", "https://cloud.example.com/poll", "t0k3n"),
+            LoginFlowSession("https://cloud.example.com/login", server.url("/poll").toString(), "t0k3n"),
             result,
         )
     }
@@ -65,6 +65,44 @@ class LoginFlowV2ClientTest {
 
         assertThrows(InvalidServerUrlException::class.java) {
             runBlocking { strict.start(server.url("/").toString().trimEnd('/')) }
+        }
+    }
+
+    @Test
+    fun start_pollEndpointOnAnotherHost_isRefused() {
+        server.enqueue(MockResponse().setBody(sessionJson(endpoint = "http://elsewhere.example.com/poll")))
+
+        assertThrows(ServerMismatchException::class.java) {
+            runBlocking { client.start(server.url("/").toString().trimEnd('/')) }
+        }
+    }
+
+    @Test
+    fun start_pollEndpointOnAnotherPort_isRefused() {
+        val endpoint = server.url("/poll").newBuilder().port(server.port + 1).build().toString()
+        server.enqueue(MockResponse().setBody(sessionJson(endpoint = endpoint)))
+
+        assertThrows(ServerMismatchException::class.java) {
+            runBlocking { client.start(server.url("/").toString().trimEnd('/')) }
+        }
+    }
+
+    @Test
+    fun start_pollEndpointOnAnotherScheme_isRefused() {
+        val endpoint = server.url("/poll").newBuilder().scheme("https").build().toString()
+        server.enqueue(MockResponse().setBody(sessionJson(endpoint = endpoint)))
+
+        assertThrows(ServerMismatchException::class.java) {
+            runBlocking { client.start(server.url("/").toString().trimEnd('/')) }
+        }
+    }
+
+    @Test
+    fun start_oversizedResponse_failsInsteadOfReadingIt() {
+        server.enqueue(MockResponse().setBody("x".repeat(MAX_JSON_BYTES.toInt() + 1)))
+
+        assertThrows(ResponseTooLargeException::class.java) {
+            runBlocking { client.start(server.url("/").toString().trimEnd('/')) }
         }
     }
 
@@ -139,6 +177,41 @@ class LoginFlowV2ClientTest {
         server.enqueue(MockResponse().setBody("""{"server":"http://c","loginName":"a","appPassword":"p"}"""))
 
         assertThrows(InvalidServerUrlException::class.java) { runBlocking { strict.poll(session) } }
+    }
+
+    @Test
+    fun poll_serverAddressIsNormalized() = runBlocking {
+        server.enqueue(
+            MockResponse().setBody(
+                """{"server":"https://CLOUD.example.com/nc/index.php/?a=b","loginName":"a","appPassword":"p"}""",
+            ),
+        )
+
+        assertEquals("https://cloud.example.com/nc", client.poll(session).serverUrl)
+    }
+
+    @Test
+    fun poll_serverAddressWithCredentials_isRefused() {
+        server.enqueue(MockResponse().setBody("""{"server":"https://a:b@c","loginName":"a","appPassword":"p"}"""))
+
+        assertThrows(InvalidServerUrlException::class.java) { runBlocking { client.poll(session) } }
+    }
+
+    @Test
+    fun poll_redirect_isNotFollowedAndFailsAsAnotherServer() {
+        val other = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(307).setHeader("Location", other.url("/stolen")))
+
+        assertThrows(ServerMismatchException::class.java) { runBlocking { client.poll(session) } }
+        assertEquals(0, other.requestCount)
+        other.shutdown()
+    }
+
+    @Test
+    fun poll_oversizedResponse_failsInsteadOfReadingIt() {
+        server.enqueue(MockResponse().setBody("x".repeat(MAX_JSON_BYTES.toInt() + 1)))
+
+        assertThrows(ResponseTooLargeException::class.java) { runBlocking { client.poll(session) } }
     }
 
     @Test
