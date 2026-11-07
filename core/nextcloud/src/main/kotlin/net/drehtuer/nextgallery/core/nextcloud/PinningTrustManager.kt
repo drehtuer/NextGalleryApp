@@ -63,11 +63,13 @@ class PinningTrustManager(private val platform: X509TrustManager, private val pi
 
     override fun getAcceptedIssuers(): Array<X509Certificate> = platform.acceptedIssuers
 
-    override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) = refuseClient()
+    override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String): Unit = throw clientRefused()
 
-    override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String, socket: Socket) = refuseClient()
+    override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String, socket: Socket): Unit =
+        throw clientRefused()
 
-    override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String, engine: SSLEngine) = refuseClient()
+    override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String, engine: SSLEngine): Unit =
+        throw clientRefused()
 
-    private fun refuseClient(): Unit = throw CertificateException("This app is never a TLS server")
+    private fun clientRefused() = CertificateException("This app is never a TLS server")
 }
