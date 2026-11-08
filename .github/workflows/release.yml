@@ -47,8 +47,10 @@ jobs:
             exit 1
           fi
 
-      # The keystore and its passwords come from the environment's secrets. They are written into the workspace only
+      # The keystore and its password come from the environment's secrets. They are written into the workspace only
       # for the build, readable by the build user alone, and removed again in the last step.
+      # RELEASE_KEY_ALIAS and RELEASE_KEY_PASSWORD are optional: without them the keystore's only key is used, with the
+      # keystore password, which is what a PKCS12 keystore (keytool's default) has anyway.
       - name: Write the signing configuration
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
@@ -56,7 +58,8 @@ jobs:
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
-          for name in RELEASE_KEYSTORE_BASE64 RELEASE_KEYSTORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD; do
+          set -o pipefail
+          for name in RELEASE_KEYSTORE_BASE64 RELEASE_KEYSTORE_PASSWORD; do
             if [ -z "${!name}" ]; then
               echo "::error::The secret $name is missing in the release environment."
               exit 1
@@ -64,12 +67,30 @@ jobs:
           done
           umask 077
           printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 --decode > release.jks
+          # Also checks the keystore and its password before the long build starts.
+          if ! aliases=$(keytool -list -v -keystore release.jks -storepass:env RELEASE_KEYSTORE_PASSWORD | sed -n 's/^Alias name: //p'); then
+            echo "::error::The keystore in RELEASE_KEYSTORE_BASE64 cannot be opened with RELEASE_KEYSTORE_PASSWORD."
+            exit 1
+          fi
+          alias="$RELEASE_KEY_ALIAS"
+          if [ -z "$alias" ]; then
+            if [ "$(printf '%s\n' "$aliases" | grep -c .)" != 1 ]; then
+              echo "::error::The keystore does not hold exactly one key; set RELEASE_KEY_ALIAS to choose one."
+              exit 1
+            fi
+            alias="$aliases"
+          elif ! printf '%s\n' "$aliases" | grep -qxF -- "$alias"; then
+            echo "::error::The keystore has no key with the alias in RELEASE_KEY_ALIAS."
+            exit 1
+          fi
+          key_password="${RELEASE_KEY_PASSWORD:-$RELEASE_KEYSTORE_PASSWORD}"
+          echo "Signing with the key \"$alias\"."
           # keystore.properties is a Java properties file: backslashes in a value must be doubled.
           {
             echo "storeFile=release.jks"
             echo "storePassword=${RELEASE_KEYSTORE_PASSWORD//\\/\\\\}"
-            echo "keyAlias=${RELEASE_KEY_ALIAS//\\/\\\\}"
-            echo "keyPassword=${RELEASE_KEY_PASSWORD//\\/\\\\}"
+            echo "keyAlias=${alias//\\/\\\\}"
+            echo "keyPassword=${key_password//\\/\\\\}"
           } > keystore.properties
 
       # Same image as CI and local builds (D38). The version comes from the tag; apksigner fails the step if the APK

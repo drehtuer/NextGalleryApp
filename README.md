@@ -199,14 +199,16 @@ Pushing a tag `vMAJOR.MINOR.PATCH` runs [.github/workflows/release.yml](.github/
    git push origin v0.1.0
    ```
 
-The signing key is stored as four secrets of the `release` environment (Settings → Environments → release), which only accepts `v*` tags:
+The signing key is stored as secrets of the `release` environment (Settings → Environments → release), which only accepts `v*` tags:
 
 | Secret | Value |
 |---|---|
 | `RELEASE_KEYSTORE_BASE64` | The keystore file, base64-encoded: `base64 -w0 release.jks` |
 | `RELEASE_KEYSTORE_PASSWORD` | The keystore password (`storePassword`) |
-| `RELEASE_KEY_ALIAS` | The key alias, for example `nextgallery` |
-| `RELEASE_KEY_PASSWORD` | The key password (`keyPassword`) |
+| `RELEASE_KEY_ALIAS` | Optional: the key alias. Without it, the keystore must hold exactly one key, and that key is used. |
+| `RELEASE_KEY_PASSWORD` | Optional: the key password. Without it, the keystore password is used, as a PKCS12 keystore (keytool's default) requires. |
+
+The workflow opens the keystore before the build starts, so a wrong password or alias stops it at once.
 
 If a run fails before publishing, fix the cause and re-run the workflow; it replaces the draft it left. If the fix needs a code change, delete the tag and push it again on the new commit. This only works while the release is still a draft.
 
