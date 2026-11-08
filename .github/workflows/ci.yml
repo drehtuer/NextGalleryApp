@@ -18,7 +18,7 @@ jobs:
   wrapper-validation:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: gradle/actions/wrapper-validation@8da46b539cd8fe6ab27ca75128919a18d757604c # v6.4.1
 
   build:
@@ -28,7 +28,7 @@ jobs:
       # Only whether the token exists; the token itself goes to the scan step alone. Forks have no secrets.
       HAS_SONAR_TOKEN: ${{ secrets.SONAR_TOKEN != '' }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # SonarCloud needs the history to detect new code and to attribute issues.
           fetch-depth: 0
@@ -44,7 +44,7 @@ jobs:
           # Tests run before it and are not retried, so this cannot hide a flaky test.
           runCmd: >-
             ./gradlew --continue --stacktrace
-            ktlintCheck detekt lint test :build-logic:convention:test assembleDebug assembleDebugAndroidTest
+            ktlintCheck detekt lint test :build-logic:convention:test :build-logic:settings:test assembleDebug assembleDebugAndroidTest
             :app:assembleRelease :benchmark:compileBenchmarkReleaseKotlin
             && (./gradlew --continue --stacktrace coverageReport || ./gradlew --continue --stacktrace coverageReport)
 
@@ -57,7 +57,7 @@ jobs:
 
       - name: Upload reports
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: reports
           path: |

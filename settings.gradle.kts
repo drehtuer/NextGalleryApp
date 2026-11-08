@@ -7,6 +7,11 @@ pluginManagement {
     }
 }
 
+// Raises libraries that the build tools pull in with known vulnerabilities (D62).
+plugins {
+    id("nextgallery.dependency-floors")
+}
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {

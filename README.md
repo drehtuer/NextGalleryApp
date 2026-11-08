@@ -151,7 +151,7 @@ adb install app/build/outputs/nextgallery/debug/NextGallery-debug-*.apk
 Before opening a pull request, run the checks CI runs (`ktlintFormat` fixes what CI's `ktlintCheck` would report):
 
 ```bash
-./gradlew ktlintFormat detekt lint test :build-logic:convention:test assembleDebug assembleDebugAndroidTest :app:assembleRelease :benchmark:compileBenchmarkReleaseKotlin
+./gradlew ktlintFormat detekt lint test :build-logic:convention:test :build-logic:settings:test assembleDebug assembleDebugAndroidTest :app:assembleRelease :benchmark:compileBenchmarkReleaseKotlin
 ```
 
 `./gradlew coverageReport` writes the JaCoCo line and branch coverage reports (`build/reports/` in each module).

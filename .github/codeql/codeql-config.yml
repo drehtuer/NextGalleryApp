@@ -1,0 +1,9 @@
+# CodeQL configuration for security.yml (D60).
+name: NextGalleryApp
+queries:
+  - uses: security-and-quality
+query-filters:
+  # Every hit is a `tmp0_other_with_cast` variable in the equals() the Kotlin compiler generates for data objects,
+  # not in our sources (D62).
+  - exclude:
+      id: java/local-variable-is-never-read
