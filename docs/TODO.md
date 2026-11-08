@@ -467,3 +467,11 @@ _Depends on: Phases 1–9._
 - [x] D57: the licence list without full texts is enough; the known issue is gone from STATUS.md.
 - [ ] Checks on the device, see [STATUS.md](STATUS.md).
 - [x] Update docs.
+
+## Security findings (D62)
+
+- [x] `nextgallery.dependency-floors` settings plugin in `build-logic/settings` raises the vulnerable build-time libraries Dependabot reports. Test: `DependencyFloorsTest`.
+- [x] build-logic compiled with the catalog's Kotlin instead of `kotlin-dsl`'s embedded 2.4.10.
+- [x] All actions pinned to a commit SHA, the devcontainer base image to a digest.
+- [x] CodeQL config without `java/local-variable-is-never-read`; parentheses in `LocalNetworkPolicy`; the SHA-1/MD5 checksum finding dismissed.
+- [x] Update docs.

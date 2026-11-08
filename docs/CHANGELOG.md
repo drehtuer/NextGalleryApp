@@ -6,6 +6,9 @@ tagging. The release workflow uses that section as the release notes, so it must
 
 ## Unreleased
 
+- Build: libraries with known vulnerabilities that the build tools pull in are raised to fixed versions; all GitHub
+  Actions and the devcontainer base image are pinned to a commit or digest. The APK does not change.
+
 ## 0.1.0
 
 The first release. It runs on Android 17 (API 37) only.

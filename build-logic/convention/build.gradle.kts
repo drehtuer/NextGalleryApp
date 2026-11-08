@@ -1,5 +1,9 @@
+// Plain Kotlin instead of `kotlin-dsl`: that plugin compiles with the Kotlin embedded in Gradle (2.4.10, affected by
+// GHSA-r937-wjx7-w2jp), this one with the project's Kotlin from the version catalog (D62).
 plugins {
-    `kotlin-dsl`
+    `java-gradle-plugin`
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.samWithReceiver)
 }
 
 group = "net.drehtuer.nextgallery.buildlogic"
@@ -8,7 +12,13 @@ kotlin {
     jvmToolchain(libs.versions.jvmToolchain.get().toInt())
 }
 
+// Lets Gradle's Action<T> lambdas use `this`, as in build scripts; `kotlin-dsl` did this before.
+samWithReceiver {
+    annotation("org.gradle.api.HasImplicitReceiver")
+}
+
 dependencies {
+    compileOnly(gradleKotlinDsl())
     compileOnly(libs.android.gradlePlugin)
     compileOnly(libs.kotlin.gradlePlugin)
     compileOnly(libs.compose.gradlePlugin)

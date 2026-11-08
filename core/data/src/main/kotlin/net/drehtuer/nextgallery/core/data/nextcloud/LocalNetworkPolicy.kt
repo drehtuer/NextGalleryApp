@@ -42,7 +42,7 @@ class LocalNetworkPolicy(
         val bytes = address.address
         val first = bytes[0].toInt() and BYTE_MASK
         val second = bytes[1].toInt() and BYTE_MASK
-        val isUniqueLocalV6 = bytes.size == IPV6_BYTES && first and ULA_MASK == ULA_PREFIX
+        val isUniqueLocalV6 = bytes.size == IPV6_BYTES && (first and ULA_MASK) == ULA_PREFIX
         val isSharedV4 = bytes.size == IPV4_BYTES && first == CGNAT_FIRST && second in CGNAT_SECOND
         return address.isSiteLocalAddress || address.isLinkLocalAddress || address.isLoopbackAddress ||
             isUniqueLocalV6 || isSharedV4

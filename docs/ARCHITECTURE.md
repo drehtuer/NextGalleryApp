@@ -103,6 +103,7 @@ Rules:
   - `nextgallery.jvm.library` – pure Kotlin/JVM modules (`:core:model`, `:core:common`, `:core:data`, `:core:nextcloud`): `kotlin("jvm")`, toolchain 21, `javax.inject` for `@Inject` constructors (Hilt bindings for them live in Android modules), JUnit/MockK/Turbine/coroutines-test.
   - `nextgallery.android.test` – shared Android test dependencies (Robolectric 4.17+, androidx.test), the `AndroidJUnitRunner` setup for instrumented tests and JaCoCo unit test coverage. Applied by the application and library plugins.
   - `nextgallery.detekt`, `nextgallery.ktlint` – static analysis (`config/detekt/detekt.yml`, `.editorconfig`), applied by every base plugin.
+- The settings plugin `nextgallery.dependency-floors` in `build-logic/settings` (its own jar, because Gradle loads settings plugins into a class loader that cannot see AGP) raises libraries that the build tools pull in with known vulnerabilities to a fixed version, in every build script classpath and project configuration (D62). build-logic is compiled with the catalog's Kotlin (`org.jetbrains.kotlin.jvm` with the SAM-with-receiver plugin), not with `kotlin-dsl` and the Kotlin embedded in Gradle.
 - Shared conventions:
   - Android namespaces are derived from the project path (`:core:database` → `net.drehtuer.nextgallery.core.database`; `:app` → `net.drehtuer.nextgallery`).
   - `compileSdk` 37 with `compileSdkMinor = 0` (platform `android-37.0`); AGP 9 compiles Kotlin itself (built-in Kotlin), so Android modules do not apply `org.jetbrains.kotlin.android`.
