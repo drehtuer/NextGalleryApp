@@ -6,6 +6,8 @@ tagging. The release workflow uses that section as the release notes, so it must
 
 ## Unreleased
 
+- Build: KSP back to 2.3.12, because 2.3.13 makes Hilt code generation fail or go missing at random
+  (google/ksp#3286).
 - Build: libraries with known vulnerabilities that the build tools pull in are raised to fixed versions; all GitHub
   Actions and the devcontainer base image are pinned to a commit or digest. The APK does not change.
 

@@ -10,6 +10,10 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 10
+    ignore:
+      # Parallel in-process runs lose library symbols (google/ksp#3286); later versions are proposed again.
+      - dependency-name: com.google.devtools.ksp
+        versions: ["2.3.13"]
     groups:
       gradle-minor-and-patch:
         update-types: [minor, patch]
