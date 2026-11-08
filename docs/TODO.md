@@ -35,7 +35,7 @@ are described in [ARCHITECTURE.md](ARCHITECTURE.md); rationale and open question
   - [x] Add Gradle wrapper (`gradlew`, `gradlew.bat`, `gradle/wrapper/*`), pin a current stable Gradle.
   - [x] `settings.gradle.kts`: `pluginManagement` (`includeBuild("build-logic")`), `dependencyResolutionManagement` (google, mavenCentral; `FAIL_ON_PROJECT_REPOS`), `rootProject.name`, enable `TYPESAFE_PROJECT_ACCESSORS`.
   - [x] Root `build.gradle.kts` declaring plugins with `apply false`.
-  - [x] `gradle.properties`: `org.gradle.jvmargs`, `org.gradle.caching=true`, `org.gradle.configuration-cache=true`, `android.useAndroidX=true`, `android.nonTransitiveRClass=true`, `kotlin.code.style=official`.
+  - [x] `gradle.properties`: `org.gradle.jvmargs` (6 GB heap), `kotlin.daemon.jvmargs` (3 GB), `org.gradle.caching=true`, `org.gradle.configuration-cache=true`, `android.useAndroidX=true`, `android.nonTransitiveRClass=true`, `kotlin.code.style=official`.
   - [x] `.gitignore` for Android/Gradle/IDE files; `local.properties` excluded.
 - [x] **0.2 Version catalog** `gradle/libs.versions.toml`
   - [x] Versions/libraries: AGP, Kotlin, KSP, Compose BOM, Material 3, Activity Compose, Lifecycle (runtime/viewmodel compose), Navigation Compose, kotlinx.serialization, kotlinx.coroutines, Hilt (+ hilt-navigation-compose, hilt-work), Room (+ room-paging), Paging 3 (+ paging-compose), DataStore, WorkManager, Coil 3 (+ coil-network-okhttp), Telephoto `zoomable-image-coil`, ExifInterface, osmdroid, OkHttp, Tink, Browser (Custom Tabs). _The browser library was dropped with D54: the login opens with a plain `ACTION_VIEW`._
