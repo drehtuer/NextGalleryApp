@@ -6,6 +6,8 @@ tagging. The release workflow uses that section as the release notes, so it must
 
 ## Unreleased
 
+- Build: the Gradle wrapper retries a failed download of the Gradle distribution.
+
 ## 0.1.1
 
 The first published release. 0.1.0 was tagged, but its release build failed and it was never published, so this
