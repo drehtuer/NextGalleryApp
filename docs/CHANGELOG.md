@@ -6,6 +6,12 @@ tagging. The release workflow uses that section as the release notes, so it must
 
 ## Unreleased
 
+## 0.1.1
+
+The first published release. 0.1.0 was tagged, but its release build failed and it was never published, so this
+release contains everything listed under 0.1.0 in the
+[changelog](https://github.com/drehtuer/NextGalleryApp/blob/main/docs/CHANGELOG.md#010), plus these build changes:
+
 - Build: KSP back to 2.3.12, because 2.3.13 makes Hilt code generation fail or go missing at random
   (google/ksp#3286).
 - Build: libraries with known vulnerabilities that the build tools pull in are raised to fixed versions; all GitHub
