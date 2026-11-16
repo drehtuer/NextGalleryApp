@@ -1,7 +1,7 @@
 # Build environment for NextGalleryApp: JDK 21 + Android SDK (API 37).
 # Used locally as a devcontainer and in CI (devcontainers/ci), so both build the same way.
 # Pinned by digest (D62); Dependabot proposes new digests.
-FROM eclipse-temurin:21-jdk-noble@sha256:114cabb73033ca4ce7ceec3deb62396bc1b716282bae051ed3c1d82e38fcab2d
+FROM eclipse-temurin:21-jdk-noble@sha256:06c1f157dacf6b68198bd9a4186dd4c34ef24e65d7bbbe2a0cf8e62571ad38c9
 
 ARG CMDLINE_TOOLS_VERSION=16111833
 ARG CMDLINE_TOOLS_SHA1=e025545c62a8e64c7559119566a569fb1dec5f60
