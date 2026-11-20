@@ -15,6 +15,8 @@ tagging. The release workflow uses that section as the release notes, so it must
 - Fixed: the selected Theme and Grid columns, the chosen crop ratio and the pen-width slider showed in the warning
   colour (brown) instead of the accent.
 - Fixed: with very large text, the "Nextcloud" tab label broke over two lines.
+- Smoother fast scrolling: while the timeline's date rail or the folder scrollbar is dragged fast, the photos wait and
+  the dates follow the thumb; the grid jumps there when the drag slows down or ends.
 
 ## 0.1.1
 

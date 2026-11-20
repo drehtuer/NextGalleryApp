@@ -33,9 +33,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
+import net.drehtuer.nextgallery.core.common.ScrollbarDrag
 import net.drehtuer.nextgallery.core.common.ScrollbarMath
 import net.drehtuer.nextgallery.core.ui.R
 import net.drehtuer.nextgallery.core.ui.theme.NextGalleryTheme
@@ -73,15 +72,22 @@ fun FastScrollbar(
                 ?: ScrollbarMath.fractionForIndex(state.firstVisibleItemIndex, currentItemCount, currentVisibleCount)
         }
     }
-    val labelText by remember(state) {
-        derivedStateOf { if (dragFraction == null) null else currentLabel(state.firstVisibleItemIndex) }
-    }
-
-    // collectLatest drops positions the grid has not reached yet, so a long drag does not queue up jumps.
-    LaunchedEffect(state) {
-        snapshotFlow { dragFraction }.filterNotNull().collectLatest {
-            state.scrollToItem(ScrollbarMath.indexForFraction(it, currentItemCount, currentVisibleCount))
+    val dragTarget by remember(state) {
+        derivedStateOf {
+            dragFraction?.let { ScrollbarMath.indexForFraction(it, currentItemCount, currentVisibleCount) }
         }
+    }
+    // The label is for where the thumb points, because the grid can lag behind it while dragging (D63).
+    val labelText by remember(state) { derivedStateOf { dragTarget?.let { currentLabel(it) } } }
+
+    // The grid waits while the thumb moves fast and lands where the drag ends (D63).
+    LaunchedEffect(state) {
+        ScrollbarDrag.follow(
+            snapshotFlow { dragFraction },
+            targetFor = { ScrollbarMath.indexForFraction(it, currentItemCount, currentVisibleCount) },
+            visibleCount = { currentVisibleCount },
+            scrollTo = state::scrollToItem,
+        )
     }
 
     Box(modifier.fillMaxHeight().onSizeChanged { trackHeightPx = it.height }) {
@@ -105,7 +111,10 @@ fun FastScrollbar(
                 ),
                 onDragStarted = { dragFraction = fraction },
                 onDrag = { delta -> dragFraction = ((dragFraction ?: fraction) + delta / travelPx).coerceIn(0f, 1f) },
-                onDragStopped = { dragFraction = null },
+                onDragStopped = {
+                    dragTarget?.let { scope.launch { state.scrollToItem(it) } }
+                    dragFraction = null
+                },
             )
         }
     }
