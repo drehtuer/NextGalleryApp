@@ -6,7 +6,7 @@ FROM eclipse-temurin:21-jdk-noble@sha256:06c1f157dacf6b68198bd9a4186dd4c34ef24e6
 ARG CMDLINE_TOOLS_VERSION=16111833
 ARG CMDLINE_TOOLS_SHA1=e025545c62a8e64c7559119566a569fb1dec5f60
 ARG ANDROID_PLATFORM=android-37.0
-# Build-tools version that AGP uses by default (AGP 9.4: 36.0.0).
+# Build-tools version that AGP uses by default (AGP 9.5: 36.0.0).
 ARG BUILD_TOOLS_VERSION=36.0.0
 
 ENV ANDROID_HOME=/opt/android-sdk

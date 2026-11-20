@@ -52,6 +52,7 @@ The documentation is also published as a website: <https://drehtuer.github.io/Ne
 - **Fast scroll** – draggable scrollbar on the folder grid, the timeline and the map's cluster sheet; in the timeline it shows the date in the middle of the screen, with the dates before and after.
 - **Thumbnails** – generated and cached on device; grids load lazily.
 - **Full-screen viewer** – swipe between images, pinch to zoom, double-tap to zoom, image info (date, size, resolution, location, EXIF).
+- **Open with** – other apps, such as a file manager, can open an image in NextGallery; it is shown zoomable, without the gallery around it, and needs no photo access.
 
 ### Editing
 
@@ -116,6 +117,7 @@ NextGalleryApp does not duplicate what the official Nextcloud Android app alread
 - `INTERNET` and `ACCESS_NETWORK_STATE` – map tiles and Nextcloud; traffic is https only.
 - `ACCESS_LOCAL_NETWORK` – for a Nextcloud server on your own network; asked for when you sign in.
 - Package visibility for `com.nextcloud.client` (`<queries>`) – to hand uploads to the Nextcloud app.
+- `WAKE_LOCK`, `RECEIVE_BOOT_COMPLETED` and `FOREGROUND_SERVICE` – added by WorkManager for background indexing and the upload-status check; the app shows no notification and runs no foreground service of its own.
 - Deleting (to the system trash, `MediaStore.createTrashRequest`) and overwriting originals (`createWriteRequest`) go through the system confirmation dialogs, so no broad storage permission is required.
 
 ## Roadmap

@@ -27,7 +27,7 @@ The goals are in the [README](../README.md#goals). The ones that shape the archi
 | Constraint | Architectural consequence |
 | --- | --- |
 | Fast with tens of thousands of images | Local Room index is the only thing grids query; Paging 3 everywhere; precomputed section index for fast scroll. |
-| Local first, offline | Nextcloud is an optional layer; only `:feature:remote` and the Nextcloud account screen in `:feature:settings` (sign-in, remote root picker) make network calls. Upload badges come from a Room cache. |
+| Local first, offline | Nextcloud is an optional layer; only `:feature:remote`, the Nextcloud account screen in `:feature:settings` (sign-in, remote root picker) and the background upload-state check talk to the Nextcloud server; besides that, only `:feature:map` loads map tiles. Upload badges come from a Room cache. |
 | No tracking, no Google Play Services | Only AndroidX, Kotlin and kotlinx (coroutines, serialization), Hilt (Dagger), OkHttp, Coil, Telephoto, osmdroid, Tink. No Firebase, no Play Services location/maps, no analytics. |
 | Min/target SDK 37 (Android 17) only, reference device Pixel 10a | No API-level branches or legacy code paths; `GENERATION_MODIFIED`, trash/write requests and partial media access are always available. Performance targets (section 12) are measured on the Pixel 10a. |
 | Visual design delivered later (Claude Design) | All visual values live in `NextGalleryTheme` in `:core:ui`; features use theme tokens only, so the design can be applied in one module. |
@@ -40,7 +40,7 @@ The goals are in the [README](../README.md#goals). The ones that shape the archi
 
 The app uses **MVVM with unidirectional data flow** on top of an **Android-independent core**. Each screen's ViewModel exposes one immutable `StateFlow<UiState>` and accepts UI events through a single `onEvent(event)` function. Repositories are the single source of truth: the UI never talks to MediaStore, Room or WebDAV directly. Room is the source of truth for the local index. Kotlin coroutines and `Flow` are used throughout.
 
-All business logic (repositories, indexing, matching, editing geometry, clustering, upload-status logic) lives in pure Kotlin/JVM modules with no `android.*` dependency, so it is tested with plain JUnit on CI. Android APIs are reached through small interfaces (**ports**) declared in `:core:data` and implemented by thin **adapters** in Android modules (`:core:database`, `:core:media`, `:core:platform`). Adapters only translate between the platform and `:core:model` types; they make no decisions.
+All business logic (repositories, indexing, matching, editing geometry, clustering, upload-status logic) lives in pure Kotlin/JVM modules with no `android.*` dependency, so it is tested with plain JUnit on CI. Android APIs are reached through small interfaces (**ports**) declared in `:core:data` and implemented by thin **adapters** in Android modules (`:core:database`, `:core:media`, `:core:platform`). Adapters only translate between the platform and `:core:model` types; they make no decisions. `:core:nextcloud` also declares two ports of its own, `CredentialsProvider` and `CertificatePinSource`, which `:core:data` implements from its account and certificate stores.
 
 ```mermaid
 flowchart TB
@@ -93,7 +93,7 @@ Rules:
 
 - Gradle Kotlin DSL; dependencies and versions in `gradle/libs.versions.toml`.
 - Convention plugins in `build-logic/convention`:
-  - `nextgallery.android.application` – `:app` defaults (SDK levels, application ID, Kotlin toolchain 21, R8 config, version from the Git tag, release signing from `keystore.properties`, APK names `NextGallery-<version>.apk` and `NextGallery-debug-<version>-<timestamp>.apk` in `build/outputs/nextgallery/<variant>/`). It also fails the build if a proprietary group such as `com.google.android.gms` or `com.google.firebase` reaches a shipped classpath.
+  - `nextgallery.android.application` – `:app` defaults (SDK levels, application ID, Kotlin toolchain 21, R8 config, version from the Git tag, release signing from `keystore.properties`, APK names `NextGallery-<version>.apk` (`NextGallery-<version>-unsigned.apk` without a signing key) and `NextGallery-debug-<version>-<timestamp>.apk` in `build/outputs/nextgallery/<variant>/`). It also fails the build if a proprietary group such as `com.google.android.gms` or `com.google.firebase` reaches a shipped classpath.
   - `nextgallery.android.benchmark` – `:benchmark`, a `com.android.test` module for Macrobenchmark and the Baseline Profile generator. Its debug variant is off, so `assembleDebug` and `connectedDebugAndroidTest` leave it alone; CI only compiles it.
   - `nextgallery.android.library` – Android library defaults.
   - `nextgallery.android.compose` – enables Compose and adds the Compose BOM.
@@ -107,7 +107,7 @@ Rules:
 - Shared conventions:
   - Android namespaces are derived from the project path (`:core:database` → `net.drehtuer.nextgallery.core.database`; `:app` → `net.drehtuer.nextgallery`).
   - `compileSdk` 37 with `compileSdkMinor = 0` (platform `android-37.0`); AGP 9 compiles Kotlin itself (built-in Kotlin), so Android modules do not apply `org.jetbrains.kotlin.android`.
-  - Lint runs with `warningsAsErrors`; `config/lint/lint.xml` only disables "newer version available" checks.
+  - Lint runs with `warningsAsErrors`; `config/lint/lint.xml` disables the "newer version available" checks and makes `HardcodedText` and `PluralsCandidate` errors.
   - The feature plugin fails the build if a `:feature:*` module declares a dependency on another `:feature:*` module.
   - Espresso is pinned to 3.7.0 for tests, because the version pulled in by Compose UI test calls an API removed in SDK 37.
 - The build environment is a devcontainer (`.devcontainer/`: JDK 21, Android SDK platform `android-37.0`, build-tools 36.0.0); CI builds inside the same image (`devcontainers/ci`).
@@ -351,8 +351,8 @@ Pure logic (each class unit-tested on the JVM):
 
 | Class | Responsibility |
 | --- | --- |
-| `NextcloudHttpModule` | The OkHttp clients: `base` (no credentials, for the login flow), `authenticated` (reads), `noRedirects` (changes on the server, never repeated elsewhere), `unauthenticatedNoRedirects` (for requests carrying credentials not yet stored). TLS only, unless `allowCleartext` (debug builds); no https → http redirects; user agent `NextGalleryApp/<version>`. `evictConnections()` also drops resumable TLS sessions, so a removed pin takes effect. Setting up TLS and reading the certificates took over 300 ms, so Hilt gives `WebDavClient`, `OcsClient`, `LoginFlowV2Client` and the `ConnectionEvictor` only `Call.Factory`s over a `dagger.Lazy` module: it is built inside the first request, on the IO dispatcher, not when a screen that holds a client is created. |
-| `AuthInterceptor` | Network interceptor: adds Basic auth and `OCS-APIRequest` through a `CredentialsProvider`, only for the account's scheme, host and port. It runs for each redirect, so credentials can't follow one to another host. |
+| `NextcloudHttpModule` | The OkHttp clients: `base` (no credentials, for the login flow), `authenticated` (reads), `noRedirects` (changes on the server, never repeated elsewhere), `unauthenticatedNoRedirects` (for requests carrying credentials not yet stored). TLS only, unless `allowCleartext` (debug builds); no https → http redirects; user agent `NextGalleryApp/<version>`. `evictConnections()` also drops resumable TLS sessions, so a removed pin takes effect. Setting up TLS and reading the certificates took over 300 ms, so Hilt gives `WebDavClient`, `OcsClient` and `LoginFlowV2Client` only `Call.Factory`s, and the `ConnectionEvictor` a lambda, over a `dagger.Lazy` module: it is built inside the first request, on the IO dispatcher, not when a screen that holds a client is created. |
+| `AuthInterceptor` | Network interceptor: adds Basic auth and `OCS-APIRequest` through a `CredentialsProvider` (a port implemented by `StoredCredentialsProvider` in `:core:data`), only for the account's scheme, host and port. It runs for each redirect, so credentials can't follow one to another host. |
 | `LoginFlowV2Client` | `start(serverUrl)` → `LoginFlowSession(loginUrl, pollEndpoint, token)`; `check(pollEndpoint, token)` asks once and returns a `LoginFlowResult` or null while the login is pending. The 2 s loop and the 20 min timeout are in `DefaultNextcloudAccountRepository`. URLs from the server are only accepted as https. Token and password are hidden in `toString`. |
 | `OcsClient` | The user id (`ocs/v2.php/cloud/user`), revoking the app password (`ocs/v2.php/core/apppassword`), and whether the trash bin is on (`ocs/v2.php/cloud/capabilities`, `files.undelete`; D56). Answers are read up to 1 MiB; a malformed answer is an `IOException`. |
 | `WebDavClient` | `list(path)`, `stat(path)`, `download(path, sink)`; `move` (`Overwrite: F` unless asked otherwise), `createFolder`, `delete`, `listTrash` and `restore` for reorganising server images (D46). Uploading is done by the Nextcloud app (D31). Paths are under `remote.php/dav/files/<userId>/`; the trash bin is under `remote.php/dav/trashbin/<userId>/`. |
@@ -360,7 +360,7 @@ Pure logic (each class unit-tested on the JVM):
 | `MultistatusParser` | Multistatus parser on the XmlPullParser API (`compileOnly`; provided by Android at runtime, kxml2 on the JVM test classpath). Only propstats with status 200 count. Hrefs outside the root and impossible names (dot segments, encoded slashes) are dropped. |
 | `RemotePathMapper` | Builds the DAV, preview and trash-bin URLs with segment encoding; refuses dot segments. |
 | `ServerUrlNormalizer` | Adds `https://`, strips trailing `/` and `/index.php`, query and fragment; rejects other schemes, `http` unless `allowCleartext`, and addresses with credentials. |
-| `PinningTrustManager` | `X509ExtendedTrustManager` that first delegates to the platform trust manager (system + user CAs) and otherwise accepts only the certificate pinned for exactly that host; anything else fails with `UntrustedCertificateException`. Without a known host, pins don't apply. |
+| `PinningTrustManager` | `X509ExtendedTrustManager` that first delegates to the platform trust manager (system + user CAs) and otherwise accepts only the certificate pinned for exactly that host; anything else fails with `UntrustedCertificateException`. Without a known host, pins don't apply. The pins come from a `CertificatePinSource` (a port implemented by `StoredCertificatePins` in `:core:data`, over `TrustedCertificateStore`). |
 | `PinningHostnameVerifier` | The normal check, except that a certificate pinned for this host may have another name (D32). Any other mismatch fails with an `UntrustedCertificateException` as cause, so the user gets the same dialog. |
 | `CertificateInfoMapper` | `X509Certificate` → `CertificateInfo` (subject, issuer, validity, SHA-256 as `AB:CD:…`). |
 | `DownloadProgressTracker` | Network interceptor reporting the progress of original downloads per URL. |
@@ -378,7 +378,7 @@ Pure logic (each class unit-tested on the JVM):
   - `UploadStateDao` – `observeStatusFor(ids)` and `statusFor(ids)` (rows still valid for the image's size and date), `upsertExisting(rows)` (leaves out images no longer indexed), `localFolders()`, `mediaInFolder(path)`, `rowsInFolder(path)`, `clear()`.
   - `RemoteCacheDao` – `replaceFolder(parentPath, items)`, `getFolder(parentPath)`, `clear()`.
   - `SyncStateDao` – last generation per volume.
-- `Room…Store` classes implementing the `:core:data` store ports, with entity ↔ model mappers; Hilt module binding them.
+- `Room…Store` classes implementing the `:core:data` store ports, with entity ↔ model mappers; `DatabaseModule` binds most of them (the remote cache and upload state stores are bound in `:core:platform`).
 
 #### `:core:media` (Android adapter)
 
@@ -400,10 +400,10 @@ Pure logic (each class unit-tested on the JVM):
 - `ContentResolverContentSource` implements `MediaContentSource`; `PackageManagerNextcloudAppSource` implements `NextcloudAppSource`.
 - `KeystoreSecretCipher` implements `SecretCipher` (Tink AEAD, keyset wrapped by an Android Keystore master key).
 - `ActivityManagerMemoryInfo` implements `MemoryInfoSource`.
-- `AssetPlaceSource` implements `PlaceSource`: reads `assets/geonames/cities15000.tsv` (name, country code, latitude, longitude, population; CC BY 4.0). `tools/build-places-asset.sh` rebuilds it from the GeoNames dump; the app build downloads nothing.
+- `AssetPlaceSource` implements `PlaceSource`: reads `assets/geonames/cities15000.tsv` (name, country code, latitude, longitude, population; CC BY 4.0). `core/platform/tools/build-places-asset.sh` rebuilds it from the GeoNames dump; the app build downloads nothing.
 - `AndroidLocationProvider` implements `LocationProvider`: last known position, else one fresh fix with a 5 s limit.
 - `AndroidConnectivitySource`, `AndroidLocalNetworkPermissionSource`, and `FileProviderShareCache` with its own `FileProvider`, limited to `cache/remote_share/` (D48). `PackageManagerNextcloudAppSource` relies on a manifest `<queries>` entry for `com.nextcloud.client`.
-- Hilt modules (`*Module.kt`): `PlatformModule` (dispatchers, clock, WorkManager, `WorkScheduler`, memory, places, location, the settings file), `RepositoryModule` (binds the local `:core:data` repositories to their `Default…` implementations), `NextcloudModule` (the HTTP clients, Tink cipher, account and certificate stores, connectivity, share cache) and `NextcloudRepositoryModule`, `SettingsModule` (settings and folder settings) and `UploadModule` (upload state, hand-off, content source, Nextcloud app). `:core:database` and `:core:media` bind their own adapters (`DatabaseModule`, `MediaModule`).
+- Hilt modules (`*Module.kt`): `PlatformModule` (dispatchers, clock, WorkManager, `WorkScheduler`, memory, places, location, the settings file), `RepositoryModule` (binds the local `:core:data` repositories to their `Default…` implementations), `NextcloudModule` (the HTTP clients, Tink cipher, account and certificate stores, connectivity, share cache) and `NextcloudRepositoryModule`, `SettingsModule` (settings and folder settings) and `UploadModule` (upload state, hand-off, content source, Nextcloud app). `:core:database` and `:core:media` bind most of their own adapters (`DatabaseModule`, `MediaModule`); `NextcloudModule` binds `RoomRemoteCacheStore` and `UploadModule` binds `RoomUploadStateStore`.
 
 #### `:core:ui`
 
@@ -455,7 +455,7 @@ erDiagram
         int height
         int orientation
         long date_taken_ms "resolved"
-        int date_source "DATE_TAKEN, EXIF, MODIFIED"
+        string date_source "DATE_TAKEN, EXIF, MODIFIED (enum name)"
         long date_modified_s
         long generation_modified
         int local_year "precomputed, local tz"
@@ -482,13 +482,13 @@ erDiagram
         string name
         boolean is_directory
         long size_bytes
-        string content_type
-        string etag
-        long file_id
-        string checksums
-        string permissions
+        string content_type "nullable"
+        string etag "nullable"
+        long file_id "nullable"
+        string checksums "nullable"
+        string permissions "nullable"
         boolean has_preview
-        int child_count
+        int child_count "nullable"
         long last_modified_ms
         long fetched_at_ms
     }
@@ -531,6 +531,7 @@ sequenceDiagram
     participant Obs as MediaChangeSource
     participant W as IndexWorker
     participant Idx as IndexRepository
+    participant Ix as MediaIndexer
     participant Scan as MediaScanSource
     participant Exif as ExifSource
     participant Loc as LocationBackfill
@@ -542,31 +543,32 @@ sequenceDiagram
     Obs-->>Sched: change event, debounced 2s
     Sched->>W: enqueueUniqueWork APPEND_OR_REPLACE, INCREMENTAL
     W->>Idx: sync(mode)
-    Idx->>DB: read sync_state
-    Note over Idx: added folders come from SettingsRepository. A volume without one is not queried, its rows are deleted
+    Idx->>Ix: sync(mode)
+    Ix->>DB: read sync_state
+    Note over Ix: added folders come from SettingsRepository. A volume without one is not queried, its rows are deleted
     alt FULL, no sync_state or MediaStore version changed
-        Idx->>Scan: fullScan(volume, folders) in batches of 500
+        Ix->>Scan: fullScan(volume, folders) in batches of 500
     else incremental
-        Idx->>Scan: changesSince(volume, last generation, folders)
+        Ix->>Scan: changesSince(volume, last generation, folders)
     end
     loop each batch
-        Scan-->>Idx: List of ScannedImage
-        Idx->>Idx: filter by AddedFolderMatcher
-        Idx->>Idx: DateResolver step 1 uses DATE_TAKEN
+        Scan-->>Ix: List of ScannedImage
+        Ix->>Ix: filter by AddedFolderMatcher
+        Ix->>Ix: DateResolver step 1 uses DATE_TAKEN
         opt DATE_TAKEN missing
-            Idx->>Exif: read the date tags
-            Exif-->>Idx: DateTimeOriginal and offset
+            Ix->>Exif: read the date tags
+            Exif-->>Ix: DateTimeOriginal and offset
         end
-        Idx->>DB: upsertAll
+        Ix->>DB: upsertAll
     end
     alt full scan
-        Idx->>DB: delete stored ids not seen in the scan
+        Ix->>DB: delete stored ids not seen in the scan
     else incremental
-        Idx->>Scan: allIds(volume, folders)
-        Scan-->>Idx: current id set
-        Idx->>DB: delete stored ids not in the set, and those the matcher rejected
+        Ix->>Scan: allIds(volume, folders)
+        Scan-->>Ix: current id set
+        Ix->>DB: delete stored ids not in the set, and those the matcher rejected
     end
-    Idx->>DB: update sync_state
+    Ix->>DB: update sync_state
     Idx->>Loc: run()
     loop 200 unscanned rows at a time
         Loc->>Exif: GPS via setRequireOriginal
@@ -628,7 +630,7 @@ sequenceDiagram
     participant UI as ViewerScreen
     participant Z as Telephoto ZoomableAsyncImage
 
-    Grid->>Nav: onOpenItem mediaId and source
+    Grid->>Nav: onOpenViewer mediaId, bucketId, virtualBucketIds
     Nav->>UI: navigate ViewerRoute
     UI->>VM: init with route args
     VM->>Repo: pagedItems(source) Flow of PagingData
@@ -722,19 +724,19 @@ sequenceDiagram
     participant DB as Room
 
     UI->>VM: DeleteSelected ids
-    VM->>D: delete(ids), through TrashFlow
+    VM->>D: TrashFlow.request: delete(ids)
     D->>MD: trashRequest(uris)
     MD-->>VM: PlatformConfirmation
-    VM-->>UI: UiEffect RequestConfirmation
+    VM-->>UI: Trash(TrashEffect.RequestConfirmation)
     UI->>Sys: launch via rememberConfirmationLauncher
     Sys-->>UI: RESULT_OK
-    UI->>VM: DeleteConfirmed
-    VM->>D: onDeleteConfirmed(ids)
+    UI->>VM: ConfirmationResult(true)
+    VM->>D: TrashFlow.onConfirmationResult: onDeleteConfirmed(ids)
     D->>DB: deleteByIds(ids)
     VM-->>UI: snackbar Moved to trash, Undo
     opt user taps Undo
-        UI->>VM: UndoTrash
-        VM->>D: restore(uris)
+        UI->>VM: UndoDelete
+        VM->>D: TrashFlow.undo: restore(uris)
         D->>MD: restoreRequest(uris), then the system dialog again
     end
 ```
@@ -972,7 +974,7 @@ flowchart LR
         MapTiles["MapTilesRoute"]
         About["AboutRoute"]
         Licences["LicencesRoute"]
-        Account["NextcloudAccountRoute"]
+        Account["NextcloudAccountRoute returnAfterSignIn, signInAgain"]
         Certs["TrustedCertificatesRoute"]
     end
 
@@ -1088,8 +1090,8 @@ Process death: the route is restored by Navigation and passed in again through t
 | --- | --- |
 | Compose rendering, state collection | Main |
 | Room queries | Room's own executor (suspend DAOs / Flow / PagingSource) |
-| MediaStore cursors, EXIF, file I/O, checksums, OkHttp | `Dispatchers.IO` via injected `DispatcherProvider` |
-| Bitmap transforms (editor preview/full render), clustering, section index computation | `Dispatchers.Default` |
+| MediaStore cursors, EXIF, file I/O, checksums, OkHttp | `Dispatchers.IO`, through the injected `DispatcherProvider`; the `:core:nextcloud` clients, `AccountStore` and `RemoteShareRepository` take `Dispatchers.IO` as a constructor default |
+| Bitmap transforms (editor preview/full render), clustering | `Dispatchers.Default` |
 | Indexing, upload-state sync | WorkManager `CoroutineWorker`s (survive process death; unique work names) |
 
 Rules:
@@ -1130,10 +1132,10 @@ Rules:
 - `AppError` reaches the screen in the `UiState` or an effect, and the screen picks the text: `AppError.remoteMessage()` in `:core:ui` for Nextcloud errors, a feature's own type where it needs more (the editor's `EditorMessage`).
 - Categories:
   - **Permission**: missing media permission → `MediaAccessRequest`; partial access → `LimitedAccessBanner` with "select more"; missing `ACCESS_MEDIA_LOCATION` → map hint, no crash.
-  - **User confirmation**: trash, delete and write requests → `UiEffect.RequestConfirmation(PlatformConfirmation)`; this is a normal flow, not an error.
+  - **User confirmation**: trash, delete and write requests → `TrashEffect.RequestConfirmation` or `EditorEffect.RequestConfirmation`, each with a `PlatformConfirmation`; this is a normal flow, not an error.
   - **Stale data**: item deleted outside the app while opened → `NotFound`; the viewer skips to the next page and the grid refreshes via index sync.
   - **Network** (`IOException`, timeouts): remote browser shows cached data with an offline banner; workers return `Result.retry()`.
-  - **Auth** (401): account marked as "needs re-login"; workers stop with failure; a persistent banner links to login.
+  - **Auth** (401): the remote browser sets `sessionEnded` and shows a banner that opens the sign-in again; `UploadStateSyncWorker` ends with failure.
   - **Server** (`AppError.Server(code)`): a screen shows the error; `UploadStateSyncWorker` retries (as for `Network` and `Io`). There is no upload queue (D31), so no upload can fail here.
   - **Decode/encode** (corrupt file): thumbnail shows an error placeholder; editor refuses to save with a message.
   - **Insufficient memory** (`AppError.InsufficientMemory`): the editor refuses the scale or save and tells the user how much memory the image needs and how much is available (D30).
@@ -1155,7 +1157,7 @@ Rules:
   - osmdroid's tile downloader goes to the tile server in Settings (OpenStreetMap by default).
   - Two links open outside the app, when tapped: the login page in the default browser, and the source code link in About, in the browser.
 - **No tracking**: no analytics, no crash reporting SDKs, no Google Play Services. osmdroid tile requests go over HTTPS to the OSM tile server (or the one set in Settings) with the user agent `NextGalleryApp (Android, osmdroid)`, which names the app, as the OSM tile usage policy requires, and carries no personal data. This is the only third-party network traffic and is triggered only by opening the map. Place names are looked up on the phone (D45), and tiles are cached in the app's cache folder.
-- **Least privilege**: only `READ_MEDIA_IMAGES`, `READ_MEDIA_VISUAL_USER_SELECTED`, `ACCESS_MEDIA_LOCATION`, `ACCESS_COARSE_LOCATION` (optional, D44), `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_LOCAL_NETWORK` (D39), plus a `<queries>` entry for `com.nextcloud.client`. No foreground service or notification permission (uploads are done by the Nextcloud app). The folder picker needs no permission and no URI grant is kept (D55); without an added folder, the app reads no image data from MediaStore. Destructive actions go through system dialogs.
+- **Least privilege**: only `READ_MEDIA_IMAGES`, `READ_MEDIA_VISUAL_USER_SELECTED`, `ACCESS_MEDIA_LOCATION`, `ACCESS_COARSE_LOCATION` (optional, D44), `INTERNET`, `ACCESS_NETWORK_STATE`, `ACCESS_LOCAL_NETWORK` (D39), plus a `<queries>` entry for `com.nextcloud.client`. WorkManager merges in `WAKE_LOCK`, `RECEIVE_BOOT_COMPLETED` and `FOREGROUND_SERVICE`; the app itself runs no foreground service and has no notification permission (uploads are done by the Nextcloud app). The folder picker needs no permission and no URI grant is kept (D55); without an added folder, the app reads no image data from MediaStore. Destructive actions go through system dialogs.
 - Shared local images use MediaStore content URIs with temporary read grants. Server images are downloaded first and shared through a `FileProvider` limited to one temporary cache folder (D48); the rest of the app's storage stays private.
 
 ### 11.1 Accessibility
@@ -1179,7 +1181,7 @@ Targets (measured on the reference Pixel 10a, Android 17): warm start to first f
 - **Map**: clustering computed on `Default` for the viewport only, from a lightweight `(id, lat, lon)` projection; recomputed on zoom/pan with debounce.
 - **Memory**: viewer limits decoded size to screen size except visible tiles; editor preview max 2048 px side.
 - **Baseline profiles** and Macrobenchmark are in `:benchmark` (cold start, folder grid scroll, timeline fast-scroll, viewer swipe), and release builds use R8 full mode. The profile in `app/src/release/generated/` was generated on the Pixel 10a; the measurements are in D63 ([DESIGN_DECISIONS.md](DESIGN_DECISIONS.md)).
-- **StrictMode** logs main-thread disk and network use and leaks in debug builds (`enableStrictMode`, tag `StrictMode`). On the Pixel 10a it reports osmdroid's setup when the map opens (a `MapView` must be created on the main thread), DataStore checking for its file when the first screen that needs it is created, and an input stream Telephoto leaves open (`UriImageSource`). The Nextcloud HTTP clients are built on their first request (see `NextcloudHttpModule` under `:core:nextcloud` in 3), not when a screen is created.
+- **StrictMode** logs main-thread disk and network use and leaks in debug builds (`enableStrictMode`, tag `StrictMode`). On the Pixel 10a it reports osmdroid's setup when the map opens (a `MapView` must be created on the main thread), DataStore checking for its file when the first screen that needs it is created, and an input stream Telephoto leaves open (`UriImageSource`). The Nextcloud HTTP clients are built on their first request (`NextcloudModule` in `:core:platform` hands the clients a `Lazy<NextcloudHttpModule>`, as `ImageLoaderModule` does for the remote Coil loader), not when a screen is created.
 - Compose stability: `UiState` classes are immutable data classes with read-only Kotlin collections; `@Immutable` is only used on the theme's classes. `kotlinx-collections-immutable` is in the version catalog but no module uses it.
 
 ## 13. Testing strategy
@@ -1188,7 +1190,7 @@ Principles: every function gets a unit test; tests are small, independent and no
 
 | Layer / module | What is tested | How | Runs on CI |
 | --- | --- | --- | --- |
-| `:core:model`, `:core:common` | Model validation (`GeoPoint` ranges, `NormalizedRect`), `AppResult` helpers, `RelativePaths`, `runCatchingCancellable`, `ScrollbarMath` | Plain JVM JUnit | Yes |
+| `:core:model`, `:core:common` | Model validation (`GeoPoint` ranges, `NormalizedRect`), `RelativePaths`, `runCatchingCancellable`, `ScrollbarMath`, `ScrollbarDrag` | Plain JVM JUnit | Yes |
 | `:core:data` | All domain logic: `MediaIndexer` (full vs incremental vs version change), `IndexScheduler`, `DateResolver`/`ExifDateParser`, `AddedFolderMatcher`, `TreeDocumentIds`, `MediaAccessRepository`, `RemoteTargetResolver`, `UploadStateMatcher`, `UploadHandoffRepository`, `SelectionRepository` and `SelectionRepresentability`, checksums, `EditGeometry`/`MemoryBudget`/`DefaultEditRepository`, `GridClusterer`, repositories, `AccountStore` (fake `SecretCipher`) | Plain JVM JUnit + hand-written fake ports, MockK, Turbine | Yes |
 | `:core:nextcloud` | PROPFIND parsing, request building (headers, depth, body), Login Flow v2 polling states, error mapping, auth interceptor host check incl. redirects, URL normalisation, `PinningTrustManager` and `PinningHostnameVerifier` through real TLS handshakes (CA-signed, pinned, unknown, changed, expired, hostname mismatch, removed pin) | Plain JVM JUnit, `MockWebServer` (with `okhttp-tls` `HeldCertificate`s), kxml2 parser | Yes |
 | ViewModels (feature modules) | Event → state transitions, effects emitted, paging flow wiring | Local unit tests without Robolectric: `runTest` + Turbine, MockK repositories, route passed to the constructor | Yes |
@@ -1201,7 +1203,7 @@ Principles: every function gets a unit test; tests are small, independent and no
 
 Test doubles: hand-written fakes live in each module's `src/test` (for example the port fakes in `:core:data`'s `fakes/Fakes.kt`); there are no shared `testFixtures`. Feature ViewModel tests mock their repositories with MockK, which is also used for leaf collaborators. Test names follow `functionName_condition_expectedResult`.
 
-CI (`.github/workflows/ci.yml`) runs on every branch push (direct pushes and merges into `main`) and on pull requests: ktlint, detekt, lint, `test` (the JVM modules' tests and the Android modules' local unit tests, including Robolectric), the build-logic tests, the debug and instrumented-test builds, and the JaCoCo coverage reports (`coverageReport`). On pull requests and on `main` it then runs the SonarCloud scan (`sonar-project.properties`, D41), which needs the `SONAR_TOKEN` repository secret and is skipped without it. There is no emulator in CI: instrumented tests run locally with `./gradlew connectedDebugAndroidTest` on an API 37 emulator or the Pixel 10a before merging changes that touch an adapter.
+CI (`.github/workflows/ci.yml`) runs on every branch push (direct pushes and merges into `main`) and on pull requests: ktlint, detekt, lint, `test` (the JVM modules' tests and the Android modules' local unit tests, including Robolectric), the build-logic tests, the debug and instrumented-test builds, the release build (which shows what R8 refuses), compiling the benchmarks, and the JaCoCo coverage reports (`coverageReport`), after a Gradle wrapper validation job. On pull requests and on `main` it then runs the SonarCloud scan (`sonar-project.properties`, D41), which needs the `SONAR_TOKEN` repository secret and is skipped without it. There is no emulator in CI: instrumented tests run locally with `./gradlew connectedDebugAndroidTest` on an API 37 emulator or the Pixel 10a before merging changes that touch an adapter.
 
 The documentation site (`.github/workflows/pages.yml`, D58) is built when a GitHub release is published, or by hand from the Actions tab. It copies `README.md`, `docs/` and the Jekyll config in `.github/pages/` into one folder, builds it with GitHub's Jekyll (`actions/jekyll-build-pages`) and deploys it to GitHub Pages. `README.md` becomes the start page, links between the Markdown files become links between pages, and links to other repository files point to GitHub at the released commit. Mermaid diagrams are drawn in the browser by a script in `.github/pages/_includes/head-custom.html`.
 
@@ -1221,7 +1223,7 @@ Robolectric's shadows do not reproduce some platform behaviour. These parts are 
 | `ContentResolver.loadThumbnail` (Coil fetcher) | Not backed by the system thumbnail cache. | `MediaThumbnailFetcherTest` (`:core:ui`): the thumbnail is no larger than requested. |
 | EXIF GPS with `setRequireOriginal` | Location redaction depends on the real permission and provider. | `AndroidExifSourceGpsTest`: GPS read with `ACCESS_MEDIA_LOCATION` granted; `ContentResolverContentSourceDeviceTest`: the bytes for checksums. Without the permission is a manual check, because a test app that owns the file sees its location anyway. |
 | Android Keystore (`KeystoreSecretCipher`) | Robolectric has no `AndroidKeyStore` provider. | `KeystoreSecretCipherTest` (`:core:platform`): encrypt/decrypt round trip with a Keystore-wrapped keyset, ciphertext without the plaintext, a changed ciphertext fails. |
-| TLS on Android's own stack (`NextcloudHttpModule`, pinning) | The JVM tests use the JDK's TLS and trust store. | `NextcloudTlsDeviceTest` (`:core:platform`): a TLS 1.2 server connects; an unknown certificate becomes `AppError.UntrustedCertificate` with its fingerprint. The server runs on the device. |
+| TLS on Android's own stack (`NextcloudHttpModule`, pinning) | The JVM tests use the JDK's TLS and trust store. | `NextcloudTlsDeviceTest` (`:core:platform`): a TLS 1.2 server connects; an unknown certificate becomes `AppError.UntrustedCertificate` with its fingerprint and never reaches the server; pinned, changed and other-host pins behave on Android's stack as in the JVM `PinningTrustManagerTest`. The server runs on the device. |
 | XML parsing (`MultistatusParser`) | The JVM tests run on kxml2, not Android's `XmlPullParser`. | `MultistatusParserDeviceTest` (`:core:platform`): a DOCTYPE fails the parse, a normal response parses. |
 | HEIC display (viewer, thumbnails) | Native graphics in Robolectric may not include the platform HEIF codec. | No instrumented test; a manual check. |
 | Trash, delete and write requests | The system confirmation dialogs only exist on a device. | `MediaStoreDeleterTest` (`:core:media`): trash, restore and delete requests return an `IntentSender`; the write request is in `MediaStoreWriterTest`. Confirming the dialogs is a manual check. |
