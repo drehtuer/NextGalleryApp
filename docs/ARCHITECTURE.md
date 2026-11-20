@@ -264,7 +264,7 @@ Macrobenchmarks (`GalleryBenchmarks`), the Baseline Profile generator (`Baseline
 - `AppResult<T>` – `Success(value)` / `Failure(error: AppError)`; `AppError` sealed; implemented so far: `Io(message)`, `PermissionDenied`, `NotFound`, `InsufficientMemory(requiredBytes, availableBytes)`, `OriginalDamaged(recoveredAsCopy)`, `Unknown(cause)`, with `AppError.from(throwable)`, and for Nextcloud `Network`, `Auth`, `NotLoggedIn`, `Forbidden`, `Conflict`, `Server(code)`, `UntrustedCertificate(info: CertificateInfo)`, `LocalNetworkBlocked`, `InvalidServerUrl`, `ServerMismatch`, `LoginExpired`, `InvalidName`.
 - `DispatcherProvider` interface (`io`, `default`) + `DefaultDispatcherProvider`; the Hilt binding lives in `:core:platform`. ViewModels use `viewModelScope`, so no main dispatcher is injected.
 - `Clock` (`nowMillis()`, `zone()`) + `SystemClock`.
-- Utilities: `RelativePaths` (`normalize`, case-insensitive `isUnder`), `runCatchingCancellable` (never swallows `CancellationException`), `ScrollbarMath` (fast scrollbar position ↔ first visible item; here rather than in `:core:data` because `:core:ui` uses it).
+- Utilities: `RelativePaths` (`normalize`, case-insensitive `isUnder`), `runCatchingCancellable` (never swallows `CancellationException`), `ScrollbarMath` (fast scrollbar position ↔ first visible item; here rather than in `:core:data` because `:core:ui` uses it), `ScrollbarDrag` (when a grid follows a dragged thumb, D63).
 
 #### `:core:data` (pure Kotlin/JVM)
 
@@ -409,7 +409,7 @@ Pure logic (each class unit-tested on the JVM):
 
 - `NextGalleryTheme` (Material 3, light/dark; spacing and sizes through `NextGalleryTheme.dimensions`). Colours, typography, shapes and dimensions come from [DESIGN.md](DESIGN.md) (D22). `NextGalleryViewerTheme` is the always-black variant for the viewer and the editor. Takes the theme mode, the accent colour (D34) and the grid columns (D51) from `UserSettings`, through `MainViewModel`; features read the column count from `NextGalleryTheme.dimensions`.
 - `MediaGrid` – `LazyVerticalGrid` with a fixed column count (D51), driven by `LazyPagingItems<MediaItem>`, with selection and stable keys; `MediaGridPlaceholder` shows flat cells while the first page loads. The timeline has its own grid, because its rows include headers.
-- `FastScrollbar` – draggable thumb; drag fraction ↔ index math lives in `ScrollbarMath` (`:core:common`); shows an optional bubble label. The timeline uses its own `DateRail` (D43) with the same math.
+- `FastScrollbar` – draggable thumb; drag fraction ↔ index math lives in `ScrollbarMath` (`:core:common`); shows an optional bubble label for where the thumb points. The timeline uses its own `DateRail` (D43) with the same math. Both move the grid through `ScrollbarDrag`: a step of more than a quarter screen per drag event waits until the thumb slows down or rests for 80 ms, and the end of the drag scrolls to the final position, because a jump of a whole screen per frame composed every cell anew (D63). Only a new thumb position can scroll: the target also depends on how many items are visible, so following the target itself scrolled back and forth without end.
 - `SelectionTopBar` – total selection count (across all views), clear, and an actions slot for select all, share, delete, upload (hand-off) and the selection overview.
 - `UploadAction` (hidden while logged out, dimmed without the Nextcloud app, D31, D35), `rememberUploadHandoffHandler` (opens the Nextcloud app or shows why not; reports when the screen resumes), `UploadBadge` (for the badge slot of `ThumbnailCell`), `VisibleMediaIdsEffect` (reports the images on screen, debounced).
 - `CertificateWarningDialog` – shows `CertificateInfo` with a warning; Accept / Cancel.
@@ -609,7 +609,7 @@ sequenceDiagram
         UI->>Coil: load MediaStore thumbnail at cell size
         Coil-->>UI: bitmap from memory, disk or loadThumbnail
     end
-    UI->>UI: scrollbar dragged, scrollToItem index from ScrollbarMath
+    UI->>UI: scrollbar dragged, scrollToItem index from ScrollbarMath, paced by ScrollbarDrag
     Note over DAO,UI: Room invalidation re-emits pages after IndexWorker writes
 ```
 

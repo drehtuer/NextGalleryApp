@@ -40,9 +40,8 @@ import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
+import net.drehtuer.nextgallery.core.common.ScrollbarDrag
 import net.drehtuer.nextgallery.core.common.ScrollbarMath
 import net.drehtuer.nextgallery.core.data.timeline.DayRailDates
 import net.drehtuer.nextgallery.core.data.timeline.TimelineIndex
@@ -73,6 +72,16 @@ internal fun middleRow(layoutInfo: LazyGridLayoutInfo): Int? {
 }
 
 /**
+ * The row the rail's dates are for. While dragging, the grid can lag behind the thumb (D63), so the dates follow the
+ * thumb: [dragTarget] is the first row it points at, and the middle is as far below it as on the screen now.
+ */
+internal fun railRow(dragTarget: Int?, firstVisible: Int, middle: Int?, rowCount: Int): Int? = when {
+    middle == null -> null
+    dragTarget == null -> middle
+    else -> (dragTarget + middle - firstVisible).coerceIn(0, (rowCount - 1).coerceAtLeast(0))
+}
+
+/**
  * The timeline's fast scrollbar (D43): a track, a draggable thumb at the scroll position and, next to the thumb, the
  * day in the middle of the screen with its neighbours. It only recomposes when a date changes; the thumb moves in
  * the layout phase.
@@ -92,19 +101,14 @@ internal fun DateRail(state: LazyGridState, index: TimelineIndex, modifier: Modi
                 ?: ScrollbarMath.fractionForIndex(state.firstVisibleItemIndex, currentIndex.rowCount, visibleCount)
         }
     }
-    val dates by remember(state) {
-        derivedStateOf { middleRow(state.layoutInfo)?.let { currentIndex.dayRailAt(it) } }
-    }
+    val targetFor = { position: Float -> ScrollbarMath.indexForFraction(position, currentIndex.rowCount, visibleCount) }
+    val dragTarget by remember(state) { derivedStateOf { dragFraction?.let(targetFor) } }
+    val dates by rememberRailDates(state, { currentIndex }, { dragTarget })
 
     val scope = rememberCoroutineScope()
     val railDate = rememberDateFormatter(R.string.feature_timeline_rail_pattern)
 
-    // collectLatest drops positions the grid has not reached yet, so a long drag does not queue up jumps.
-    LaunchedEffect(state) {
-        snapshotFlow { dragFraction }.filterNotNull().collectLatest {
-            state.scrollToItem(ScrollbarMath.indexForFraction(it, currentIndex.rowCount, visibleCount))
-        }
-    }
+    FollowDragEffect(state, { dragFraction }, targetFor, { visibleCount })
 
     Box(modifier.fillMaxSize().onSizeChanged { trackHeightPx = it.height }) {
         val travelPx = (trackHeightPx - thumbHeightPx).coerceAtLeast(1)
@@ -132,14 +136,45 @@ internal fun DateRail(state: LazyGridState, index: TimelineIndex, modifier: Modi
                     description = stringResource(CoreUiR.string.core_ui_scroll_position),
                     fraction = { fraction },
                     positionText = { dates?.let { railDate.format(it.current) } },
-                    onScrollTo = { target ->
-                        val row = ScrollbarMath.indexForFraction(target, currentIndex.rowCount, visibleCount)
-                        scope.launch { state.scrollToItem(row) }
-                    },
+                    onScrollTo = { target -> scope.launch { state.scrollToItem(targetFor(target)) } },
                 ),
             onDragStarted = { dragFraction = fraction },
             onDrag = { delta -> dragFraction = ((dragFraction ?: fraction) + delta / travelPx).coerceIn(0f, 1f) },
-            onDragStopped = { dragFraction = null },
+            onDragStopped = {
+                dragTarget?.let { scope.launch { state.scrollToItem(it) } }
+                dragFraction = null
+            },
+        )
+    }
+}
+
+/** The dates next to the thumb: for the middle of the screen, or for where the thumb points while dragging. */
+@Composable
+private fun rememberRailDates(state: LazyGridState, index: () -> TimelineIndex, dragTarget: () -> Int?) =
+    remember(state) {
+        derivedStateOf {
+            val rows = index().rowCount
+            railRow(dragTarget(), state.firstVisibleItemIndex, middleRow(state.layoutInfo), rows)?.let {
+                index().dayRailAt(it)
+            }
+        }
+    }
+
+/** The grid waits while the thumb moves fast and lands where the drag ends (D63). */
+@Composable
+private fun FollowDragEffect(
+    state: LazyGridState,
+    dragFraction: () -> Float?,
+    targetFor: (Float) -> Int,
+    visibleCount: () -> Int,
+) {
+    val currentTargetFor by rememberUpdatedState(targetFor)
+    LaunchedEffect(state) {
+        ScrollbarDrag.follow(
+            snapshotFlow(dragFraction),
+            targetFor = { currentTargetFor(it) },
+            visibleCount = visibleCount,
+            scrollTo = state::scrollToItem,
         )
     }
 }

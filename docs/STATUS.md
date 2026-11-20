@@ -50,7 +50,7 @@ Where the implementation stands against the plan in [TODO.md](TODO.md). TODO.md 
 - The Folders top bar opens Settings: Folders, Appearance, Map, Nextcloud ("Not connected") and About & licences.
 - Settings > Folders adds folders with the system picker and removes them; a change re-indexes after about 2 s. It also creates, edits and deletes virtual folders, which show the images of several folders together. After updating from an earlier build the app starts with no folders.
 - Appearance sets the theme mode, 3, 4 or 5 grid columns and the accent colour, applied live and kept across restarts.
-- 2364 tests run with the CI command (plain JVM, Robolectric, Compose UI).
+- 2379 tests run with the CI command (plain JVM, Robolectric, Compose UI).
 - About's licence list is generated from the dependencies, with GeoNames and OpenStreetMap kept. Screen readers get names and dates on thumbnails, selection and upload states, and scrollbars that work without dragging; touch targets are at least 48 dp.
 - There is a minified release build, signed if `keystore.properties` exists, with its version from a Git tag. The build refuses proprietary libraries and licences outside the allowed list.
 
@@ -109,7 +109,7 @@ These need the Pixel 10a or an API 37 emulator (`./gradlew connectedDebugAndroid
 ## Known workarounds and technical debt
 
 - The benchmark journeys (`Journeys.kt`) assume a populated folder list, but cannot drive the system folder picker. Add a folder with photos by hand before running them, and keep app data between runs; a build step that clears app data makes them fail with "Is a folder with photos added in Settings?". They open the first folder in the list (sorted by name), so for D24 that has to be the large one.
-- Timeline fast-scroll drops frames (D63): each drag step composes a full screen of new cells in 10 to 15 ms. The other D24 targets are met.
+- Timeline fast-scroll still misses D24 (D63): the grid now waits while the thumb moves fast, but the jump when it lands composes a whole screen in one frame (14 to 34 ms at 60 Hz). The other D24 targets are met.
 - Overwriting an image is not atomic, because MediaStore has no atomic replace: if the process dies during the short write, the image can be incomplete. Failures inside the process restore the original from a backup.
 - If photo location access is denied, GPS is lost from a saved image.
 - The editor's history does not survive process death.

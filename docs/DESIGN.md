@@ -193,6 +193,9 @@ photos scroll:
   day below. Format "24 Oct 2026". The small labels sit on `surface` at 85–90 % so they read over photos.
 - At the start or end of the timeline the missing neighbour is left out.
 - The rail is drawn above the sticky headers (a sibling after the list, not inside it), so headers never cover it.
+- While the thumb is dragged fast, the photos stay where they are and the labels show the days at the thumb. The grid
+  jumps there when the drag slows down, when the thumb rests for a moment, or when the finger lets go (D63). The folder
+  grid's scrollbar does the same with its label.
 
 ### Map (D44, D45)
 
