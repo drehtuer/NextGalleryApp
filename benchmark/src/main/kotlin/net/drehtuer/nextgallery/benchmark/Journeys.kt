@@ -6,6 +6,7 @@ import androidx.test.uiautomator.By
 import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
+import java.util.regex.Pattern
 
 internal const val TARGET_PACKAGE = "net.drehtuer.nextgallery"
 private const val WAIT_MILLIS = 5_000L
@@ -35,10 +36,15 @@ private fun UiObject2.flingDownAndUp() {
     repeat(FLINGS) { fling(Direction.UP) }
 }
 
-/** Starts on the folder list: opens the first folder and scrolls its grid. */
+/**
+ * Starts on the folder list: opens the first folder and scrolls its grid. A short folder list does not scroll, so the
+ * folder is found by its card, which holds the image count.
+ */
 internal fun MacrobenchmarkScope.scrollFolderGrid() {
-    val folders = grid()
-    folders.children.first().click()
+    val folder = waitFor("A folder") {
+        device.wait(Until.findObject(By.clickable(true).hasDescendant(By.text(IMAGE_COUNT))), WAIT_MILLIS)
+    }
+    folder.click()
     device.waitForIdle()
     grid().flingDownAndUp()
 }
@@ -70,6 +76,7 @@ internal fun MacrobenchmarkScope.swipeViewer() {
     }
 }
 
+private val IMAGE_COUNT = Pattern.compile("[\\d,.]+ images?")
 private const val GESTURE_MARGIN = 0.2f
 private const val PERCENT = 100
 private const val DRAG_END_PERCENT = 85

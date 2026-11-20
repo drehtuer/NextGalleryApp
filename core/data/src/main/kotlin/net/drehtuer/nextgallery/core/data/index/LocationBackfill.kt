@@ -1,7 +1,12 @@
 package net.drehtuer.nextgallery.core.data.index
 
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import net.drehtuer.nextgallery.core.data.map.MapPermissions
 import net.drehtuer.nextgallery.core.model.GeoPoint
 import net.drehtuer.nextgallery.core.model.MediaId
@@ -11,7 +16,8 @@ import javax.inject.Inject
 /**
  * The second indexing pass (ARCHITECTURE.md §5.1): reads the GPS tags of images it has not looked at yet, in batches,
  * so that an interrupted run continues where it stopped. Without `ACCESS_MEDIA_LOCATION` Android hides the location
- * in the file, so it does nothing and the images stay unscanned until the permission is granted.
+ * in the file, so it does nothing and the images stay unscanned until the permission is granted. Several files are
+ * read at once, because each read mostly waits for storage: on 50 000 images one at a time took over 5 minutes.
  */
 class LocationBackfill @Inject constructor(
     private val geoStore: GeoIndexStore,
@@ -26,11 +32,14 @@ class LocationBackfill @Inject constructor(
             currentCoroutineContext().ensureActive()
             val batch = geoStore.unscanned(BATCH_SIZE)
             if (batch.isEmpty()) return scanned
-            val locations = HashMap<MediaId, GeoPoint?>()
-            batch.forEach { locations[it.id] = locationOf(it) }
-            geoStore.saveLocations(locations)
+            geoStore.saveLocations(locationsOf(batch))
             scanned += batch.size
         }
+    }
+
+    private suspend fun locationsOf(batch: List<MediaItem>): Map<MediaId, GeoPoint?> = coroutineScope {
+        val reads = Semaphore(PARALLEL_READS)
+        batch.map { item -> async { item.id to reads.withPermit { locationOf(item) } } }.awaitAll().toMap()
     }
 
     private suspend fun locationOf(item: MediaItem): GeoPoint? = if (item.mimeType in MIME_TYPES_WITH_GPS) {
@@ -41,6 +50,7 @@ class LocationBackfill @Inject constructor(
 
     private companion object {
         const val BATCH_SIZE = 200
+        const val PARALLEL_READS = 4
         val MIME_TYPES_WITH_GPS = setOf("image/jpeg", "image/heic", "image/heif", "image/webp")
     }
 }

@@ -1,6 +1,6 @@
 # Project status
 
-Last updated: 2026-11-07
+Last updated: 2026-11-20
 
 Where the implementation stands against the plan in [TODO.md](TODO.md). TODO.md has the detailed checklist; this page is the summary.
 
@@ -21,7 +21,7 @@ Where the implementation stands against the plan in [TODO.md](TODO.md). TODO.md 
 | 9 | Upload status and hand-off to the Nextcloud app | Done in code (PR #20), CI green. Open: checks on the device with a real server and the Nextcloud app. |
 | – | Login in the default browser (D54) | Done in code (PR #23), CI green. Open: checks on the device with a real server. |
 | – | Added folders and virtual folders (D55) | Done in code (PR #24), CI green. Open: checks on the device. |
-| 10 | Hardening and release | What could be done without a person is done. The release workflow signs and publishes tagged versions (D61); 0.1.1 is the first published release; the 0.1.0 tag was never released. Open: benchmarks, profile, accessibility on the device, the signing key in the `release` environment and the full manual pass. |
+| 10 | Hardening and release | The release workflow signs and publishes tagged versions (D61); 0.1.1 is the first published release; the 0.1.0 tag was never released. On the Pixel 10a (2026-11-20): instrumented suite green, benchmarks run (D63), Baseline Profile committed, 50k indexing measured and sped up, StrictMode log checked, 200 % font checked. Open: timeline fast-scroll misses D24, TalkBack, Accessibility Scanner, the emulator run and the full manual pass. |
 
 ## What works now
 
@@ -50,7 +50,7 @@ Where the implementation stands against the plan in [TODO.md](TODO.md). TODO.md 
 - The Folders top bar opens Settings: Folders, Appearance, Map, Nextcloud ("Not connected") and About & licences.
 - Settings > Folders adds folders with the system picker and removes them; a change re-indexes after about 2 s. It also creates, edits and deletes virtual folders, which show the images of several folders together. After updating from an earlier build the app starts with no folders.
 - Appearance sets the theme mode, 3, 4 or 5 grid columns and the accent colour, applied live and kept across restarts.
-- 2318 tests run with the CI command (plain JVM, Robolectric, Compose UI).
+- 2364 tests run with the CI command (plain JVM, Robolectric, Compose UI).
 - About's licence list is generated from the dependencies, with GeoNames and OpenStreetMap kept. Screen readers get names and dates on thumbnails, selection and upload states, and scrollbars that work without dragging; touch targets are at least 48 dp.
 - There is a minified release build, signed if `keystore.properties` exists, with its version from a Git tag. The build refuses proprietary libraries and licences outside the allowed list.
 
@@ -98,14 +98,18 @@ These need the Pixel 10a or an API 37 emulator (`./gradlew connectedDebugAndroid
 - [ ] Upload: a geotagged image handed off, then compared on a server that reports checksums (if the Nextcloud app lacks `ACCESS_MEDIA_LOCATION`, the system may blank GPS, and the image would stay "not uploaded"); the comparison against a real server; upgrading from an older database with existing data; the badge icons by eye.
 - [ ] Release build, because R8 can break these with no build error (on `benchmarkRelease` or a signed release; only the start of the app has been tried): every screen opens, especially those with arguments (viewer, folder grid, editor, remote viewer, Nextcloud account, selection overview); the index builds and survives a restart, and `IndexWorker` and `UploadStateSyncWorker` run.
 - [ ] Release build: sign in, close the app, still signed in, then log out; server browsing, previews, moving, with a CA certificate and a self-signed one; map tiles, clusters and zoom; place names; the licence list; edit and save, overwrite; share; upload hand-off; share with a very large selection shows the message.
-- [ ] Phase 10: `./gradlew :benchmark:connectedBenchmarkReleaseAndroidTest` against D24; `./gradlew :app:generateBaselineProfile`, then commit the result; 50k indexing; the StrictMode log; TalkBack traversal; font scaling at 200 %; Accessibility Scanner; the full manual pass; a keystore and one real signed build.
+- [ ] Phase 10: TalkBack traversal; Accessibility Scanner; the full manual pass; a second benchmark run once timeline fast-scroll is improved (D63). Done on 2026-11-20: benchmarks against D24, the Baseline Profile, 50k indexing, the StrictMode log, font scaling at 200 %; a signed build exists since 0.1.1.
 - [ ] Design: the Select action starts a selection with "0 selected"; the limited access banner sits under the top bar.
 - [x] `MainActivityTest` (`:app`), `MediaStoreScannerTest` (`:core:media`) and `MediaThumbnailFetcherTest` (`:core:ui`) pass on the Pixel 10a (2026-11-06).
+- [x] The whole instrumented suite (38 tests in 12 APKs) passes on the Pixel 10a (2026-11-20).
+- [x] Map with 10 000 geotagged images: clusters, tiles, attribution and the cluster sheet with place names, also in `benchmarkRelease` (2026-11-20). With evenly spread test points at zoom 8 the markers overlap a lot; check with real photos whether the cluster size looks right.
+- [x] Release build (`benchmarkRelease`): index, folder grid, viewer, timeline, editor, map, Settings, Appearance, About and the Nextcloud screens open without errors (2026-11-20).
 - [x] Images in a folder with a `.nomedia` file are not returned by the scanner, after a media scan (D6; `MediaStoreScannerTest`).
 
 ## Known workarounds and technical debt
 
-- The benchmark journeys (`Journeys.kt`) assume a populated folder list, but cannot drive the system folder picker. Add a folder with photos by hand before running them, and keep app data between runs; a build step that clears app data makes them fail with "Is a folder with photos added in Settings?". Not run since this change (D55).
+- The benchmark journeys (`Journeys.kt`) assume a populated folder list, but cannot drive the system folder picker. Add a folder with photos by hand before running them, and keep app data between runs; a build step that clears app data makes them fail with "Is a folder with photos added in Settings?". They open the first folder in the list (sorted by name), so for D24 that has to be the large one.
+- Timeline fast-scroll drops frames (D63): each drag step composes a full screen of new cells in 10 to 15 ms. The other D24 targets are met.
 - Overwriting an image is not atomic, because MediaStore has no atomic replace: if the process dies during the short write, the image can be incomplete. Failures inside the process restore the original from a backup.
 - If photo location access is denied, GPS is lost from a saved image.
 - The editor's history does not survive process death.

@@ -14,8 +14,9 @@ import java.io.IOException
 
 class LoginFlowV2ClientTest {
     private val server = MockWebServer()
+    private val noRedirects = OkHttpClient.Builder().followRedirects(false).build()
     private val client =
-        LoginFlowV2Client(OkHttpClient(), allowCleartext = true)
+        LoginFlowV2Client(OkHttpClient(), noRedirects, allowCleartext = true)
 
     private val session get() = LoginFlowSession("https://l", server.url("/login/v2/poll").toString(), "poll-token")
 
@@ -61,7 +62,7 @@ class LoginFlowV2ClientTest {
 
     @Test
     fun start_httpPollEndpointWithoutCleartext_isRefused() {
-        val strict = LoginFlowV2Client(OkHttpClient(), allowCleartext = false)
+        val strict = LoginFlowV2Client(OkHttpClient(), noRedirects, allowCleartext = false)
         server.enqueue(MockResponse().setBody(sessionJson(endpoint = "http://cloud.example.com/poll")))
 
         assertThrows(InvalidServerUrlException::class.java) {
@@ -165,7 +166,7 @@ class LoginFlowV2ClientTest {
 
     @Test
     fun check_serverOverHttpWithoutCleartext_isRefused() {
-        val strict = LoginFlowV2Client(OkHttpClient(), allowCleartext = false)
+        val strict = LoginFlowV2Client(OkHttpClient(), noRedirects, allowCleartext = false)
         server.enqueue(MockResponse().setBody("""{"server":"http://c","loginName":"a","appPassword":"p"}"""))
 
         assertThrows(InvalidServerUrlException::class.java) {

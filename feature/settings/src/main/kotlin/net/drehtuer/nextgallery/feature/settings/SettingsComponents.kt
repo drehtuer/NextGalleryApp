@@ -16,6 +16,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonColors
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
@@ -103,12 +104,23 @@ internal fun <T> SegmentedChoice(
                 selected = option == selected,
                 onClick = { onSelect(option) },
                 shape = SegmentedButtonDefaults.itemShape(index, options.size),
+                colors = segmentColors(),
                 icon = {},
                 label = { Text(label(option), maxLines = 1) },
             )
         }
     }
 }
+
+/**
+ * The chosen segment in the accent. Material's default is `secondaryContainer`, which is the warning colour here
+ * (DESIGN.md), so the chosen theme showed in brown.
+ */
+@Composable
+internal fun segmentColors(): SegmentedButtonColors = SegmentedButtonDefaults.colors(
+    activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+    activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+)
 
 /** A title above a part of a settings screen. */
 @Composable

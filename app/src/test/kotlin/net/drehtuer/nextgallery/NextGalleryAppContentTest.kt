@@ -3,6 +3,9 @@ package net.drehtuer.nextgallery
 import android.app.Application
 import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.Text
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -10,6 +13,9 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.Density
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -25,10 +31,12 @@ import net.drehtuer.nextgallery.feature.viewer.ViewerRoute
 import net.drehtuer.nextgallery.navigation.FoldersRoute
 import net.drehtuer.nextgallery.navigation.SettingsGraphRoute
 import net.drehtuer.nextgallery.navigation.settingsGraph
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 // Plain Application: these tests need no Hilt components.
 @RunWith(AndroidJUnit4::class)
@@ -56,6 +64,30 @@ class NextGalleryAppContentTest {
             },
             timeline = { composable<TimelineRoute> { Text("Timeline screen") } },
         )
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h914dp")
+    @GraphicsMode(GraphicsMode.Mode.NATIVE) // Measures text as the device does.
+    fun bottomNavigation_doubleFontSize_keepsEachLabelOnOneLine() {
+        composeRule.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = 2f)) {
+                NextGalleryAppContent(
+                    state = MainUiState(MediaAccess.FULL),
+                    onRequestAccess = {},
+                    onOpenSettings = {},
+                    folders = { composable<FoldersRoute> { Text("Folders screen") } },
+                    timeline = { composable<TimelineRoute> { Text("Timeline screen") } },
+                )
+            }
+        }
+
+        val results = mutableListOf<TextLayoutResult>()
+        composeRule.onNodeWithText("Nextcloud").performSemanticsAction(SemanticsActions.GetTextLayoutResult) {
+            it(results)
+        }
+        assertEquals(1, results.single().lineCount)
     }
 
     @Test
