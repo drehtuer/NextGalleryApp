@@ -84,12 +84,16 @@ internal fun LoginRequired(onSignIn: () -> Unit, modifier: Modifier = Modifier) 
     }
 }
 
+/**
+ * Shown over the last loaded listing when the server could not be reached. With a network, the phone is not offline:
+ * the server did not answer in time or the connection failed.
+ */
 @Composable
-internal fun OfflineBanner() {
+internal fun OfflineBanner(isConnected: Boolean) {
     val colors = MaterialTheme.colorScheme
     val dimensions = NextGalleryTheme.dimensions
     Text(
-        stringResource(R.string.feature_remote_offline),
+        stringResource(if (isConnected) R.string.feature_remote_unreachable else R.string.feature_remote_offline),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = dimensions.spacingMedium, vertical = dimensions.spacingSmall)

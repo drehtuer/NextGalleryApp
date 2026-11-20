@@ -9,6 +9,7 @@
     <string name="feature_remote_refresh">Refresh</string>
     <string name="feature_remote_move">Move</string>
     <string name="feature_remote_offline">You\'re offline. Showing what was loaded before.</string>
+    <string name="feature_remote_unreachable">Can\'t reach your server. Showing what was loaded before.</string>
     <string name="feature_remote_session_ended">Your Nextcloud session ended. Sign in again to see new photos.</string>
     <string name="feature_remote_empty">Nothing here</string>
     <string name="feature_remote_empty_detail">This folder has no images or subfolders.</string>
@@ -76,6 +77,8 @@
 
     <string name="feature_remote_details">Details</string>
     <string name="feature_remote_loading_full">Loading full image · %1$.1f of %2$.1f MB</string>
+    <string name="feature_remote_loading_full_unknown_size">Loading full image · %1$.1f MB</string>
+    <string name="feature_remote_original_failed">The full image couldn\'t be loaded.</string>
     <string name="feature_remote_info_name">Name</string>
     <string name="feature_remote_info_date">Date</string>
     <string name="feature_remote_info_size">Size</string>

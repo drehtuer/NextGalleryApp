@@ -6,6 +6,12 @@ tagging. The release workflow uses that section as the release notes, so it must
 
 ## Unreleased
 
+- Fixed: a remote image whose original failed to load stayed black; it now says so and offers "Try again".
+- Fixed: while the original loads without a size from the server, the progress said "x of 0 MB"; it now shows only the
+  megabytes received.
+- Fixed: when the Nextcloud server didn't answer while the phone had a network, the folder said "You're offline"; it
+  now says "Can't reach your server".
+
 ## 0.2.0
 
 Faster and smoother with large libraries, measured on the Pixel 10a with 50 000 photos, and fixes found on the

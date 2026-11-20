@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -19,10 +20,17 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +54,7 @@ import net.drehtuer.nextgallery.core.ui.remote.remoteImageLoader
 import net.drehtuer.nextgallery.core.ui.remote.remoteMessage
 import net.drehtuer.nextgallery.core.ui.theme.NextGalleryTheme
 import net.drehtuer.nextgallery.core.ui.theme.NextGalleryViewerTheme
+import net.drehtuer.nextgallery.core.ui.R as CoreUiR
 
 private const val CHROME_ALPHA = 0.6f
 private const val BYTES_PER_MB = 1024f * 1024f
@@ -104,11 +113,17 @@ private fun RemotePager(
     }
 }
 
+/**
+ * The preview first, then the original over it. A failed original shows a message with "Try again", instead of
+ * leaving the page black when there is no preview.
+ */
 @Composable
-private fun RemoteZoomablePage(item: RemoteItem, urls: RemoteImageUrls?, onTap: () -> Unit) {
+internal fun RemoteZoomablePage(item: RemoteItem, urls: RemoteImageUrls?, onTap: () -> Unit) {
     if (urls == null) return
     val context = LocalContext.current
     val loader = remoteImageLoader()
+    var attempt by remember(item.path) { mutableIntStateOf(0) }
+    var failed by remember(item.path) { mutableStateOf(false) }
     Box(Modifier.fillMaxSize()) {
         urls.preview(item, VIEWER_PREVIEW_PX)?.let { preview ->
             val key = remoteImageCacheKey(item, VIEWER_PREVIEW_PX)
@@ -126,17 +141,47 @@ private fun RemoteZoomablePage(item: RemoteItem, urls: RemoteImageUrls?, onTap: 
             )
         }
         val key = remoteImageCacheKey(item, null)
-        ZoomableAsyncImage(
-            model = ImageRequest.Builder(context)
-                .data(urls.original(item))
-                .memoryCacheKey(key)
-                .diskCacheKey(key)
-                .build(),
-            imageLoader = loader,
-            contentDescription = item.name,
-            modifier = Modifier.fillMaxSize(),
-            onClick = { onTap() },
+        // A new attempt is a new request; Coil does not cache failures.
+        key(attempt) {
+            ZoomableAsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(urls.original(item))
+                    .memoryCacheKey(key)
+                    .diskCacheKey(key)
+                    .listener(onError = { _, _ -> failed = true })
+                    .build(),
+                imageLoader = loader,
+                contentDescription = item.name,
+                modifier = Modifier.fillMaxSize(),
+                onClick = { onTap() },
+            )
+        }
+        if (failed) {
+            OriginalFailedBar(
+                onRetry = {
+                    failed = false
+                    attempt++
+                },
+                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding(),
+            )
+        }
+    }
+}
+
+@Composable
+internal fun OriginalFailedBar(onRetry: () -> Unit, modifier: Modifier = Modifier) {
+    val dimensions = NextGalleryTheme.dimensions
+    Row(
+        modifier.fillMaxWidth().padding(dimensions.spacingMedium),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            stringResource(R.string.feature_remote_original_failed),
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
         )
+        TextButton(onClick = onRetry) { Text(stringResource(CoreUiR.string.core_ui_retry)) }
     }
 }
 
@@ -156,11 +201,7 @@ private fun RemoteDownloadBar(progress: RemoteDownloadProgress, modifier: Modifi
             LinearProgressIndicator(Modifier.fillMaxWidth())
         }
         Text(
-            stringResource(
-                R.string.feature_remote_loading_full,
-                progress.bytesRead / BYTES_PER_MB,
-                progress.totalBytes.coerceAtLeast(0) / BYTES_PER_MB,
-            ),
+            loadingFullText(progress),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurface,
         )
@@ -229,4 +270,16 @@ private fun InfoRow(label: Int, value: String?) {
         Text(stringResource(label), style = MaterialTheme.typography.labelMedium)
         Text(value, style = MaterialTheme.typography.bodyLarge)
     }
+}
+
+/** Without a size from the server, only what has arrived; "x of 0 MB" read as an empty image. */
+@Composable
+private fun loadingFullText(progress: RemoteDownloadProgress): String = if (progress.totalBytes > 0) {
+    stringResource(
+        R.string.feature_remote_loading_full,
+        progress.bytesRead / BYTES_PER_MB,
+        progress.totalBytes / BYTES_PER_MB,
+    )
+} else {
+    stringResource(R.string.feature_remote_loading_full_unknown_size, progress.bytesRead / BYTES_PER_MB)
 }

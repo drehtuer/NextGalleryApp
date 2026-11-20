@@ -2,15 +2,21 @@ package net.drehtuer.nextgallery.feature.remote
 
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.Text
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import coil3.ImageLoader
+import coil3.serviceLoaderEnabled
 import net.drehtuer.nextgallery.core.common.AppError
 import net.drehtuer.nextgallery.core.data.nextcloud.RemoteDownloadProgress
+import net.drehtuer.nextgallery.core.ui.remote.LocalRemoteImageLoader
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -99,10 +105,37 @@ class RemoteViewerScreenTest {
     }
 
     @Test
-    fun progress_unknownTotal_stillShows() {
+    fun progress_unknownTotal_showsOnlyWhatArrived() {
         show(loaded.copy(progress = RemoteDownloadProgress(1024 * 1024, -1)))
 
-        composeRule.onNodeWithText("Loading full image", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Loading full image · 1.0 MB").assertIsDisplayed()
+    }
+
+    @Test
+    fun originalFailedBar_tryAgain_retries() {
+        var retried = false
+        composeRule.setContent { OriginalFailedBar(onRetry = { retried = true }) }
+
+        composeRule.onNodeWithText("Try again").performClick()
+
+        assertTrue(retried)
+    }
+
+    @Test
+    fun zoomablePage_originalFails_saysSo() {
+        // Without a network fetcher every request fails, as a failed download does.
+        val failingLoader = ImageLoader.Builder(ApplicationProvider.getApplicationContext())
+            .serviceLoaderEnabled(false)
+            .build()
+        composeRule.setContent {
+            CompositionLocalProvider(LocalRemoteImageLoader provides failingLoader) {
+                RemoteZoomablePage(IMAGE_A, FakeUrls, onTap = {})
+            }
+        }
+
+        composeRule.waitUntil(LOAD_TIMEOUT_MILLIS) {
+            composeRule.onAllNodesWithText("The full image couldn't be loaded.").fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     @Test
@@ -141,5 +174,9 @@ class RemoteViewerScreenTest {
 
         composeRule.onNodeWithText("Date").assertIsDisplayed()
         assertEquals(1_000L, IMAGE_A.lastModifiedMillis)
+    }
+
+    private companion object {
+        const val LOAD_TIMEOUT_MILLIS = 5_000L
     }
 }

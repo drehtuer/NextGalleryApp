@@ -52,7 +52,7 @@ fun RemoteBrowserScreen(
         topBar = { BrowserTopBar(state, onEvent) },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
-            if (state.isOffline) OfflineBanner()
+            if (state.isOffline) OfflineBanner(state.isConnected)
             if (state.sessionEnded) SessionEndedBanner(onSignIn = { onSignIn(true) })
             if (state.move.isMoving) LinearProgressIndicator(Modifier.fillMaxWidth())
             Breadcrumbs(state.path, onOpen = { onEvent(BrowseEvent.OpenFolder(it)) })
