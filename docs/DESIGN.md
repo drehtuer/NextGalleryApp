@@ -1,7 +1,7 @@
 # Design
 
 Status: delivered by Claude Design (D22) and applied to all screens (task 10.0). This document is the handover for implementing the visual
-design: every value `NextGalleryTheme` needs, and the layout, wording and states of each screen that differs from stock
+design: the main values `NextGalleryTheme` needs (the code adds a few small tokens, such as crop handle sizes), and the layout, wording and states of each screen that differs from stock
 Material 3. Behaviour and architecture stay in [ARCHITECTURE.md](ARCHITECTURE.md); the decisions behind the new
 behaviour are D22, D34, D43–D47, D49–D51 and D55 in [DESIGN_DECISIONS.md](DESIGN_DECISIONS.md).
 
@@ -177,7 +177,7 @@ The bar replaces the top bar on a `primaryContainer` background: close, "5 selec
 share, upload, delete. Upload is drawn at 38 % when the Nextcloud app is missing; tapping it shows "Install the
 Nextcloud app to upload photos." Delete ends with the snackbar "5 images moved to the trash" and Undo.
 
-The overview has the top bar "Selection" with share and delete, a note "5 selected in all folders. Greyed out: 2 in
+The overview has the top bar "Selection" with share, upload and delete, a note "5 selected in all folders. Greyed out: 2 in
 other folders, which this view can't open." and the grid with greyed-out items. Nothing selected: "Nothing selected" /
 "Long-press a photo in any folder to start selecting."
 
@@ -194,8 +194,8 @@ photos scroll:
 - At the start or end of the timeline the missing neighbour is left out.
 - The rail is drawn above the sticky headers (a sibling after the list, not inside it), so headers never cover it.
 - While the thumb is dragged fast, the photos stay where they are and the labels show the days at the thumb. The grid
-  jumps there when the drag slows down, when the thumb rests for a moment, or when the finger lets go (D63). The folder
-  grid's scrollbar does the same with its label.
+  jumps there when the drag slows down, when the thumb rests for a moment, or when the finger lets go (D63). The
+  scrollbars of the folder grid and the map's cluster sheet, which have no label, wait the same way.
 
 ### Map (D44, D45)
 
