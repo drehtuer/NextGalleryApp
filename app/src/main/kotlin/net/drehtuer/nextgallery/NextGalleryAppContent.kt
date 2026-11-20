@@ -16,6 +16,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -98,7 +99,8 @@ private fun BottomBar(navController: NavHostController) {
                     }
                 },
                 icon = { Icon(painterResource(destination.icon), contentDescription = null) },
-                label = { Text(stringResource(destination.label)) },
+                // One line even at large font sizes, where "Nextcloud" broke into "Nextclou" and "d".
+                label = { Text(stringResource(destination.label), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 colors = NavigationBarItemDefaults.colors(
                     indicatorColor = MaterialTheme.colorScheme.primaryContainer,
                     selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,

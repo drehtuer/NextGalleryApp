@@ -2,6 +2,7 @@ package net.drehtuer.nextgallery.core.data.index
 
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import net.drehtuer.nextgallery.core.data.fakes.FakeExifSource
 import net.drehtuer.nextgallery.core.data.fakes.FakeGeoIndexStore
@@ -105,5 +106,23 @@ class LocationBackfillTest {
         val scanned = backfill().run()
 
         assertEquals(450 to 450, scanned to store.saved.size)
+    }
+
+    @Test
+    fun run_readsFourFilesAtOnce() = runTest {
+        store.unscannedItems += (1L..10L).map { mediaItem(it) }
+        var running = 0
+        var mostAtOnce = 0
+        val slowSource = ExifSource {
+            running++
+            mostAtOnce = maxOf(mostAtOnce, running)
+            delay(100)
+            running--
+            gardaExif
+        }
+
+        LocationBackfill(store, slowSource, permissions).run()
+
+        assertEquals(4, mostAtOnce)
     }
 }

@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SelectableChipColors
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -135,10 +138,18 @@ fun AspectChips(
                 onClick = { onSelect(aspect) },
                 label = { Text(stringResource(aspect.label)) },
                 enabled = enabled,
+                colors = aspectChipColors(),
             )
         }
     }
 }
+
+/** The chosen ratio in the accent, as the active tool. Material's default is the warning colour here (DESIGN.md). */
+@Composable
+internal fun aspectChipColors(): SelectableChipColors = FilterChipDefaults.filterChipColors(
+    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
+)
 
 @get:StringRes
 private val AspectRatio.label: Int

@@ -7,9 +7,9 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import okhttp3.Call
 import okhttp3.FormBody
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
@@ -30,14 +30,15 @@ data class LoginFlowResult(val serverUrl: String, val loginName: String, val app
 /**
  * Nextcloud Login Flow v2. The URLs in the responses come from the network and are opened in a browser or receive the
  * token, so only https is accepted, or http if [allowCleartext] (D19). The token only goes to the server the user
- * entered: to the same scheme, host and port, as Nextcloud does it, and never along a redirect.
+ * entered: to the same scheme, host and port, as Nextcloud does it, and never along a redirect, so [pollClient] must
+ * not follow redirects.
  */
 class LoginFlowV2Client(
-    private val client: OkHttpClient,
+    private val client: Call.Factory,
+    private val pollClient: Call.Factory,
     private val allowCleartext: Boolean,
     private val io: CoroutineDispatcher = Dispatchers.IO,
 ) {
-    private val pollClient = client.newBuilder().followRedirects(false).build()
     private val normalizer = ServerUrlNormalizer(allowCleartext)
 
     suspend fun start(serverUrl: String): LoginFlowSession = withContext(io) {

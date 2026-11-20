@@ -2,6 +2,7 @@ package net.drehtuer.nextgallery.core.platform
 
 import android.content.Context
 import dagger.Binds
+import dagger.Lazy
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -85,29 +86,45 @@ abstract class NextcloudModule {
         fun provideCertificateStore(@ApplicationContext context: Context): TrustedCertificateStore =
             DataStoreTrustedCertificateStore.create(File(context.filesDir, "datastore/trusted_certs.preferences_pb"))
 
+        /**
+         * Building the clients sets up TLS and reads the system and accepted certificates, which took over 300 ms. The
+         * clients below only get it inside their first request, which runs on the IO dispatcher, so creating a screen
+         * that holds one, such as the folder grid with its upload badges, does not do this on the main thread.
+         */
         @Provides
         @Singleton
         fun provideHttpModule(
             config: NextcloudHttpConfig,
             credentials: CredentialsProvider,
             pins: CertificatePinSource,
-        ): NextcloudHttpModule = NextcloudHttpModule(config, credentials, pins)
+            downloadProgress: DownloadProgressTracker,
+        ): NextcloudHttpModule = NextcloudHttpModule(config, credentials, pins, downloadProgress)
 
         @Provides
-        fun provideConnectionEvictor(module: NextcloudHttpModule): ConnectionEvictor = module
+        fun provideConnectionEvictor(module: Lazy<NextcloudHttpModule>) = ConnectionEvictor {
+            module.get().evictConnections()
+        }
 
         @Provides
-        fun provideDownloadTracker(module: NextcloudHttpModule): DownloadProgressTracker = module.downloadProgress
+        @Singleton
+        fun provideDownloadTracker(): DownloadProgressTracker = DownloadProgressTracker()
 
         @Provides
-        fun provideWebDavClient(module: NextcloudHttpModule) = WebDavClient(module.authenticated, module.noRedirects)
+        fun provideWebDavClient(module: Lazy<NextcloudHttpModule>) = WebDavClient(
+            readClient = { module.get().authenticated.newCall(it) },
+            changeClient = { module.get().noRedirects.newCall(it) },
+        )
 
         @Provides
-        fun provideLoginFlowClient(module: NextcloudHttpModule, config: NextcloudHttpConfig) =
-            LoginFlowV2Client(module.base, config.allowCleartext)
+        fun provideLoginFlowClient(module: Lazy<NextcloudHttpModule>, config: NextcloudHttpConfig) = LoginFlowV2Client(
+            client = { module.get().base.newCall(it) },
+            pollClient = { module.get().unauthenticatedNoRedirects.newCall(it) },
+            allowCleartext = config.allowCleartext,
+        )
 
         @Provides
-        fun provideOcsClient(module: NextcloudHttpModule) = OcsClient(module.unauthenticatedNoRedirects)
+        fun provideOcsClient(module: Lazy<NextcloudHttpModule>) =
+            OcsClient({ module.get().unauthenticatedNoRedirects.newCall(it) })
 
         /** Its own scope: a revoke goes on after the screen that asked for it has closed. */
         @Provides

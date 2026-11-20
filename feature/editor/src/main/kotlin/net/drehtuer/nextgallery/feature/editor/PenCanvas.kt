@@ -16,6 +16,8 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderColors
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -137,6 +139,7 @@ fun PenOptions(
                 onValueChange = { onWidth(it.roundToInt()) },
                 valueRange = MIN_PEN_WIDTH.toFloat()..MAX_PEN_WIDTH.toFloat(),
                 modifier = Modifier.weight(1f),
+                colors = penWidthSliderColors(),
             )
             Text(
                 stringResource(R.string.feature_editor_pen_width, width),
@@ -177,4 +180,10 @@ private val PEN_COLOR_NAMES = listOf(
     R.string.feature_editor_color_orange,
     R.string.feature_editor_color_green,
     R.string.feature_editor_color_blue,
+)
+
+/** The track outside the value in the accent too. Material's default is the warning colour here (DESIGN.md). */
+@Composable
+internal fun penWidthSliderColors(): SliderColors = SliderDefaults.colors(
+    inactiveTrackColor = MaterialTheme.colorScheme.primaryContainer,
 )

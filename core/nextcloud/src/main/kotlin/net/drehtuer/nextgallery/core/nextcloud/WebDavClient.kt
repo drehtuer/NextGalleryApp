@@ -9,8 +9,8 @@ import net.drehtuer.nextgallery.core.model.NextcloudAccount
 import net.drehtuer.nextgallery.core.model.RemoteItem
 import net.drehtuer.nextgallery.core.model.RemotePaths
 import net.drehtuer.nextgallery.core.nextcloud.PropfindRequestBuilder.asXmlBody
+import okhttp3.Call
 import okhttp3.HttpUrl
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.InputStream
 import java.io.OutputStream
@@ -23,8 +23,8 @@ data class RemoteFolder(val self: RemoteItem?, val children: List<RemoteItem>)
  * something use [changeClient], which does not follow redirects, so that a redirect can't repeat them elsewhere.
  */
 class WebDavClient(
-    private val readClient: OkHttpClient,
-    private val changeClient: OkHttpClient,
+    private val readClient: Call.Factory,
+    private val changeClient: Call.Factory,
     private val parser: MultistatusParser = MultistatusParser(),
     private val io: CoroutineDispatcher = Dispatchers.IO,
 ) {

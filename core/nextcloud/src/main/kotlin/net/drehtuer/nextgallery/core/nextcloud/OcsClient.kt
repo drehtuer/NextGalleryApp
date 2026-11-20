@@ -8,9 +8,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import okhttp3.Call
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.IOException
 import java.util.concurrent.TimeUnit
@@ -20,7 +20,11 @@ import java.util.concurrent.TimeUnit
  * calls they are not (or no longer) in the account store; [client] must not follow redirects, so they can't reach
  * another host.
  */
-class OcsClient(private val client: OkHttpClient, private val io: CoroutineDispatcher = Dispatchers.IO) {
+class OcsClient(
+    private val client: Call.Factory,
+    private val io: CoroutineDispatcher = Dispatchers.IO,
+    private val revokeTimeoutMillis: Long = REVOKE_TIMEOUT_MILLIS,
+) {
     /** The user id for the DAV paths, which can differ from the login name. */
     suspend fun userId(serverUrl: String, loginName: String, appPassword: String): String = withContext(io) {
         val url = serverUrl.toHttpUrl().newBuilder()
@@ -36,8 +40,8 @@ class OcsClient(private val client: OkHttpClient, private val io: CoroutineDispa
     /** Ends the app password on the server. Has a short limit, because the user is waiting to be logged out. */
     suspend fun revokeAppPassword(serverUrl: String, loginName: String, appPassword: String) = withContext(io) {
         val url = serverUrl.toHttpUrl().newBuilder().addPathSegments("ocs/v2.php/core/apppassword").build()
-        client.newBuilder().callTimeout(REVOKE_TIMEOUT_SECONDS, TimeUnit.SECONDS).build()
-            .newCall(request(url, loginName, appPassword).delete().build())
+        client.newCall(request(url, loginName, appPassword).delete().build())
+            .apply { timeout().timeout(revokeTimeoutMillis, TimeUnit.MILLISECONDS) }
             .await()
             .use { it.requireSuccess() }
     }
@@ -90,6 +94,6 @@ class OcsClient(private val client: OkHttpClient, private val io: CoroutineDispa
         .header(AuthInterceptor.HEADER_OCS_API_REQUEST, "true")
 
     private companion object {
-        const val REVOKE_TIMEOUT_SECONDS = 10L
+        const val REVOKE_TIMEOUT_MILLIS = 10_000L
     }
 }

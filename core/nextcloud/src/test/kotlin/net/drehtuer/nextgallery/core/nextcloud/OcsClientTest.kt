@@ -3,6 +3,7 @@ package net.drehtuer.nextgallery.core.nextcloud
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.SocketPolicy
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -101,6 +102,17 @@ class OcsClientTest {
 
         assertThrows(NextcloudHttpException::class.java) {
             runBlocking { client.revokeAppPassword(serverUrl, "anna", "pw") }
+        }
+    }
+
+    @Test
+    fun revokeAppPassword_serverDoesNotAnswer_failsAfterTheTimeout() {
+        server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE))
+        val impatient =
+            OcsClient(TestTls.module(allowCleartext = true).unauthenticatedNoRedirects, revokeTimeoutMillis = 200)
+
+        assertThrows(IOException::class.java) {
+            runBlocking { impatient.revokeAppPassword(serverUrl, "anna", "pw") }
         }
     }
 

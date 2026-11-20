@@ -62,6 +62,10 @@ Uses: section headers, filled buttons, the selection bar (`primaryContainer`), s
 thumb and date-rail pill, the active navigation item, the map's location dot and cluster counts. Warning and error
 colours never change with the accent.
 
+Material components that fill with `secondaryContainer` by default would show the warning colour, so they are set to the
+accent: the chosen segment of a segmented button (Theme, Grid columns) and the chosen aspect chip in Crop use
+`primaryContainer` / `onPrimaryContainer`, and the pen-width slider's track beyond the value uses `primaryContainer`.
+
 ### Always-dark colours (viewer, editor)
 
 | Name | Value | Used for |
