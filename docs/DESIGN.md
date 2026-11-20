@@ -41,7 +41,7 @@ Sources, for reference only (private claude.ai artifacts of the project owner; t
 | `inverseOnSurface` | `#F1F1F1` | `#303030` | Snackbar text |
 | `error` | `#A3161A` | `#FF8E84` | Error text, Delete in menus |
 | `errorContainer` / `onErrorContainer` | `#FFDAD6` / `#410002` | `#93000A` / `#FFDAD6` | Failed thumbnail, "session ended" banner |
-| `secondaryContainer` / `onSecondaryContainer` | `#FFDCBE` / `#2C1600` | `#693C00` / `#FFDCBE` | "You're offline" banner |
+| `secondaryContainer` / `onSecondaryContainer` | `#FFDCBE` / `#2C1600` | `#693C00` / `#FFDCBE` | "You're offline" and "Can't reach your server" banner |
 | `scrim` | `#000000` | `#000000` | Viewer background; sheets and dialogs at 32 % |
 
 `inversePrimary` (snackbar action) is the accent's `primary` of the opposite theme.
@@ -221,8 +221,10 @@ photos scroll:
 Always black. The top bar (`viewerBar`, drawn behind the status bar) has back, the file name, share, upload, edit,
 delete and details. A tap on the image hides the bar and the system bars. Details open a sheet on `viewerSheet` with
 label/value rows; missing values are left out. Location reads "near Desenzano del Garda, Italy · 45.62° N, 10.68° E".
-A remote image shows the server preview first, with a progress bar and "Loading full image · 2.4 of 6.1 MB". An image
-opened from another app shows only the image.
+A remote image shows the server preview first, with a progress bar and "Loading full image · 2.4 of 6.1 MB", or
+"Loading full image · 2.4 MB" when the server sends no size. If the original can't be loaded, a bar at the bottom says
+"The full image couldn't be loaded." with a "Try again" text button. An image opened from another app shows only the
+image.
 
 ### Editor
 
@@ -249,7 +251,9 @@ Black. Top bar: close, undo, redo (38 % when unavailable) and a filled "Save" th
 - Signing in: the field filled, an indeterminate bar, "Waiting for you to sign in in the browser…" and "Cancel".
 - Browser: breadcrumbs as 32 dp chips (the current one bold on `primaryContainer`), folder rows with counts, then the
   photo grid. Top bar actions: Select and Refresh.
-- Offline: `secondaryContainer` banner "You're offline. Showing what was loaded before."; thumbnails at 60 %.
+- Offline: `secondaryContainer` banner "You're offline. Showing what was loaded before."; thumbnails at 60 %. With a
+  network but no answer from the server (a timeout or a failed connection), the same banner says "Can't reach your
+  server. Showing what was loaded before."
 - Session ended (401): `errorContainer` banner "Your Nextcloud session ended. Sign in again to see new photos." with
   "Sign in".
 - Certificate dialogs (D32): unknown: "Can't verify this server" with issued to, issued by, valid until and SHA-256;

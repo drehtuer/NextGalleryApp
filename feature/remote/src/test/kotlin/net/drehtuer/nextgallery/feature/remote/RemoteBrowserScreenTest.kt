@@ -140,10 +140,17 @@ class RemoteBrowserScreenTest {
     }
 
     @Test
-    fun offline_showsTheBanner() {
-        show(loaded.copy(serverUnreachable = true))
+    fun noNetwork_showsTheOfflineBanner() {
+        show(loaded.copy(isConnected = false))
 
         composeRule.onNodeWithText("You're offline. Showing what was loaded before.").assertIsDisplayed()
+    }
+
+    @Test
+    fun serverUnreachableWithNetwork_saysTheServerCannotBeReached() {
+        show(loaded.copy(serverUnreachable = true))
+
+        composeRule.onNodeWithText("Can't reach your server. Showing what was loaded before.").assertIsDisplayed()
     }
 
     @Test

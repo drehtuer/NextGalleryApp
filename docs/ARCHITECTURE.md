@@ -1117,7 +1117,7 @@ Rules:
 ### 9.2 Remote previews and files
 
 - The `@RemoteImageLoader` requests `core/preview?fileId=…&x=…&y=…` through the authenticated OkHttp client (`coil-network-okhttp`); cache key is `fileId + etag + size` (`remoteImageCacheKey`), so a changed remote file is re-fetched. It has its own memory cache and a 500 MB disk cache (D37) in `remote_image_cache`, so logging out wipes them without touching local thumbnails.
-- Opening a remote image full screen shows a large preview first (2048 px) and loads the original via WebDAV `GET` for the page on screen only, with its progress below the image. Originals are streamed into Coil's disk cache, never into the MediaStore. There is no offline mode for remote files; the Nextcloud app's "available offline" covers that (D37).
+- Opening a remote image full screen shows a large preview first (2048 px) and loads the original via WebDAV `GET` for the page on screen only, with its progress below the image (only the bytes received if the server sends no size), and a "Try again" bar if the original fails. Originals are streamed into Coil's disk cache, never into the MediaStore. There is no offline mode for remote files; the Nextcloud app's "available offline" covers that (D37).
 - `remote_cache` table holds the last PROPFIND result per folder for instant display and offline browsing; refreshed on open (stale-while-revalidate) and on pull-to-refresh.
 
 ### 9.3 Index and upload state
@@ -1134,7 +1134,7 @@ Rules:
   - **Permission**: missing media permission → `MediaAccessRequest`; partial access → `LimitedAccessBanner` with "select more"; missing `ACCESS_MEDIA_LOCATION` → map hint, no crash.
   - **User confirmation**: trash, delete and write requests → `TrashEffect.RequestConfirmation` or `EditorEffect.RequestConfirmation`, each with a `PlatformConfirmation`; this is a normal flow, not an error.
   - **Stale data**: item deleted outside the app while opened → `NotFound`; the viewer skips to the next page and the grid refreshes via index sync.
-  - **Network** (`IOException`, timeouts): remote browser shows cached data with an offline banner; workers return `Result.retry()`.
+  - **Network** (`IOException`, timeouts): remote browser shows cached data with a banner: "You're offline" without a network, "Can't reach your server" with one; workers return `Result.retry()`.
   - **Auth** (401): the remote browser sets `sessionEnded` and shows a banner that opens the sign-in again; `UploadStateSyncWorker` ends with failure.
   - **Server** (`AppError.Server(code)`): a screen shows the error; `UploadStateSyncWorker` retries (as for `Network` and `Io`). There is no upload queue (D31), so no upload can fail here.
   - **Decode/encode** (corrupt file): thumbnail shows an error placeholder; editor refuses to save with a message.
