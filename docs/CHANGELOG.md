@@ -6,17 +6,31 @@ tagging. The release workflow uses that section as the release notes, so it must
 
 ## Unreleased
 
-- Build: the Gradle wrapper retries a failed download of the Gradle distribution.
-- Faster: the second indexing pass reads photo locations four files at a time; on 50 000 photos the whole first sync
-  took 77 s instead of 6 minutes.
-- Faster: opening a folder for the first time no longer sets up the Nextcloud connection on the main thread, which took
-  over 300 ms; it is set up with the first request to the server.
-- Build: the app ships a Baseline Profile, generated on the Pixel 10a.
-- Fixed: the selected Theme and Grid columns, the chosen crop ratio and the pen-width slider showed in the warning
-  colour (brown) instead of the accent.
-- Fixed: with very large text, the "Nextcloud" tab label broke over two lines.
+## 0.2.0
+
+Faster and smoother with large libraries, measured on the Pixel 10a with 50 000 photos, and fixes found on the
+device.
+
+### Changed
+
 - Smoother fast scrolling: while the timeline's date rail or the folder scrollbar is dragged fast, the photos wait and
   the dates follow the thumb; the grid jumps there when the drag slows down or ends.
+- Faster indexing: the second pass reads photo locations four files at a time; on 50 000 photos the whole first sync
+  took 77 s instead of 6 minutes.
+- Faster first folder: opening a folder no longer sets up the Nextcloud connection on the main thread, which took over
+  300 ms; it is set up with the first request to the server.
+
+### Fixed
+
+- The selected Theme and Grid columns, the chosen crop ratio and the pen-width slider showed in the warning colour
+  (brown) instead of the accent.
+- With very large text, the "Nextcloud" tab label broke over two lines.
+
+### Build
+
+- The app ships a Baseline Profile, generated on the Pixel 10a.
+- The Gradle wrapper retries a failed download of the Gradle distribution.
+- Updated: Gradle 9.9.1 and kotlinx-serialization 1.13.0.
 
 ## 0.1.1
 
